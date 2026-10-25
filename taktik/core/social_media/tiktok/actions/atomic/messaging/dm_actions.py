@@ -10,7 +10,7 @@ Based on the UI dumps:
 
 import re
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from loguru import logger
 from taktik.core.shared.device.screen import screen_size_of
 
@@ -19,8 +19,7 @@ from taktik.core.shared.input.taktik_keyboard import (
     field_holds_text,
     type_text_checked,
 )
-from taktik.core.shared.text import fold_for_match
-from taktik.core.social_media.tiktok.services.notifications.activity import clean_row_text
+from taktik.core.shared.text import as_xml_dumped, clean_shown_text, fold_for_match, same_shown_name
 from taktik.core.social_media.tiktok.services.profile.username import read_open_profile_handle
 from taktik.core.social_media.tiktok.actions.base.base_action import BaseAction
 from taktik.core.social_media.tiktok.actions.base.utils import extract_resource_id, first_matching, first_text
@@ -96,23 +95,19 @@ class DMActions(BaseAction):
         """
         return extract_resource_id(selectors)
 
-    # Invisible bidi and formatting marks TikTok wraps usernames with:
-    # LRM/RLM, isolats FSI/PDI/LRI/RLI, embeddings/overrides, word-joiner.
-    _BIDI_FORMAT_CHARS = dict.fromkeys(
-        [0x200E, 0x200F, 0x2060, 0x2066, 0x2067, 0x2068, 0x2069,
-         0x202A, 0x202B, 0x202C, 0x202D, 0x202E],
-        None,
-    )
+    def _shown_name_on_screen(self, name_selectors: List[str], wanted: str) -> Optional[str]:
+        """The text of the first name node of `name_selectors` whose name is `wanted`
+        (`same_shown_name`), exactly as the dump holds it, marks included, so that a selector can
+        address that node by equality. None when no row on screen shows that name.
 
-    @staticmethod
-    def _clean_username(text: str) -> str:
-        """Strip the invisible bidi and formatting marks from a TikTok username.
-
-        Needed both for display AND so the containment selector used by the follow-back
-        matches: the node text KEEPS those marks, so the match is done by containment on
-        the cleaned name.
+        A row whose name only holds `wanted`, or starts like it, is another account's: the row
+        builders below take this exact text, never the name asked for, so they cannot match it.
         """
-        return (text or '').translate(DMActions._BIDI_FORMAT_CHARS).strip()
+        for element in first_matching(self.device, name_selectors):
+            text = getattr(element, "text", "") or ""
+            if same_shown_name(text, wanted):
+                return text
+        return None
 
     @staticmethod
     def _resource_id_pattern(selectors: List[str]) -> str:
@@ -359,20 +354,22 @@ class DMActions(BaseAction):
 
             for i in range(count):
                 try:
-                    name = self._clean_username(username_elements[i].get_text())
+                    shown = username_elements[i].get_text()
+                    name = clean_shown_text(shown)
                     if not name:
                         continue
 
                     activity = ''
                     if i < activity_count:
                         try:
-                            activity = self._clean_username(activity_elements[i].get_text())
+                            activity = clean_shown_text(activity_elements[i].get_text())
                         except Exception:
                             activity = ''
 
-                    # The follow-back button exists only when we do not already follow them
+                    # The follow-back button exists only when we do not already follow them. Looked
+                    # for in this row only: the row is addressed by its name as the dump holds it.
                     can_follow_back = self._element_exists(
-                        self.inbox_selectors.follow_back_for_username(name), timeout=1
+                        self.inbox_selectors.follow_back_for_username(as_xml_dumped(shown)), timeout=1
                     )
 
                     followers.append({
@@ -389,6 +386,20 @@ class DMActions(BaseAction):
 
         return followers
 
+    def _say_hello_lines(self) -> List[Tuple[str, str]]:
+        """(the line as the dump holds it, the display name it greets), for each wave on screen."""
+        lines: List[Tuple[str, str]] = []
+        for element in first_matching(self.device, self.inbox_selectors.say_hello_rows):
+            line = getattr(element, "text", "") or ""
+            text = clean_shown_text(line)
+            for prefix in ("Dis bonjour à ", "Say hi to "):
+                if text.startswith(prefix):
+                    name = text[len(prefix):].strip()
+                    if name:
+                        lines.append((line, name))
+                    break
+        return lines
+
     def say_hello_candidates(self) -> List[str]:
         """The display names the inbox is offering a one-tap wave to.
 
@@ -396,14 +407,9 @@ class DMActions(BaseAction):
         cheapest possible re-open of a conversation -- one tap, no text to compose.
         """
         names: List[str] = []
-        for element in first_matching(self.device, self.inbox_selectors.say_hello_rows):
-            text = clean_row_text(getattr(element, "text", "") or "")
-            for prefix in ("Dis bonjour à ", "Say hi to "):
-                if text.startswith(prefix):
-                    name = text[len(prefix):].strip()
-                    if name and name not in names:
-                        names.append(name)
-                    break
+        for _line, name in self._say_hello_lines():
+            if name not in names:
+                names.append(name)
         return names
 
     def say_hello(self, shown_name: str) -> bool:
@@ -413,12 +419,19 @@ class DMActions(BaseAction):
         two seconds and then the `Dis bonjour à <name>` line DISAPPEARS from the row. That
         disappearance is the proof, and it is what this waits for -- the tap itself succeeds even
         when it lands on the avatar next to the button.
+
+        The row is the one whose wave names exactly `shown_name` (`same_shown_name`): « Say hi to
+        Alexis » is not the wave of « Alex ».
         """
-        name = (shown_name or "").strip()
+        name = clean_shown_text(shown_name)
         if not name:
             return False
+        line = next((line for line, greeted in self._say_hello_lines() if same_shown_name(greeted, name)), None)
+        if line is None:
+            self.logger.warning(f"« Dis bonjour » introuvable pour {name!r}")
+            return False
 
-        selectors = self.inbox_selectors.say_hello_button_for_name(name)
+        selectors = self.inbox_selectors.say_hello_button_for_line(line)
         button = None
         for selector in selectors:
             try:
@@ -445,7 +458,7 @@ class DMActions(BaseAction):
         deadline = time.time() + 8.0
         while time.time() < deadline:
             time.sleep(1.0)
-            if name not in self.say_hello_candidates():
+            if not any(same_shown_name(greeted, name) for greeted in self.say_hello_candidates()):
                 self.logger.info(f"👋 Bonjour envoyé à {name!r}")
                 return True
 
@@ -470,18 +483,18 @@ class DMActions(BaseAction):
     def resolve_conversation_handle(self, shown_name: str) -> Optional[str]:
         """Open the thread of `shown_name`, read the handle, and come back to the inbox.
 
-        The inbox row shows a display name only. `click_conversation` matches it loosely (one
-        name inside another counts), so the thread that opened must carry that exact name in its
-        header before anything read in it is believed.
+        The inbox row shows a display name only. `click_conversation` opens the row of exactly that
+        name, and the thread that opened must carry that name in its header too (`same_shown_name`)
+        before anything read in it is believed: a tap is not an arrival.
         """
-        name = clean_row_text(shown_name or "")
+        name = clean_shown_text(shown_name or "")
         if not name:
             return None
         if not self.click_conversation(name):
             return None
         try:
-            header = clean_row_text(self.get_conversation_info().get("name") or "")
-            if header != name:
+            header = self.get_conversation_info().get("name") or ""
+            if not same_shown_name(header, name):
                 self.logger.warning(f"Conversation ouverte ({header!r}) ≠ {name!r} — pseudo non lu")
                 return None
             handle = self.read_conversation_handle() or self._read_handle_from_header_profile(name)
@@ -517,14 +530,19 @@ class DMActions(BaseAction):
     def follow_back(self, username: str) -> bool:
         """Tap the follow-back button on the item of `username`.
 
-        The selector is built dynamically and scoped to that item, so it never taps another
-        follower's button.
+        The item is the one whose name is exactly `username` (`same_shown_name`), and the button is
+        looked for inside it only, so it never taps another follower's button: « user » is not
+        « user_1 ».
         """
-        username = self._clean_username(username)
+        username = clean_shown_text(username)
         if not username:
             return False
+        shown = self._shown_name_on_screen(self.inbox_selectors.new_followers_page_username, username)
+        if shown is None:
+            self.logger.warning(f"Aucun nouveau follower nommé {username!r} à l'écran")
+            return False
 
-        selectors = self.inbox_selectors.follow_back_for_username(username)
+        selectors = self.inbox_selectors.follow_back_for_username(shown)
         if not self._find_and_click(selectors, timeout=3):
             self.logger.warning(f"« Suivre en retour » introuvable pour {username}")
             return False
@@ -577,7 +595,7 @@ class DMActions(BaseAction):
 
             for i in range(count):
                 try:
-                    name = self._clean_username(username_elements[i].get_text())
+                    name = clean_shown_text(username_elements[i].get_text())
                     if not name:
                         continue
 
@@ -589,7 +607,7 @@ class DMActions(BaseAction):
                     preview = ''
                     if i < preview_count:
                         try:
-                            preview = self._clean_username(preview_elements[i].get_text())
+                            preview = clean_shown_text(preview_elements[i].get_text())
                         except Exception:
                             preview = ''
 
@@ -655,11 +673,11 @@ class DMActions(BaseAction):
             count = min(username_elements.count, max_items)
             for i in range(count):
                 try:
-                    name = self._clean_username(username_elements[i].get_text())
+                    name = clean_shown_text(username_elements[i].get_text())
                     if not name:
                         continue
-                    preview = self._clean_username(preview_elements[i].get_text()) if i < preview_count else ''
-                    timestamp = self._clean_username(ts_elements[i].get_text()) if i < ts_count else ''
+                    preview = clean_shown_text(preview_elements[i].get_text()) if i < preview_count else ''
+                    timestamp = clean_shown_text(ts_elements[i].get_text()) if i < ts_count else ''
                     requests.append({'username': name, 'preview': preview, 'timestamp': timestamp})
                 except Exception as e:
                     self.logger.debug(f"Erreur parsing demande {i}: {e}")
@@ -669,11 +687,16 @@ class DMActions(BaseAction):
         return requests
 
     def open_request(self, username: str) -> bool:
-        """Open the message request of `username`, tapping the item scoped to that name."""
-        username = self._clean_username(username)
+        """Open the message request of `username`: the item whose name is exactly that name
+        (`same_shown_name`), since an accepted request is answered right away."""
+        username = clean_shown_text(username)
         if not username:
             return False
-        selectors = self.inbox_selectors.message_request_by_username(username)
+        shown = self._shown_name_on_screen(self.inbox_selectors.message_request_username, username)
+        if shown is None:
+            self.logger.warning(f"Aucune demande nommée {username!r} à l'écran")
+            return False
+        selectors = self.inbox_selectors.message_request_by_username(shown)
         if self._find_and_click(selectors, timeout=3):
             time.sleep(1)
             return True
@@ -755,7 +778,7 @@ class DMActions(BaseAction):
 
             for i in range(count):
                 try:
-                    title = self._clean_username(title_elements[i].get_text())
+                    title = clean_shown_text(title_elements[i].get_text())
                     if not title:
                         continue
                     low = title.lower()
@@ -767,7 +790,7 @@ class DMActions(BaseAction):
                         category = 'system'
                     else:
                         category = 'other'
-                    preview = self._clean_username(preview_elements[i].get_text()) if i < preview_count else ''
+                    preview = clean_shown_text(preview_elements[i].get_text()) if i < preview_count else ''
                     notifications.append({'title': title, 'preview': preview, 'category': category})
                 except Exception as e:
                     self.logger.debug(f"Erreur parsing notification {i}: {e}")
@@ -777,54 +800,43 @@ class DMActions(BaseAction):
         return notifications
 
     def click_conversation(self, name: str) -> bool:
-        """Click on a conversation by name.
-        
-        Args:
-            name: Username or group name to click
-            
-        Returns:
-            True if conversation was clicked successfully
+        """Open the conversation of the inbox row whose name is `name` (`same_shown_name`).
+
+        The way into a conversation for a read and for a reply (`TikTokDMWorkflow`), and the Lab's
+        `tt.inbox.open_conversation`. A row whose name only holds `name`, or starts like it, is
+        another account's: measured on 43.1.4 (2026-10-25), « demo_fan🦋 » sits under
+        « 1NE demo_fan ft AP », and the first row holding the name was the one opened, so the
+        reply went into the other account's conversation.
+
+        True once the conversation is on screen; False, nothing tapped, when no row on screen shows
+        that name.
         """
         self.logger.debug(f"💬 Opening conversation: {name}")
-        
-        try:
-            # Find all username elements and match by text
-            # (pattern match: robust to the containment form, see _find_all_by_rid)
-            username_elements = self._find_all_by_rid(self.inbox_selectors.conversation_username)
 
-            if username_elements is not None and username_elements.exists:
-                count = username_elements.count
-                for i in range(count):
-                    try:
-                        elem = username_elements[i]
-                        elem_text = elem.get_text()
-                        
-                        # Normalize both strings for comparison (strip invisible chars)
-                        name_clean = name.strip().replace('\u200e', '').replace('\u200f', '')
-                        elem_clean = (elem_text or '').strip().replace('\u200e', '').replace('\u200f', '')
-                        
-                        if elem_clean == name_clean or name_clean in elem_clean or elem_clean in name_clean:
-                            self.logger.debug(f"Found matching conversation at index {i}")
-                            if not self._human_tap_bounds(elem):
-                                elem.click()
-                            time.sleep(1)
-                            return self._settled_in_conversation()
-                    except Exception as e:
-                        self.logger.debug(f"Error checking element {i}: {e}")
-                        continue
-            
-            # Fallback: try XPath with exact match
-            selector = self.inbox_selectors.conversation_username_by_text(name)
-            if self._find_and_click([selector], timeout=2):
-                time.sleep(1)
-                return self._settled_in_conversation()
-                
+        try:
+            # Pattern match: robust to the containment form of the selectors, see _find_all_by_rid
+            rows = self._find_all_by_rid(self.inbox_selectors.conversation_username)
+            count = rows.count if rows is not None and rows.exists else 0
+            for i in range(count):
+                row = rows[i]
+                try:
+                    shown = row.get_text()
+                except Exception as e:
+                    self.logger.debug(f"Inbox row {i} unreadable: {e}")
+                    continue
+                if same_shown_name(shown, name):
+                    self.logger.debug(f"Found the conversation of {name!r} at row {i}")
+                    if not self._human_tap_bounds(row):
+                        row.click()
+                    time.sleep(1)
+                    return self._settled_in_conversation()
         except Exception as e:
             self.logger.warning(f"Error clicking conversation: {e}")
-        
-        self.logger.warning(f"Conversation not found: {name}")
+            return False
+
+        self.logger.warning(f"Conversation not found: no inbox row named {name!r}")
         return False
-    
+
     def scroll_inbox_to_top(self, max_swipes: int = 5) -> bool:
         """Bring the inbox back to its top, where the notification sections live.
 
@@ -1155,10 +1167,10 @@ class DMActions(BaseAction):
         Returns False when the header cannot be read, so an unverifiable conversation is never
         treated as verified.
         """
-        wanted = fold_for_match(self._clean_username(username))
+        wanted = fold_for_match(clean_shown_text(username))
         if not wanted:
             return False
-        header = fold_for_match(self._clean_username(self.get_conversation_info().get("name") or ""))
+        header = fold_for_match(clean_shown_text(self.get_conversation_info().get("name") or ""))
         if not header:
             return False
         return wanted in header or header in wanted

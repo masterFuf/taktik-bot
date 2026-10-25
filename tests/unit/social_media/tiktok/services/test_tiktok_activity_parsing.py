@@ -18,10 +18,8 @@ attrapé un motif qui contenait un vrai caractère backspace au lieu d'une front
 
 import pytest
 
-from taktik.core.social_media.tiktok.services.notifications.activity import (
-    clean_row_text,
-    parse_activity_row,
-)
+from taktik.core.shared.text import clean_shown_text
+from taktik.core.social_media.tiktok.services.notifications.activity import parse_activity_row
 
 
 # Les lignes réelles, français puis anglais, une par type mesuré.
@@ -150,7 +148,7 @@ def test_a_profile_view_is_a_signal_and_not_an_invitation():
 
 
 def test_the_row_cleans_up_to_what_a_human_reads():
-    assert clean_row_text(LIKE_VIDEO_FR) == "nicolas_vln a aimé ta vidéo. 11 juin"
+    assert clean_shown_text(LIKE_VIDEO_FR) == "nicolas_vln a aimé ta vidéo. 11 juin"
 
 
 def test_an_empty_row_is_not_a_crash():
