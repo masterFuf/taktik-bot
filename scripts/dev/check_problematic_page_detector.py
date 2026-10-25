@@ -196,6 +196,10 @@ def analyze_current_screen(device_id=None):
 
 if __name__ == "__main__":
     import argparse
+
+    from bridges.common.selector_platforms import register_selector_platforms
+
+    register_selector_platforms()
     
     parser = argparse.ArgumentParser(description="Test problematic page detector")
     parser.add_argument("--mode", choices=["detect", "monitor", "analyze"], 

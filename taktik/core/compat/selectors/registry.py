@@ -5,7 +5,7 @@ Version-aware selector routing for compatibility tooling.
 import yaml
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 from loguru import logger
 
 
@@ -212,7 +212,7 @@ def build_selector_map_from_dataclass(
 
 
 def build_full_selector_map(
-    selector_instances: Dict[str, Any],
+    selector_instances: Mapping[str, Any],
     include_properties: bool = False,
 ) -> Dict[str, List[str]]:
     """Build a namespaced selector map from multiple dataclass instances."""

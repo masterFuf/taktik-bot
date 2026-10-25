@@ -19,6 +19,7 @@ from typing import Any, Callable, Optional
 import bridges.common.signal_handler as _sig_mod
 from bridges.common.crash_hooks import exception_event
 from bridges.common.ipc import IPC
+from bridges.common.selector_platforms import register_selector_platforms
 from loguru import logger
 
 
@@ -168,6 +169,8 @@ def run_bridge_main(
         sys.exit(1)
 
     _reset_run_diagnostics()
+    # Before the bridge is built, so before any phone connects (`compat/selectors/platforms.py`).
+    register_selector_platforms()
 
     config_path = sys.argv[1]
     try:

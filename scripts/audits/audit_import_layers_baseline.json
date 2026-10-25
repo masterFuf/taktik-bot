@@ -1,5 +1,4 @@
 {
-  "taktik/core/compat/selectors/setup.py": 2,
   "taktik/core/database/repositories/instagram/account/account_repository.py": 1,
   "taktik/core/database/repositories/instagram/hashtag/processed_post_repository.py": 1,
   "taktik/core/database/repositories/instagram/interaction/interaction_repository.py": 1,

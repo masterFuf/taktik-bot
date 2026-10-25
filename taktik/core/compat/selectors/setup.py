@@ -1,152 +1,25 @@
-"""Selector compatibility setup owners."""
+"""Selector compatibility setup owners: the version overrides, applied to the catalogues a host
+registered (`platforms.py`); compat names no platform."""
 
 import yaml
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Mapping, Optional
 from loguru import logger
 
+from .platforms import platform_selectors, registered_platforms
 from .registry import VersionedSelectorRegistry, build_full_selector_map
-
-from ...social_media.instagram.ui.selectors import (
-    AUTH_SELECTORS as IG_AUTH,
-    NAVIGATION_SELECTORS as IG_NAVIGATION,
-    BUTTON_SELECTORS as IG_BUTTONS,
-    PROFILE_SELECTORS as IG_PROFILE,
-    POST_SELECTORS as IG_POST,
-    STORY_SELECTORS as IG_STORY,
-    DM_SELECTORS as IG_DM,
-    POPUP_SELECTORS as IG_POPUP,
-    SCROLL_SELECTORS as IG_SCROLL,
-    DETECTION_SELECTORS as IG_DETECTION,
-    TEXT_INPUT_SELECTORS as IG_TEXT_INPUT,
-    PROBLEMATIC_PAGE_SELECTORS as IG_PROBLEMATIC,
-    CONTENT_CREATION_SELECTORS as IG_CONTENT,
-    FEED_SELECTORS as IG_FEED,
-    UNFOLLOW_SELECTORS as IG_UNFOLLOW,
-    NOTIFICATION_SELECTORS as IG_NOTIFICATION,
-    HASHTAG_SELECTORS as IG_HASHTAG,
-    FOLLOWERS_LIST_SELECTORS as IG_FOLLOWERS_LIST,
-    POST_COMMENTS_SELECTORS as IG_POST_COMMENTS,
-    POST_GRID_SELECTORS as IG_POST_GRID,
-    POST_LIKERS_SELECTORS as IG_POST_LIKERS,
-    POST_REELS_SELECTORS as IG_POST_REELS,
-    POST_SHARE_SHEET_SELECTORS as IG_POST_SHARE_SHEET,
-    FEED_SUGGESTIONS_SELECTORS as IG_FEED_SUGGESTIONS,
-    DISCOVER_PEOPLE_SELECTORS as IG_DISCOVER_PEOPLE,
-    SETTINGS_SELECTORS as IG_SETTINGS,
-    DEBUG_SELECTORS as IG_DEBUG,
-)
-from ...social_media.tiktok.ui.selectors import (
-    AUTH_SELECTORS as TT_AUTH,
-    SIGNUP_SELECTORS as TT_SIGNUP,
-    LOGOUT_SELECTORS as TT_LOGOUT,
-    COUNTRY_PICKER_SELECTORS as TT_COUNTRY_PICKER,
-    NAVIGATION_SELECTORS as TT_NAVIGATION,
-    PROFILE_SELECTORS as TT_PROFILE,
-    # The four catalogues BEHIND `VIDEO_SELECTORS`, not the facade over them. Registering the
-    # facade looked right and reached nothing: it is a `__getattr__` object, so a patch aimed at
-    # it lands on a phantom attribute while production imports these four.
-    VIDEO_CREATOR_SELECTORS as TT_VIDEO_CREATOR,
-    VIDEO_ENGAGEMENT_SELECTORS as TT_VIDEO_ENGAGEMENT,
-    VIDEO_MEDIA_SELECTORS as TT_VIDEO_MEDIA,
-    VIDEO_STATE_SELECTORS as TT_VIDEO_STATE,
-    PUBLISH_COMPOSER_SELECTORS as TT_PUBLISH_COMPOSER,
-    PUBLISH_CREATION_ENTRY_SELECTORS as TT_PUBLISH_CREATION_ENTRY,
-    PUBLISH_EDITOR_SELECTORS as TT_PUBLISH_EDITOR,
-    PUBLISH_MEDIA_PICKER_SELECTORS as TT_PUBLISH_MEDIA_PICKER,
-    PUBLISH_PROGRESS_SELECTORS as TT_PUBLISH_PROGRESS,
-    COMMENT_SELECTORS as TT_COMMENT,
-    SEARCH_SELECTORS as TT_SEARCH,
-    INBOX_SELECTORS as TT_INBOX,
-    ACTIVITY_SELECTORS as TT_ACTIVITY,
-    CONVERSATION_SELECTORS as TT_CONVERSATION,
-    POPUP_SELECTORS as TT_POPUP,
-    SCROLL_SELECTORS as TT_SCROLL,
-    DETECTION_SELECTORS as TT_DETECTION,
-    FOLLOWERS_SELECTORS as TT_FOLLOWERS,
-    SETTINGS_SELECTORS as TT_SETTINGS,
-)
-
-INSTAGRAM_TARGET_VERSION = "410.0.0.53.71"
-TIKTOK_TARGET_VERSION = "43.1.4"
-
-INSTAGRAM_SELECTOR_DOMAINS = {
-    "auth": IG_AUTH,
-    "navigation": IG_NAVIGATION,
-    "buttons": IG_BUTTONS,
-    "profile": IG_PROFILE,
-    "post": IG_POST,
-    "story": IG_STORY,
-    "dm": IG_DM,
-    "popup": IG_POPUP,
-    "scroll": IG_SCROLL,
-    "detection": IG_DETECTION,
-    "text_input": IG_TEXT_INPUT,
-    "problematic_page": IG_PROBLEMATIC,
-    "content": IG_CONTENT,
-    "feed": IG_FEED,
-    "unfollow": IG_UNFOLLOW,
-    "notification": IG_NOTIFICATION,
-    "hashtag": IG_HASHTAG,
-    "followers_list": IG_FOLLOWERS_LIST,
-    # The post sub-catalogues copy POST_SELECTORS values at import: a `post.*` override does not
-    # reach their readers, so each is addressed under its own name.
-    "post_comments": IG_POST_COMMENTS,
-    "post_grid": IG_POST_GRID,
-    "post_likers": IG_POST_LIKERS,
-    "post_reels": IG_POST_REELS,
-    "post_share_sheet": IG_POST_SHARE_SHEET,
-    "feed_suggestions": IG_FEED_SUGGESTIONS,
-    "discover_people": IG_DISCOVER_PEOPLE,
-    "settings": IG_SETTINGS,
-    "debug": IG_DEBUG,
-}
-
-TIKTOK_SELECTOR_DOMAINS = {
-    "auth": TT_AUTH,
-    "signup": TT_SIGNUP,
-    "logout": TT_LOGOUT,
-    "country_picker": TT_COUNTRY_PICKER,
-    "navigation": TT_NAVIGATION,
-    "profile": TT_PROFILE,
-    # `video` used to point at the VideoSelectors FACADE. Measured: the override machinery
-    # reached 15 of the catalogue's 25 distinct objects, and the one non-dataclass among them
-    # absorbed its patches silently. The four real video catalogues and the five publish ones
-    # are registered by name instead — nothing addresses a facade any more.
-    "video_creator": TT_VIDEO_CREATOR,
-    "video_engagement": TT_VIDEO_ENGAGEMENT,
-    "video_media": TT_VIDEO_MEDIA,
-    "video_state": TT_VIDEO_STATE,
-    "publish_composer": TT_PUBLISH_COMPOSER,
-    "publish_creation_entry": TT_PUBLISH_CREATION_ENTRY,
-    "publish_editor": TT_PUBLISH_EDITOR,
-    "publish_media_picker": TT_PUBLISH_MEDIA_PICKER,
-    "publish_progress": TT_PUBLISH_PROGRESS,
-    "comment": TT_COMMENT,
-    "search": TT_SEARCH,
-    "inbox": TT_INBOX,
-    "activity": TT_ACTIVITY,
-    "conversation": TT_CONVERSATION,
-    "popup": TT_POPUP,
-    "scroll": TT_SCROLL,
-    "detection": TT_DETECTION,
-    "followers": TT_FOLLOWERS,
-    "settings": TT_SETTINGS,
-}
+from .supported_versions import CompatibilitySourceError
 
 
 def create_registry(overrides_dir: Optional[str] = None) -> VersionedSelectorRegistry:
-    """Create and return a fully initialized VersionedSelectorRegistry."""
+    """Create and return a VersionedSelectorRegistry holding every registered platform."""
     registry = VersionedSelectorRegistry(overrides_dir=overrides_dir)
-    ig_map = build_full_selector_map(INSTAGRAM_SELECTOR_DOMAINS)
-    tt_map = build_full_selector_map(TIKTOK_SELECTOR_DOMAINS)
-    registry.register_app("instagram", ig_map, INSTAGRAM_TARGET_VERSION)
-    registry.register_app("tiktok", tt_map, TIKTOK_TARGET_VERSION)
-    logger.info(
-        f"[Compat] Registry ready: "
-        f"Instagram={len(ig_map)} selectors, "
-        f"TikTok={len(tt_map)} selectors"
-    )
+    sizes = []
+    for app in registered_platforms():
+        selector_map = build_full_selector_map(platform_selectors(app).domains)
+        registry.register_app(app, selector_map, baseline_version(app, overrides_dir))
+        sizes.append(f"{app}={len(selector_map)} selectors")
+    logger.info(f"[Compat] Registry ready: {', '.join(sizes)}")
     return registry
 
 
@@ -162,11 +35,12 @@ def build_xpath_to_selector_id_index(
     """
     registry = create_registry(overrides_dir=overrides_dir)
     version = registry.get_current_version(app) or ""
+    copies = platform_selectors(app).copies
     candidates: Dict[str, set] = {}
     for selector_id, entry in registry.get_all(app, version).items():
         for xpath in entry.xpaths:
             candidates.setdefault(xpath, set()).add(selector_id)
-    resolved = {xpath: _without_post_copies(ids) for xpath, ids in candidates.items()}
+    resolved = {xpath: _without_copies(ids, copies) for xpath, ids in candidates.items()}
     return {
         xpath: next(iter(ids))
         for xpath, ids in resolved.items()
@@ -174,17 +48,25 @@ def build_xpath_to_selector_id_index(
     }
 
 
-# Sub-catalogues whose fields copy POST_SELECTORS values at import.
-_POST_COPIES = frozenset({"post_comments", "post_grid", "post_likers", "post_reels", "post_share_sheet"})
+def _without_copies(ids: set, copies: Mapping[str, str]) -> set:
+    """The same xpath under the same field of a domain and of a domain that copies it at import
+    (Instagram's post sub-catalogues copy `post`) is the source's entry."""
+    present = {tuple(sid.split(".", 1)) for sid in ids}  # (domain, field) pairs
+    kept = set()
+    for sid in ids:
+        domain, field = sid.split(".", 1)
+        if (copies.get(domain), field) not in present:
+            kept.add(sid)
+    return kept
 
 
-def _without_post_copies(ids: set) -> set:
-    """The same xpath under the same field of `post` and of a post copy is the `post` entry."""
-    post_fields = {sid.split(".", 1)[1] for sid in ids if sid.startswith("post.")}
-    return {
-        sid for sid in ids
-        if not (sid.split(".", 1)[0] in _POST_COPIES and sid.split(".", 1)[1] in post_fields)
-    }
+def baseline_version(app: str, overrides_dir: Optional[str] = None) -> str:
+    """The version the platform's Python catalogues describe: `meta.baseline_version` of its YAML."""
+    data = _load_yaml_overrides(app, Path(overrides_dir) if overrides_dir else None)
+    version = (data.get("meta") or {}).get("baseline_version")
+    if not version:
+        raise CompatibilitySourceError(f"{app}: {app}.yaml declares no meta.baseline_version")
+    return str(version)
 
 
 def _load_yaml_overrides(app: str, overrides_dir: Optional[Path] = None) -> Dict[str, Any]:
@@ -246,7 +128,7 @@ def _resolve_overrides_for_version(
 _ORIGINALS: Dict[int, Dict[str, Any]] = {}
 
 
-def _restore_baseline(domains: Dict[str, Any]) -> int:
+def _restore_baseline(domains: Mapping[str, Any]) -> int:
     """Put back every field a previous override replaced. Returns how many were restored."""
     restored = 0
     for singleton in domains.values():
@@ -313,7 +195,7 @@ def _patch_singleton(
 
 
 def apply_overrides_for_device(device_id: str) -> Dict[str, int]:
-    """Patch every platform's selector catalog to match what is installed on THIS phone.
+    """Patch every registered platform's selector catalog to match what is installed on THIS phone.
 
     The catalog is a process-global. The Instagram device base patches it in
     `InstagramDeviceBase.connect()`, which is why a desktop run has always faced the right
@@ -323,19 +205,22 @@ def apply_overrides_for_device(device_id: str) -> Dict[str, int]:
     v410 baseline: the overrides existed, were correct, and were simply never applied.
 
     Called at CONNECT time on purpose: that is the moment a process learns which phone it is
-    on, and it is the one funnel every caller already goes through. Both platforms are patched
-    because the phone is chosen before the workflow is, and they touch disjoint singletons.
+    on, and it is the one funnel every caller already goes through. Every registered platform is
+    patched because the phone is chosen before the workflow is, and they touch disjoint singletons.
     TikTok is looked up across its known package variants -- a phone carrying the `trill` or
     `aweme` build has TikTok installed even though the canonical package is absent.
 
-    Best-effort by construction: it returns what it managed to apply and never raises, because
-    failing to read a version must not stop a run from starting.
+    Reading a version is best-effort: a phone that does not answer keeps the baseline, said in the
+    log, because failing to read a version must not stop a run from starting. A host that
+    registered no platform, or a platform whose catalogue does not load, is no such case: its
+    `SelectorRegistryError` (or the loader's error) goes up to the connection.
     """
     from taktik.core.clone.packages.package_map import get_package_variants
     from taktik.core.shared.device.app_inspection import get_installed_app_version
 
     applied: Dict[str, int] = {}
-    for platform in ("instagram", "tiktok"):
+    for platform in registered_platforms():
+        platform_selectors(platform)  # loaded outside the best-effort: a catalogue that fails says it
         try:
             for package in get_package_variants(platform):
                 version = get_installed_app_version(device_id, package, platform)
@@ -353,31 +238,13 @@ def apply_version_overrides(
     overrides_dir: Optional[str] = None,
 ) -> int:
     """Patch selector singletons in place for the detected app version, starting again from the
-    baseline: what an earlier call replaced is restored first."""
-    domain_map = {
-        "instagram": INSTAGRAM_SELECTOR_DOMAINS,
-        "tiktok": TIKTOK_SELECTOR_DOMAINS,
-    }
+    baseline: what an earlier call replaced is restored first. Raises `PlatformNotRegistered` for
+    an app no host registered."""
+    domains = platform_selectors(app).domains
 
-    if app not in domain_map:
-        logger.error(f"[Compat] Unknown app: {app}")
-        return 0
-
-    restored = _restore_baseline(domain_map[app])
+    restored = _restore_baseline(domains)
     if restored:
         logger.info(f"[Compat] {app}: {restored} field(s) back to the baseline before applying v{detected_version}")
-
-    baseline = {
-        "instagram": INSTAGRAM_TARGET_VERSION,
-        "tiktok": TIKTOK_TARGET_VERSION,
-    }[app]
-
-    if detected_version == baseline:
-        logger.info(
-            f"[Compat] {app} v{detected_version} matches baseline "
-            f"v{baseline}, no overrides needed"
-        )
-        return 0
 
     base_dir = Path(overrides_dir) if overrides_dir else None
     data = _load_yaml_overrides(app, base_dir)
@@ -385,12 +252,19 @@ def apply_version_overrides(
         logger.info(f"[Compat] No override file for {app}, using baseline selectors")
         return 0
 
+    baseline = baseline_version(app, overrides_dir)
+    if detected_version == baseline:
+        logger.info(
+            f"[Compat] {app} v{detected_version} matches baseline "
+            f"v{baseline}, no overrides needed"
+        )
+        return 0
+
     overrides = _resolve_overrides_for_version(data, detected_version)
     if not overrides:
         logger.info(f"[Compat] No applicable overrides for {app} v{detected_version}")
         return 0
 
-    domains = domain_map[app]
     total_patched = 0
     for domain_name, singleton in domains.items():
         total_patched += _patch_singleton(domain_name, singleton, overrides)

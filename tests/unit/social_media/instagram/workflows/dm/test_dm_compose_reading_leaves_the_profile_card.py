@@ -93,11 +93,11 @@ class _Phone:
 @pytest.fixture
 def ig_447():
     """The selectors as a phone on 447 gets them at connect; the baseline put back after."""
-    from taktik.core.compat.selectors.setup import INSTAGRAM_TARGET_VERSION, apply_version_overrides
+    from taktik.core.compat.selectors.setup import apply_version_overrides, baseline_version
 
     apply_version_overrides("instagram", "447.0.0.55.81")
     yield
-    apply_version_overrides("instagram", INSTAGRAM_TARGET_VERSION)
+    apply_version_overrides("instagram", baseline_version("instagram"))
 
 
 @pytest.fixture(autouse=True)

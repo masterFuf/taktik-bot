@@ -23,10 +23,11 @@ from bridges.tools.lab.selector_test.production import (
     resolve_production_selectors,
 )
 from bridges.tools.lab.selector_test.runner import run_selector_tests
-from taktik.core.compat.selectors import setup
+from taktik.core.compat.selectors import platforms, setup
+from taktik.core.compat.selectors.platforms import PlatformSelectors
 from taktik.core.shared.ui.language_detection import LanguageDetection
 
-BASELINE = setup.INSTAGRAM_TARGET_VERSION
+BASELINE = setup.baseline_version("instagram")
 
 _STRINGS = {
     "en": {"sample.rows": ['//*[@text="Rows"]']},
@@ -60,7 +61,9 @@ class _SampleSelectors:
 
 _DETECTION = LanguageDetection("Sample", {"Lignes", "Accueil", "Profil", "Suivant"}, {"Rows", "Home", "Profile", "Next"})
 
-_OVERRIDES = """
+_OVERRIDES = f"""
+meta:
+  baseline_version: "{BASELINE}"
 versions:
   "442.0.0.5":
     sample._rows_base:
@@ -114,7 +117,7 @@ def sample(monkeypatch, tmp_path):
     """One invented catalogue behind the REAL patcher, with its own originals and locale."""
     catalogue = _SampleSelectors()
     domains = {"sample": catalogue}
-    monkeypatch.setattr(setup, "INSTAGRAM_SELECTOR_DOMAINS", domains)
+    monkeypatch.setitem(platforms._LOADED, "instagram", PlatformSelectors(domains=domains))
     monkeypatch.setattr(setup, "_ORIGINALS", {})
     (tmp_path / "instagram.yaml").write_text(_OVERRIDES, encoding="utf-8")
     _set_active_locale(None)
@@ -282,13 +285,13 @@ def test_the_bridge_output_keeps_its_fields(sample, monkeypatch, tmp_path):
 @pytest.fixture
 def instagram_back_to_baseline():
     yield
-    setup.apply_version_overrides("instagram", setup.INSTAGRAM_TARGET_VERSION)
+    setup.apply_version_overrides("instagram", BASELINE)
 
 
 def test_the_real_447_overrides_reach_the_instagram_property(instagram_back_to_baseline):
     platform = PlatformCatalogue(
-        domains=setup.INSTAGRAM_SELECTOR_DOMAINS,
-        baseline_version=setup.INSTAGRAM_TARGET_VERSION,
+        domains=platforms.platform_selectors("instagram").domains,
+        baseline_version=BASELINE,
         apply_overrides=setup.apply_version_overrides,
         detect_language=lambda screen: "unknown",
     )
@@ -302,7 +305,7 @@ def test_the_real_447_overrides_reach_the_instagram_property(instagram_back_to_b
 
 
 def test_production_catalogue_is_known_for_both_apps():
-    assert production.platform_catalogue("instagram").baseline_version == setup.INSTAGRAM_TARGET_VERSION
-    assert production.platform_catalogue("tiktok").baseline_version == setup.TIKTOK_TARGET_VERSION
+    assert production.platform_catalogue("instagram").baseline_version == BASELINE
+    assert production.platform_catalogue("tiktok").baseline_version == setup.baseline_version("tiktok")
     with pytest.raises(ValueError):
         production.platform_catalogue("unknown-app")

@@ -49,7 +49,7 @@ from lxml import etree
 from uiautomator2.xpath import XPathEntry
 
 import taktik.core.shared.device.wait as wait_module
-from taktik.core.compat.selectors.setup import INSTAGRAM_TARGET_VERSION, apply_version_overrides
+from taktik.core.compat.selectors.setup import apply_version_overrides, baseline_version
 import taktik.core.social_media.instagram.workflows.dm.inbox_reset as inbox_reset
 import taktik.core.social_media.instagram.workflows.dm.navigation as navigation
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
@@ -232,7 +232,7 @@ def phone_on(monkeypatch):
 
     def build(screen):
         # A 447 screen comes with the selectors a 447 phone gets at connect (its version overrides).
-        apply_version_overrides("instagram", "447.0.0.55.81" if screen.endswith("_447") else INSTAGRAM_TARGET_VERSION)
+        apply_version_overrides("instagram", "447.0.0.55.81" if screen.endswith("_447") else baseline_version("instagram"))
         phone = _Phone(screen)
         clock = SimpleNamespace(time=phone.clock.time, sleep=phone.clock.sleep)
         monkeypatch.setattr(navigation, "time", clock)
@@ -241,7 +241,7 @@ def phone_on(monkeypatch):
         return phone
 
     yield build
-    apply_version_overrides("instagram", INSTAGRAM_TARGET_VERSION)
+    apply_version_overrides("instagram", baseline_version("instagram"))
 
 
 def _inside(click, bounds):

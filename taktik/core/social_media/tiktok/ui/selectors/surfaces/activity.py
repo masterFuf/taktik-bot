@@ -10,7 +10,7 @@ to answer. The inbox row that opens it is an inbox section: `INBOX_SELECTORS.act
 The labels of the page itself hold BOTH languages in one expression (measured 2026-08-30): a run
 started before someone changed the app language would otherwise find nothing at all, and finding
 nothing on this page is indistinguishable from an account nobody has interacted with. The catalogue
-is registered with the others (`TIKTOK_SELECTOR_DOMAINS`, the barrel): a version override, the clone
+is registered with the others (`ui/selectors/domains.py`): a version override, the clone
 patch and the language optimiser reach it; the optimiser keeps an expression that holds both
 languages and drops, on an English phone, the French-only entry of `suggested_account_rows`.
 

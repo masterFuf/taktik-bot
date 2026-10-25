@@ -19,12 +19,17 @@ from taktik.cli.menus.main_menu import run_main_menu
 from taktik.cli.support.banner import display_banner
 from taktik.cli.support.database import open_database
 from taktik.cli.support.language import select_language, set_language
+from taktik.cli.hosts.selector_platforms import register_selector_platforms
 
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Both entry points (`cli`, `tiktok`) live in this module: registered once, before any command
+# connects a phone (`compat/selectors/platforms.py`).
+register_selector_platforms()
 
 
 @click.group(invoke_without_command=True)

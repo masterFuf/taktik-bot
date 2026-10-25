@@ -4,10 +4,13 @@ Device Selector (Shared CLI utility)
 Eliminates the 5+ duplications of device selection + connection logic in cli/main.py.
 """
 
+import logging
+
 import click
 from rich.console import Console
 
 console = Console()
+logger = logging.getLogger(__name__)
 
 
 def _describe_device(device_id: str) -> str:
@@ -25,33 +28,30 @@ def _describe_device(device_id: str) -> str:
     parts = []
     try:
         from taktik.core.shared.device.app_inspection import get_installed_app_version
-        from taktik.core.compat.selectors.setup import (
-            INSTAGRAM_TARGET_VERSION,
-            TIKTOK_TARGET_VERSION,
-        )
+        from taktik.core.compat.selectors.setup import baseline_version
 
         # Both platforms, because the pick happens before the workflow choice: the
         # operator must see what EITHER run would face on this phone.
-        for label, package, platform, baseline in (
-            ("IG", "com.instagram.android", "instagram", INSTAGRAM_TARGET_VERSION),
-            ("TT", "com.zhiliaoapp.musically", "tiktok", TIKTOK_TARGET_VERSION),
+        for label, package, platform in (
+            ("IG", "com.instagram.android", "instagram"),
+            ("TT", "com.zhiliaoapp.musically", "tiktok"),
         ):
             version = get_installed_app_version(device_id, package, platform)
             if version:
-                marker = "baseline" if version == baseline else "overrides"
+                marker = "baseline" if version == baseline_version(platform) else "overrides"
                 parts.append(f"{label} {version} [{marker}]")
             else:
                 parts.append(f"{label} absent")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("App versions of %s not read for the device list: %s", device_id, exc)
     try:
         from taktik.core.shared.device.adb import run_adb_shell
 
         locale = (run_adb_shell(device_id, "getprop persist.sys.locale") or "").strip()
         if locale:
             parts.append(locale)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("System locale of %s not read for the device list: %s", device_id, exc)
     return " · ".join(parts)
 
 

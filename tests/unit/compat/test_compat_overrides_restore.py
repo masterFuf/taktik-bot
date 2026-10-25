@@ -7,14 +7,14 @@ selector, which only knows the Compose inbox, found no row on the 410.
 
 import pytest
 
-from taktik.core.compat.selectors.setup import INSTAGRAM_TARGET_VERSION, apply_version_overrides
+from taktik.core.compat.selectors.setup import apply_version_overrides, baseline_version
 from taktik.core.social_media.instagram.ui.selectors import DETECTION_SELECTORS, DM_SELECTORS, PROFILE_SELECTORS
 
 
 @pytest.fixture(autouse=True)
 def back_to_baseline():
     yield
-    apply_version_overrides("instagram", INSTAGRAM_TARGET_VERSION)
+    apply_version_overrides("instagram", baseline_version("instagram"))
 
 
 def _snapshot():
@@ -26,7 +26,7 @@ def test_the_baseline_comes_back_after_a_newer_phone():
     baseline = _snapshot()
     assert apply_version_overrides("instagram", "447.0.0.55.81") > 0
     assert _snapshot() != baseline
-    apply_version_overrides("instagram", INSTAGRAM_TARGET_VERSION)
+    apply_version_overrides("instagram", baseline_version("instagram"))
     assert _snapshot() == baseline
 
 
@@ -54,5 +54,5 @@ def test_a_refused_field_does_not_break_the_next_apply():
     assert _patch_singleton("detection", DETECTION_SELECTORS,
                             {"detection.business_account_indicators": ["//refused"]}) == 0
     assert apply_version_overrides("instagram", "447.0.0.55.81") > 0
-    apply_version_overrides("instagram", INSTAGRAM_TARGET_VERSION)
+    apply_version_overrides("instagram", baseline_version("instagram"))
     assert _snapshot() == baseline

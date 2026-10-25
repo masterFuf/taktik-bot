@@ -244,4 +244,7 @@ def main():
 
 
 if __name__ == "__main__":
+    from bridges.common.selector_platforms import register_selector_platforms
+
+    register_selector_platforms()
     main()

@@ -50,7 +50,7 @@ from dataclasses import dataclass
 from lxml import etree
 from uiautomator2.xpath import XPathEntry
 
-from taktik.core.compat.selectors.setup import INSTAGRAM_TARGET_VERSION, apply_version_overrides
+from taktik.core.compat.selectors.setup import apply_version_overrides, baseline_version
 from unit.paths import CORE
 
 PKG = "com.instagram.android"
@@ -138,7 +138,7 @@ SEARCH_410 = SearchScreens(
     home=_capture("ig410_fr_home_feed_tab_icon_selected.xml"),
     explore=_capture("ig410_fr_explore_grid_1080x2160.xml"),
     results=_capture("ig410_fr_account_search_results.xml"),
-    width=1080, height=2160, version=INSTAGRAM_TARGET_VERSION,
+    width=1080, height=2160, version=baseline_version("instagram"),
 )
 SEARCH_447 = SearchScreens(
     home=_capture("ig447_fr_home_feed.xml"),
@@ -204,7 +204,7 @@ def selectors_of(screens: SearchScreens):
     try:
         yield
     finally:
-        apply_version_overrides("instagram", INSTAGRAM_TARGET_VERSION)
+        apply_version_overrides("instagram", baseline_version("instagram"))
 
 
 class SearchPhone:

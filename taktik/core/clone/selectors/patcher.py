@@ -18,7 +18,7 @@ Usage:
 """
 
 from dataclasses import fields as dc_fields, is_dataclass
-from typing import Any, Dict, List
+from typing import Any
 from loguru import logger
 from taktik.core.clone.packages.package_map import ORIGINAL_PACKAGES
 
@@ -48,18 +48,10 @@ def patch_selectors_for_package(platform: str, target_package: str) -> int:
         logger.debug(f"[ClonePatch] Package is original ({original}), nothing to patch")
         return 0
 
-    # Import domain maps from compat setup (avoids circular imports)
-    from taktik.core.compat.selectors.setup import (
-        INSTAGRAM_SELECTOR_DOMAINS,
-        TIKTOK_SELECTOR_DOMAINS,
-    )
+    # The catalogues the host registered with compat (`compat/selectors/platforms.py`).
+    from taktik.core.compat.selectors.platforms import platform_selectors
 
-    domain_map: Dict[str, Dict[str, Any]] = {
-        "instagram": INSTAGRAM_SELECTOR_DOMAINS,
-        "tiktok": TIKTOK_SELECTOR_DOMAINS,
-    }
-
-    domains = domain_map[platform]
+    domains = platform_selectors(platform).domains
     total_patched = 0
 
     for domain_name, singleton in domains.items():

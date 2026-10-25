@@ -12,7 +12,7 @@ selector the language filter emptied is kept with no xpath, so it fails.
 """
 
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Mapping, Optional
 
 from loguru import logger
 
@@ -24,7 +24,7 @@ from taktik.core.compat.selectors.registry import SelectorEntry, build_full_sele
 class PlatformCatalogue:
     """What production patches and reads for one app."""
 
-    domains: Dict[str, Any]
+    domains: Mapping[str, Any]
     baseline_version: str
     apply_overrides: Callable[[str, str], int]
     detect_language: Callable[[Any], str]
@@ -62,22 +62,18 @@ class _TakenScreen:
 
 def platform_catalogue(app: str) -> PlatformCatalogue:
     from taktik.core.compat.selectors import setup
+    from taktik.core.compat.selectors.platforms import platform_selectors
 
     if app == "instagram":
         from taktik.core.social_media.instagram.ui.language import detect_and_optimize
-
-        return PlatformCatalogue(
-            setup.INSTAGRAM_SELECTOR_DOMAINS, setup.INSTAGRAM_TARGET_VERSION,
-            setup.apply_version_overrides, detect_and_optimize,
-        )
-    if app == "tiktok":
+    elif app == "tiktok":
         from taktik.core.social_media.tiktok.ui.language import detect_and_optimize
-
-        return PlatformCatalogue(
-            setup.TIKTOK_SELECTOR_DOMAINS, setup.TIKTOK_TARGET_VERSION,
-            setup.apply_version_overrides, detect_and_optimize,
-        )
-    raise ValueError(f"Unknown app: {app}")
+    else:
+        raise ValueError(f"Unknown app: {app}")
+    return PlatformCatalogue(
+        platform_selectors(app).domains, setup.baseline_version(app),
+        setup.apply_version_overrides, detect_and_optimize,
+    )
 
 
 def is_xpath_selector(value: str) -> bool:

@@ -202,6 +202,10 @@ def _database_singletons_start_empty():
 from taktik.core.database.local.service import LocalDatabaseService  # noqa: E402 - after the guard
 from taktik.core.database.local.schema import create_schema
 from taktik.core.database.local.migrations import run_migrations, _validate_sql_identifier
+from bridges.common.selector_platforms import register_selector_platforms  # noqa: E402 - after the guard
+
+# The harness is a host: it registers the platforms' selectors the way a bridge's entry does.
+register_selector_platforms()
 
 
 @pytest.fixture(autouse=True)
