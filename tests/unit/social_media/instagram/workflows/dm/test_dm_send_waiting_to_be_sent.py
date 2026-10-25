@@ -242,3 +242,112 @@ def test_a_cold_dm_waiting_to_be_sent_is_pending_not_sent(composer_pressed, monk
     _in(language)
 
     assert _ColdDm(_Phone(xml)).send_message(_last_bubble_text(xml)) is ReplyOutcome.PENDING
+
+
+# -- Instagram 447: the Compose thread ------------------------------------------------------------
+#
+# Pixel 6a (Instagram 447, French, 2026-10-25), CLI coldDm with the network cut a second after
+# « Sending message... »: the run said « DM sent and confirmed in the conversation », `dms_sent: 1`,
+# while the conversation showed the bubble with its « Envoi… » icon; it left once, when the network
+# came back. In 447 the thread is Compose: a bubble is a bare TextView in its row of `message_list`,
+# the icon a bare ImageView of the same row; none of the ids of 410 (`message_content`,
+# `action_icon`) is there. The two screens of that run, anonymized together: waiting
+# (`ig447_fr_dm_compose_bubble_pending_send.xml`) and the same bubble once sent
+# (`ig447_fr_dm_compose_bubble_sent_after_network.xml`). Every bubble of this conversation is ours.
+
+PENDING_447 = (FIXTURES / "ig447_fr_dm_compose_bubble_pending_send.xml").read_text(encoding="utf-8")
+SENT_447 = (FIXTURES / "ig447_fr_dm_compose_bubble_sent_after_network.xml").read_text(encoding="utf-8")
+
+
+class _Phone447(_Phone):
+    """The Pixel 6a."""
+
+    info = {"displayWidth": 1080, "displayHeight": 2400}
+
+
+@pytest.fixture
+def ig_447():
+    """The selectors as a phone on 447 gets them at connect; the baseline put back after."""
+    from taktik.core.compat.selectors.setup import INSTAGRAM_TARGET_VERSION, apply_version_overrides
+
+    apply_version_overrides("instagram", "447.0.0.55.81")
+    yield
+    apply_version_overrides("instagram", INSTAGRAM_TARGET_VERSION)
+
+
+def _compose_bubbles(xml):
+    """The bubbles of the Compose thread, top first: the bare TextViews of `message_list` that
+    are no date, no reaction chip and no line of the partner's card above the messages."""
+    root = etree.fromstring(xml.encode("utf-8"))
+    message_list = [node for node in root.iter("node") if node.get("resource-id") == f"{PKG}:id/message_list"][0]
+    rows = [row for row in message_list if row.get("class") == "com.facebook.compose.view.MetaComposeView"
+            and not any(node.get("resource-id") == "igds_button" for node in row.iter("node"))]
+    return [node.get("text") for row in rows for node in row.iter("node")
+            if node.get("class") == "android.widget.TextView" and not node.get("resource-id")
+            and node.get("text") not in (None, "", "❤")]
+
+
+def test_the_447_captures_show_the_same_bubble_last():
+    assert _compose_bubbles(PENDING_447)[-1] == _compose_bubbles(SENT_447)[-1]
+
+
+def test_a_447_bubble_waiting_to_be_sent_is_pending(ig_447):
+    from taktik.core.social_media.instagram.workflows.dm.reply_check import ConversationBubbles, reply_outcome
+
+    phone = _Phone447(PENDING_447)
+    message = _compose_bubbles(PENDING_447)[-1]
+
+    assert reply_outcome(phone, message, ConversationBubbles(phone)._collect_text_messages) \
+        is ReplyOutcome.PENDING
+
+
+def test_only_the_447_bubble_with_the_icon_is_waiting(ig_447):
+    from taktik.core.social_media.instagram.workflows.dm.conversation_payload import pending_send_texts
+
+    assert pending_send_texts(PENDING_447) == [_compose_bubbles(PENDING_447)[-1]]
+    assert pending_send_texts(SENT_447) == []
+
+
+def test_the_same_447_bubble_once_the_network_is_back_is_sent(ig_447):
+    from taktik.core.social_media.instagram.workflows.dm.reply_check import ConversationBubbles, reply_outcome
+
+    phone = _Phone447(SENT_447)
+
+    assert reply_outcome(phone, _compose_bubbles(SENT_447)[-1],
+                         ConversationBubbles(phone)._collect_text_messages) is ReplyOutcome.SENT
+
+
+def test_our_newest_447_bubble_is_read_as_ours_waiting_or_sent(ig_447):
+    # « Our » bubble is the bottom-most one, and ours by its left edge (a bubble of the other person
+    # hugs the left edge): the icon shifts the waiting one 42 px to the left, still past the line.
+    from taktik.core.social_media.instagram.workflows.dm.reply_check import ConversationBubbles
+
+    for xml in (PENDING_447, SENT_447):
+        bubbles = ConversationBubbles(_Phone447(xml))._collect_text_messages()
+        newest = max(bubbles, key=lambda bubble: bubble["top"])
+        assert newest["text"] == _compose_bubbles(xml)[-1] and newest["is_sent"] is True
+
+
+def test_a_447_cold_dm_waiting_to_be_sent_is_pending_not_sent(ig_447, composer_pressed, monkeypatch):
+    # The run of the capture, by its own road: `send_message` -> `send_in_open_conversation`.
+    from taktik.core.social_media.instagram.workflows.cold_dm import sender as cold_dm_sender
+    from taktik.core.social_media.instagram.workflows.cold_dm.navigation import ColdDMNavigationMixin
+    from taktik.core.social_media.instagram.workflows.cold_dm.sender import ColdDMSenderMixin
+
+    class _ColdDm(ColdDMSenderMixin, ColdDMNavigationMixin):
+        def __init__(self, phone):
+            self.device = phone
+            self.device_manager = phone
+
+    monkeypatch.setattr(cold_dm_sender.time, "sleep", lambda *_: None)
+
+    assert _ColdDm(_Phone447(PENDING_447)).send_message(_compose_bubbles(PENDING_447)[-1]) \
+        is ReplyOutcome.PENDING
+    assert _ColdDm(_Phone447(SENT_447)).send_message(_compose_bubbles(SENT_447)[-1]) is ReplyOutcome.SENT
+
+
+def test_the_410_form_stays_read_on_447(ig_447):
+    # The override holds both forms: a 447 serving the thread of 410 still shows its waiting bubble.
+    from taktik.core.social_media.instagram.workflows.dm.conversation_payload import pending_send_texts
+
+    assert pending_send_texts(PENDING) == [_last_bubble_text(PENDING)]

@@ -55,23 +55,14 @@ def conversation_partner(xml: Optional[str]) -> tuple[Optional[str], Optional[st
 
 def pending_send_texts(xml: Optional[str]) -> list[str]:
     """The texts of the bubbles of ours that the open conversation shows waiting to be sent: a
-    bubble whose `message_content` holds the status icon described « Envoi… » (no network; it
-    leaves by itself when the network is back). [] when there is none, or no screen."""
+    bubble with the status icon described « Envoi… » at its side (no network; it leaves by itself
+    when the network is back), in the form of the installed version (`pending_send_bubble_texts`).
+    [] when there is none, or no screen."""
     root = parse_ui_dump(xml) if xml else None
     if root is None:
         return []
-    pending = set(DM_SELECTORS.pending_send_descriptions)
-    texts = []
-    for container in root.iter():
-        if container.get("resource-id") != DM_SELECTORS.message_container_resource_id:
-            continue
-        inside = list(container.iter())
-        if not any(node.get("resource-id") == DM_SELECTORS.message_status_icon_resource_id
-                   and node.get("content-desc") in pending for node in inside):
-            continue
-        texts.extend(node.get("text") for node in inside
-                     if node.get("resource-id") == DM_SELECTORS.message_item_resource_id and node.get("text"))
-    return texts
+    return [node.get("text") for xpath in DM_SELECTORS.pending_send_bubble_texts
+            for node in root.xpath(xpath) if node.get("text")]
 
 
 def extract_inbox_username(content_desc: str) -> str:

@@ -305,15 +305,24 @@ class DirectMessageSelectors:
     message_list: str = '//*[@resource-id="com.instagram.android:id/message_list"]'
     message_item: str = '//*[@resource-id="com.instagram.android:id/direct_text_message_text_view"]'
     message_item_resource_id: str = 'com.instagram.android:id/direct_text_message_text_view'
-    # A bubble of ours waiting to be sent (no network, Pixel 6 Pro, 410, 2026-10-24): an icon at its
-    # side in its `message_content`, described « Envoi… » / « Sending… » (locales); gone once the
-    # bubble is sent.
-    message_container_resource_id: str = 'com.instagram.android:id/message_content'
-    message_status_icon_resource_id: str = 'com.instagram.android:id/action_icon'
+    # The text of a bubble of ours waiting to be sent (no network, Pixel 6 Pro, 410, 2026-10-24): an
+    # icon at its side in its `message_content`, described « Envoi… » / « Sending… » (`{label}`, the
+    # locales); gone once the bubble is sent. The Compose thread of 447 is a version override.
+    _pending_send_bubble_templates: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/message_content"]'
+        '[.//*[@resource-id="com.instagram.android:id/action_icon"][@content-desc="{label}"]]'
+        '//*[@resource-id="com.instagram.android:id/direct_text_message_text_view"]',
+    ])
 
     @property
     def pending_send_descriptions(self) -> List[str]:
         return L("direct_message.pending_send_descriptions")
+
+    @property
+    def pending_send_bubble_texts(self) -> List[str]:
+        """The text nodes of the bubbles the open conversation shows waiting to be sent."""
+        return [template.format(label=label) for template in self._pending_send_bubble_templates
+                for label in self.pending_send_descriptions]
 
     # --- Compose thread (IG 442+): a message text has NO resource-id any more ---
     # `direct_text_message_text_view` disappeared when the thread moved to Jetpack Compose,
