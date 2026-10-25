@@ -128,9 +128,6 @@ class Run(InstagramPostWorkflow):
     def _launch_and_home(self):
         pass
 
-    def _detect_app_language(self):
-        pass
-
     def _open_creation_and_gallery(self):
         return None
 

@@ -32,7 +32,6 @@ class SpyWorkflow(InstagramPostWorkflow):
         self.publish_commit_waited = False
         self.upload_end_waited = False
         self.back_presses = 0
-        self.language_detections = 0
         self.information_windows_acknowledged = 0
         self.window_checks = 0
 
@@ -55,9 +54,6 @@ class SpyWorkflow(InstagramPostWorkflow):
 
     def _launch_and_home(self) -> None:
         pass
-
-    def _detect_app_language(self) -> None:
-        self.language_detections += 1
 
     def _open_creation_and_gallery(self):
         return None
