@@ -140,10 +140,13 @@ def _run(followers, policy, *, workflow, started, device_id, ai_config, language
     decisions = NewFollowerWelcomePass(
         policy=policy, visit_profile=_visit, qualify=qualify_visited, log=_log
     ).decide(followers)
+    # The follow-back is a tap on the page's row, and the row shows the name the page printed:
+    # taken before the decisions trade it for the handle.
+    follow_back_rows = follow_back_targets(decisions)
 
-    # Every decision travels under the handle its profile carried, so what follows -- the
-    # follow-back, the DM, the duplicate guard -- addresses the person and not the label the
-    # inbox happened to print. Rebuilt rather than mutated: `WelcomeDecision` is frozen.
+    # Every decision travels under the handle its profile carried, so what follows -- the DM and
+    # the duplicate guard -- addresses the person and not the label the inbox happened to print.
+    # Rebuilt rather than mutated: `WelcomeDecision` is frozen.
     decisions = [
         replace(decision, username=resolved_handles[decision.username])
         if resolved_handles.get(decision.username)
@@ -159,7 +162,7 @@ def _run(followers, policy, *, workflow, started, device_id, ai_config, language
     # a second time.
     _record_followers_as_notifications(started.bot_username, followers, resolved_handles)
 
-    followed_back = _follow_back_decided(workflow, follow_back_targets(decisions), notifier)
+    followed_back = _follow_back_decided(workflow, follow_back_rows, notifier)
     shown_names: Dict[str, List[str]] = {}
     for shown, handle in resolved_handles.items():
         shown_names.setdefault(handle, []).append(shown)
@@ -230,8 +233,14 @@ def _record_followers_as_notifications(
         logger.warning(f"Enregistrement des notifications impossible: {exc}")
 
 
-def _follow_back_decided(workflow, handles: List[str], notifier) -> List[Dict[str, Any]]:
-    """Follow back through the SAME path the manual follow-back mode uses.
+def _follow_back_decided(workflow, shown_names: List[str], notifier) -> List[Dict[str, Any]]:
+    """Follow back through the SAME path the manual follow-back mode uses, by the names the page
+    shows.
+
+    The page shows a display name and never a handle, and `follow_back` takes the row whose name is
+    exactly the one asked for (`same_shown_name`): asked for by handle, a follower whose display
+    name is not their handle was never found. The results, like the `follow_back_result` lines,
+    name the row as the page shows it, as the manual mode does.
 
     UNVERIFIED on a phone: the qualification pass opens every listed profile before this runs,
     and TikTok's "New followers" section is a list of followers not yet seen. If opening the
@@ -240,13 +249,13 @@ def _follow_back_decided(workflow, handles: List[str], notifier) -> List[Dict[st
     follow, so the failure is visible. If it happens, the fix is to follow from the profile the
     pass is already standing on, not to loosen the page check.
     """
-    if not handles:
+    if not shown_names:
         return []
-    logger.info(f"➕ Follow-back IA de {len(handles)} follower(s)")
-    _emit(notifier, "status", "running", f"Following back {len(handles)} follower(s)")
-    results = workflow.follow_back_users(handles)
+    logger.info(f"➕ Follow-back IA de {len(shown_names)} follower(s)")
+    _emit(notifier, "status", "running", f"Following back {len(shown_names)} follower(s)")
+    results = workflow.follow_back_users(shown_names)
     done = sum(1 for result in results if result.get("success"))
-    logger.success(f"✅ Follow-back IA : {done}/{len(handles)}")
+    logger.success(f"✅ Follow-back IA : {done}/{len(shown_names)}")
     return results
 
 

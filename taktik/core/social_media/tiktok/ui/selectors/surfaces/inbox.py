@@ -161,19 +161,6 @@ class InboxSelectors:
     ])
 
     # === Notification sections (items) ===
-    #: Rows offering the one-tap wave. TikTok writes the person's name into the line itself --
-    #: `Dis bonjour à Enzo Resell` -- which makes the line both the marker and the label.
-    #: Both languages in one expression, as everywhere on this surface.
-    #:
-    #: FRENCH MEASURED, ENGLISH NOT. `Dis bonjour à ` was read off a real inbox on 2026-08-30 and
-    #: the wave was sent through it. `Say hi to ` is written from the structure: by the time the
-    #: app was switched to English both candidates had been used up -- the rows read `Sent 2m ago`
-    #: -- so there was nothing left to match. It needs one row to confirm, and until then a
-    #: mismatch would look like "this account has nobody to greet".
-    say_hello_rows: List[str] = field(default_factory=lambda: [
-        '//*[contains(@text, "Dis bonjour à ") or contains(@text, "Say hi to ")]',
-    ])
-
     notification_item: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/s28")]',
         # A2: the section row is the title's nearest clickable ancestor.
@@ -190,11 +177,6 @@ class InboxSelectors:
     # === Group chat indicators ===
     group_member_count: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/ujj")]',
-    ])
-
-    # === Follow back (suggested accounts and new followers) ===
-    _follow_back_button_base: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/rdh")]',
     ])
 
     # === Page Nouveaux followers (dédiée) ===
@@ -298,8 +280,42 @@ class InboxSelectors:
         return L("inbox.seen_marker")
 
     @property
+    def follow_back_labels(self) -> List[str]:
+        """What the follow-back button reads, in the active language."""
+        return L("inbox.follow_back_labels")
+
+    @property
     def follow_back_button(self) -> List[str]:
-        return self._follow_back_button_base + L("inbox.follow_back_button")
+        """The follow-back button of a new follower: its id AND its label, then its label alone.
+
+        Never the id alone. On 43.1.4 the one button of a new follower's row carries its state as
+        its label, always under the id `rdh`: « Follow back », « Message », « Requested », and
+        « Send a » with a waving hand, the one-tap wave, right after a follow-back
+        (`tt4314_en_new_followers*.xml`, `tt4314_fr_new_followers.xml`); the « Suivre » buttons of
+        the suggested accounts below share it too. By its id, every one of them was a follow-back:
+        `can_follow_back` said yes, `follow_back` opened a conversation or sent a wave, and a real
+        follow-back read « still there », unconfirmed. The label alone carries the versions where
+        `rdh` is gone (46.6.3).
+        """
+        return ([f'//*[contains(@resource-id, ":id/rdh")][@text="{label}"]' for label in self.follow_back_labels]
+                + [f'//*[@text="{label}"]' for label in self.follow_back_labels])
+
+    @property
+    def say_hello_line_prefixes(self) -> List[str]:
+        """How a row's line that names someone to greet starts (`Say hi to `), in the active
+        language. The name follows: `Dis bonjour à Enzo Resell`."""
+        return L("inbox.say_hello_line_prefixes")
+
+    @property
+    def say_hello_rows(self) -> List[str]:
+        """The lines that name someone to greet.
+
+        A line, not an offer: on 43.1.4 (C57S, 2026-10-25), and on 46.9.3 and 47.0.3 in the
+        corpus, `Say hi to <name>` is only the row's preview, and the row has no wave button; TikTok
+        offers the wave as a sticker inside the conversation. `say_hello_button_for_line` says
+        whether a row really has the button.
+        """
+        return [f'//*[contains(@text, "{prefix}")]' for prefix in self.say_hello_line_prefixes]
 
     @property
     def see_all_button(self) -> List[str]:
@@ -431,42 +447,38 @@ class InboxSelectors:
         thread. Stated rather than guessed.
         """
         exact = (shown or "").replace('"', "")
-        return [
+        rows = [
             '//*[contains(@resource-id, ":id/o0v")]'
-            f'[.//*[contains(@resource-id, ":id/o0f")][@text="{exact}"]]'
-            '//*[contains(@resource-id, ":id/rdh")]',
-            # A2. The three ids above are 43.1.4 only, so on 46.6.3 this resolved nothing:
+            f'[.//*[contains(@resource-id, ":id/o0f")][@text="{exact}"]]',
+            # A2. The two ids above are 43.1.4 only, so on 46.6.3 this resolved nothing:
             # `can_follow_back` came back False for every follower and `follow_back` could never
             # find its button -- the follow-back mode was dead on that version, silently.
             #
             # The row is the nearest clickable ancestor of the username BUTTON (the handle is a
-            # button here, not a text view). Inside it, the follow affordance is matched by its
-            # LABEL and nothing else: measured on device, the very same node carries three
-            # states in turn -- "Suivre en retour" when you may follow, "Envoie un message" once
-            # you do, "Demande" when the account is private and a request went out. A
-            # label-free "the row's other button" anchor was tried first and matched all three,
-            # so `can_follow_back` said yes to followers already followed. The state IS the
-            # label; the labels come from `follow_back_button`, not respelled here.
-            *[
-                f'//android.widget.Button[@text="{exact}"]'
-                '/ancestor::*[@clickable="true"][1]' + selector
-                for selector in self.follow_back_button
-            ],
+            # button here, not a text view).
+            f'//android.widget.Button[@text="{exact}"]/ancestor::*[@clickable="true"][1]',
         ]
+        # Inside the row, the button is matched by its LABEL, with its id where it has one: the
+        # very same node carries three states in turn -- "Suivre en retour" when you may follow,
+        # "Message" / "Envoie un message" once you do, "Demande" when the account is private and a
+        # request went out. Its id `rdh` is the same in every state (43.1.4), so an id-only form
+        # took « Message » for a follow-back. The state IS the label.
+        return [row + button for row in rows for button in self.follow_back_button]
 
 
     def say_hello_button_for_line(self, line: str) -> List[str]:
-        """The wave button of ONE named row, and nobody else's.
+        """The wave button of ONE named row, and nobody else's; nothing when the row has none.
 
         Scoped from the row's own text up four levels to the row container -- measured
-        2026-08-30, that is exactly where the text and the button meet. Below four the button is
-        outside the subtree; above it, the whole list is, and the tap would greet whoever the
-        first row happens to be.
+        2026-08-30, that is exactly where the text and the button meet, and on 43.1.4 the fourth
+        ancestor of the line is the row (`t5a`). Below four the button is outside the subtree;
+        above it, the whole list is, and the tap would greet whoever the first row happens to be.
 
-        The caller takes the LAST match: the scoped subtree also holds the avatar and the row
-        itself, and the button is the deepest of the three. The obfuscated id is listed first so
-        the precise form wins where it exists, and the structural one carries builds where it
-        does not.
+        Only the button's own id, `hhq`, from the measure of 2026-08-30 (no dump kept, version not
+        noted). A structural form, « the row's last clickable », stood behind it until 2026-10-25:
+        on 43.1.4 the row has no wave button, its line is only the preview, and that last
+        clickable is the camera shortcut (`tt4314_en_inbox.xml`; same layout on 46.9.3 and
+        47.0.3 in the corpus). A wave on such a row opened the camera.
 
         `line` is the wave's line as the dump holds it (`Say hi to Alexis`, from
         `DMActions._say_hello_lines`): equality, so the wave of « Alexis » is never the row of
@@ -475,10 +487,6 @@ class InboxSelectors:
         exact = (line or "").replace('"', "")
         if not exact:
             return []
-        row = f'//*[@text="{exact}"]/ancestor::*[4]'
-        return [
-            f'{row}//*[contains(@resource-id, ":id/hhq")]',
-            f'{row}//*[@clickable="true"]',
-        ]
+        return [f'//*[@text="{exact}"]/ancestor::*[4]//*[contains(@resource-id, ":id/hhq")]']
 
 INBOX_SELECTORS = InboxSelectors()

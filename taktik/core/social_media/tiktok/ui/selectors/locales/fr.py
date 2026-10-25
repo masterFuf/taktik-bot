@@ -355,9 +355,11 @@ STRINGS: Dict[str, List[str]] = {
     "inbox.decline_request_button": [
         "//android.widget.Button[@text=\"Supprimer\"]",
     ],
-    "inbox.follow_back_button": [
-        "//android.widget.Button[@text=\"Suivre en retour\"]",
-        "//*[@text=\"Suivre en retour\"]",
+    # What the follow-back button of a new follower reads: a bare label, the button is built from
+    # it. The row's « Message » button carries the same id (`tt4314_fr_new_followers.xml`, 43.1.4),
+    # so the label is what tells them apart.
+    "inbox.follow_back_labels": [
+        "Suivre en retour",
     ],
     # One of the empty French keys the audit counted, and the reason every DM flow stopped at
     # "Failed to navigate to Inbox" while standing ON the inbox: with nothing here `L()` fell back
@@ -377,6 +379,11 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@resource-id, \":id/b8h\")][@text=\"Nouveaux abonnés\"]",
         "//*[@text=\"Nouveaux followers\"]",
         "//*[@text=\"Nouveaux abonnés\"]",
+    ],
+    # The start of a conversation row's line that names someone to greet, read off a real inbox on
+    # 2026-08-30, and in the corpus on 46.9.3 and 47.0.3, where it is only the row's preview.
+    "inbox.say_hello_line_prefixes": [
+        "Dis bonjour à ",
     ],
     "inbox.search_inbox_button": [
         "//android.widget.ImageView[@content-desc=\"Rechercher\"]",
