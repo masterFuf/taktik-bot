@@ -157,9 +157,13 @@ class DirectMessageSelectors:
         "com.instagram.android:id/profile_tab",
     ])
     
-    # Container of one conversation in the list
+    # Container of one conversation in the list. Only a row with its digest in its content-desc
+    # ("username, preview, time"): the message requests screen lists one more row_inbox_container
+    # without a digest, « Invitations masquées », that opens the hidden requests, no conversation
+    # (447 capture of that screen, whose rows keep this form; the 56 rows of the 410 Lab corpus all
+    # carry a digest). Same condition as the 442 override.
     thread_container_resource_id: str = "com.instagram.android:id/row_inbox_container"
-    thread_container: str = '//*[@resource-id="com.instagram.android:id/row_inbox_container"]'
+    thread_container: str = '//*[@resource-id="com.instagram.android:id/row_inbox_container"][contains(@content-desc, ",")]'
     
     # Elements of one conversation
     thread_username_resource_id: str = 'com.instagram.android:id/row_inbox_username'
