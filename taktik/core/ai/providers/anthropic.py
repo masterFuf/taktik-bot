@@ -8,7 +8,8 @@ translates them:
   - text parts pass unchanged, strings too.
 
 What OpenRouter is asked differently here, from the policy (`openrouter_policy.py`):
-  - thinking off, by the first form the model accepts (`ANTHROPIC_THINKING_OFF_FORMS`);
+  - thinking off, by the first form the model accepts (`ANTHROPIC_THINKING_OFF_FORMS`); only the model
+    benchmark turns it on (`reasoning_effort`), to measure what reasoning buys and costs;
   - no temperature: the current Claude models refuse any value but their default;
   - the retried statuses (`ANTHROPIC_RETRYABLE_HTTP_STATUSES`, 529 "overloaded" among them);
   - the cost: Anthropic answers with tokens only, so the cost is computed from them at the public
@@ -36,6 +37,11 @@ from taktik.core.ai.openrouter_policy import (
 from .transport import COST_PUBLIC_PRICE, ModelCall, post_json, refusal_answer
 
 ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
+
+# Anthropic counts the thinking inside `max_tokens`: a 300-token post description asked of a model
+# that reasons would be cut before its first word of answer. The benchmark's reasoning arms get this
+# much more, on top of what the call asks for.
+REASONING_ROOM_TOKENS = 4000
 
 
 # ------------------------------------------------------------------------------- the messages
@@ -119,8 +125,16 @@ class AnthropicTransport:
     provider = PROVIDER_ANTHROPIC
     label = "Anthropic"
 
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, reasoning_effort: Optional[str] = None):
+        """`reasoning_effort` (`low`, `medium`, `high`) is for the model benchmark only
+        (`scripts/eval/`): set, the model reasons (adaptive thinking at that effort) instead of
+        having it turned off, with `REASONING_ROOM_TOKENS` more to do it in. No run sets it:
+        `transport_for` builds the transport without it."""
         self.api_key = api_key
+        self._reasoning_form: Optional[Dict[str, Any]] = (
+            {"thinking": {"type": "adaptive"}, "output_config": {"effort": reasoning_effort}}
+            if reasoning_effort else None
+        )
         # The thinking-off form each model accepted, learned from its first refusals and kept, so
         # a refusal is provoked once per model rather than once per call.
         self._thinking_form: Dict[str, int] = {}
@@ -141,10 +155,13 @@ class AnthropicTransport:
             "Content-Type": "application/json",
         }
 
+        forms = (self._reasoning_form,) if self._reasoning_form else ANTHROPIC_THINKING_OFF_FORMS
+        max_tokens = call.max_tokens + (REASONING_ROOM_TOKENS if self._reasoning_form else 0)
+
         def body(form: dict) -> bytes:
             request: Dict[str, Any] = {
                 "model": call.model,
-                "max_tokens": call.max_tokens,
+                "max_tokens": max_tokens,
                 "messages": turns,
                 **form,
             }
@@ -155,7 +172,7 @@ class AnthropicTransport:
         outcome = post_json(
             ANTHROPIC_API_URL,
             headers,
-            tuple(body(form) for form in ANTHROPIC_THINKING_OFF_FORMS),
+            tuple(body(form) for form in forms),
             first_form=self._thinking_form.get(call.model, 0),
             form_refused=lambda status, text: status == 400 and "thinking" in text.lower(),
             retryable_statuses=ANTHROPIC_RETRYABLE_HTTP_STATUSES,

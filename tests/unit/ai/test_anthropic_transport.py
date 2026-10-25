@@ -24,7 +24,13 @@ from taktik.core.ai.openrouter_policy import (
     RATE_LIMIT_BACKOFF_SECONDS,
 )
 from taktik.core.ai.prompting import cacheable_system
-from taktik.core.ai.providers.anthropic import ANTHROPIC_API_URL, anthropic_messages, public_price_cost
+from taktik.core.ai.providers.anthropic import (
+    ANTHROPIC_API_URL,
+    REASONING_ROOM_TOKENS,
+    AnthropicTransport,
+    anthropic_messages,
+    public_price_cost,
+)
 from taktik.core.ai.providers.openrouter import AIService
 
 KEY = "sk-ant-api03-" + "k" * 40
@@ -244,6 +250,21 @@ def test_thinking_off_falls_back_form_by_form_and_is_remembered(provider):
     shapes = [{k: request["body"][k] for k in ("thinking", "output_config") if k in request["body"]}
               for request in sent]
     assert shapes == [dict(form) for form in ANTHROPIC_THINKING_OFF_FORMS] + [dict(ANTHROPIC_THINKING_OFF_FORMS[2])]
+
+
+def test_only_a_benchmark_transport_reasons_and_it_gets_room_to_answer(provider):
+    sent, answers, _ = provider
+    answers.extend([_message("ok"), _message("ok")])
+    service = _service()
+
+    service._call_model("claude-sonnet-5-5", [{"role": "user", "content": "hi"}], max_tokens=300)
+    service.transport = AnthropicTransport(KEY, reasoning_effort="low")
+    service._call_model("claude-sonnet-5-5", [{"role": "user", "content": "hi"}], max_tokens=300)
+
+    run, bench = (request["body"] for request in sent)
+    assert run["thinking"] == {"type": "disabled"} and run["max_tokens"] == 300
+    assert bench["thinking"] == {"type": "adaptive"} and bench["output_config"] == {"effort": "low"}
+    assert bench["max_tokens"] == 300 + REASONING_ROOM_TOKENS
 
 
 def test_overloaded_is_retried_with_the_policy_waits_and_a_bad_request_is_not(provider):
