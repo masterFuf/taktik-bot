@@ -160,6 +160,11 @@ def test_the_task_bridge_follows_its_contract(monkeypatch, lines, fail):
     monkeypatch.setitem(agent_handler.run_instagram_story_relay.__kwdefaults__, "relay", _relay(fail))
     data = app_file(INSTAGRAM_STORY_RELAY, packageName="com.instagram.android")
     log: set = set()
+    # The handler hands the launcher a copy of the task's params (`merge_invocation_payload`), which
+    # the probe cannot follow: the launcher's reads are noted on that copy, under the same keys.
+    launcher = agent_handler.run_instagram_story_relay
+    monkeypatch.setattr(agent_handler, "run_instagram_story_relay",
+                        lambda payload, **kwargs: launcher(Recording(dict(payload), log, ("params",)), **kwargs))
 
     assert bridge.TaskBridge(Recording(data, log)).run() == (1 if fail else 0)
 

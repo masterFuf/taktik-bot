@@ -18,6 +18,7 @@ from typing import Any, Callable, Mapping, Optional
 from loguru import logger
 
 from taktik.core.kernel.contracts import WorkflowInvocation
+from taktik.core.kernel.handler_params import merge_invocation_payload
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.instagram.workflows.common.startup import InstagramStartError, package_name_from_payload
 from taktik.core.social_media.instagram.workflows.tasks.story_relay import (
@@ -86,7 +87,7 @@ def build_instagram_task_handler(*, instagram_task_connect: Optional[Connect] = 
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
         if instagram_task_connect is None:
             raise RuntimeError("An Instagram task needs a connected device")
-        merged = _merge_invocation_payload(invocation, payload)
+        merged = merge_invocation_payload(invocation, payload)
 
         if invocation.workflow_id == INSTAGRAM_TASK_STORY_RELAY_WORKFLOW_ID:
             return run_instagram_story_relay(merged, connect=instagram_task_connect)
@@ -106,17 +107,6 @@ def register_instagram_task_handlers(
     for workflow_id in INSTAGRAM_TASK_WORKFLOW_IDS:
         registry.register(workflow_id, handler)
     return registry
-
-
-def _merge_invocation_payload(
-    invocation: WorkflowInvocation,
-    payload: Mapping[str, Any],
-) -> Mapping[str, Any]:
-    if not invocation.params:
-        return payload
-    merged = dict(payload)
-    merged.update(invocation.params)
-    return merged
 
 
 def _source_username(payload: Mapping[str, Any]) -> str:

@@ -29,6 +29,7 @@ from loguru import logger
 
 from taktik.core.ai.credential import AICredentialProvider
 from taktik.core.kernel.contracts import WorkflowInvocation
+from taktik.core.kernel.handler_params import merge_invocation_payload
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.shared.device.network_door import open_network_door
 from taktik.core.social_media.instagram.workflows.common.startup import InstagramConnect
@@ -127,8 +128,7 @@ def run_instagram_scraping(
 
 def instagram_scraping_payload(invocation: WorkflowInvocation, payload: Mapping[str, Any]) -> dict[str, Any]:
     """The payload a handler call stands for: every key kept, the source type the id names."""
-    merged = dict(payload)
-    merged.update(invocation.params)
+    merged = merge_invocation_payload(invocation, payload)
     merged["type"] = _scraping_type_from_id(invocation.workflow_id)
     return merged
 

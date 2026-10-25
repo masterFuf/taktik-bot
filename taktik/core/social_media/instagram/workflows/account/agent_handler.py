@@ -19,6 +19,7 @@ from typing import Any, Callable, Mapping, Optional
 from loguru import logger
 
 from taktik.core.kernel.contracts import WorkflowInvocation
+from taktik.core.kernel.handler_params import merge_invocation_payload
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.instagram.workflows.common.startup import package_name_from_payload
 from taktik.core.social_media.instagram.workflows.account.change_language_workflow import (
@@ -205,7 +206,7 @@ def build_instagram_account_handler(
     """Build an injectable Instagram account handler without bridge startup."""
 
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
-        merged = _merge_invocation_payload(invocation, payload)
+        merged = merge_invocation_payload(invocation, payload)
         params = instagram_account_params(invocation.workflow_id, merged)
         app = None
         if instagram_account_app is not None:
@@ -262,15 +263,6 @@ def _status(on_status: Optional[StatusCallback], state: str, message: str) -> No
 
 def _log_status(state: str, message: str) -> None:
     logger.info(f"[{state}] {message}")
-
-
-def _merge_invocation_payload(
-    invocation: WorkflowInvocation,
-    payload: Mapping[str, Any],
-) -> dict[str, Any]:
-    merged = dict(payload)
-    merged.update(invocation.params)
-    return merged
 
 
 def _required_string(payload: Mapping[str, Any], *names: str, message: str) -> str:

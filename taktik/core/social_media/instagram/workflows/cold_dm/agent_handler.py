@@ -30,6 +30,7 @@ from loguru import logger
 from taktik.core.ai.credential import AICredentialProvider
 from taktik.core.ai.dm_rules import AiDmRules
 from taktik.core.kernel.contracts import WorkflowInvocation
+from taktik.core.kernel.handler_params import merge_invocation_payload
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.shared.device.network_door import open_network_door
 from taktik.core.social_media.instagram.workflows.cold_dm.payload import cold_dm_request_from_payload
@@ -149,8 +150,7 @@ def build_instagram_cold_dm_handler(
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
         if instagram_cold_dm_runtime is None:
             raise RuntimeError("Instagram cold DM needs a connected device")
-        config = dict(payload)
-        config.update(invocation.params)
+        config = merge_invocation_payload(invocation, payload)
         return run_instagram_cold_dm(
             config,
             connect=instagram_cold_dm_runtime,

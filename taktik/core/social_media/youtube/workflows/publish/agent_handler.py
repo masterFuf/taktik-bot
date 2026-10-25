@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any, Callable, Mapping
 
 from taktik.core.kernel.contracts import WorkflowInvocation
+from taktik.core.kernel.handler_params import merge_invocation_payload
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.youtube.workflows.publish.payload import (
     SHORT_TITLE_MAX_LENGTH,
@@ -56,8 +57,7 @@ def build_youtube_upload_post_handler(
     """Build a WorkflowRegistry handler without owning device connection setup."""
 
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
-        merged = dict(payload)
-        merged.update(invocation.params)
+        merged = merge_invocation_payload(invocation, payload)
         return run_youtube_upload(
             merged,
             device=device,

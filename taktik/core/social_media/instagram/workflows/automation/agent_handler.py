@@ -23,6 +23,7 @@ from __future__ import annotations
 from typing import Any, Callable, Mapping, Optional
 
 from taktik.core.kernel.contracts import WorkflowInvocation
+from taktik.core.kernel.handler_params import merge_invocation_payload
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.shared.device.network_door import open_network_door
 from taktik.core.social_media.instagram.workflows.common.startup import (
@@ -158,8 +159,7 @@ def instagram_automation_payload(
     target's aliases, `feed_stories`, `appLanguage` (`package_name` is read by the launcher, with every
     Instagram launcher: `package_name_from_payload`).
     """
-    merged = dict(payload)
-    merged.update(invocation.params)
+    merged = merge_invocation_payload(invocation, payload)
 
     workflow_type = _workflow_type_from_id(invocation.workflow_id)
     merged["workflowType"] = workflow_type
