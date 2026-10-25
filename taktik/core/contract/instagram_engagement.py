@@ -25,6 +25,12 @@ _WORKFLOWS = "taktik.core.social_media.instagram.workflows"
 
 # ------------------------------------------------------------------------------------- cold DM
 
+#: Who a line about one recipient's text is about: `cold_dm_sent`, `cold_dm_text_refused`.
+_COLD_DM_RECIPIENT = (
+    Field("current", "int", "The recipient's rank, from 1."),
+    Field("username", "string", "Its handle."),
+)
+
 INSTAGRAM_COLD_DM = WorkflowContract(
     workflow_id="instagram.engagement.coldDm",
     name="InstagramColdDm",
@@ -82,10 +88,16 @@ INSTAGRAM_COLD_DM = WorkflowContract(
             Field("username", "string", "Its handle."),
         )),
         Event("cold_dm_sent", doc="A message the conversation took: the text really sent to the recipient.", fields=(
-            Field("current", "int", "The recipient's rank, from 1."),
-            Field("username", "string", "Its handle."),
+            *_COLD_DM_RECIPIENT,
             Field("message", "string", "The text sent."),
             Field("aiWritten", "bool", "Written by an AI (the bot's AI mode, or `aiDmRules` given)."),
+        )),
+        Event("cold_dm_text_refused", doc="A text the AI mode wrote for one recipient and the rule refused, before "
+              "anything was typed: the recipient is passed, the run goes on, `textsRefused` counts it.", fields=(
+            *_COLD_DM_RECIPIENT,
+            Field("message", "string", "The text the AI wrote, not sent."),
+            ai_dm_text_refusal_field("The rule it breaks and its measure; never an `index` (one text per "
+                                     "recipient).", optional=False),
         )),
         Event("cold_dm_result", doc="The run's verdict: its last line.", fields=(
             Field("success", "bool", "The run went through its list."),
@@ -97,7 +109,8 @@ INSTAGRAM_COLD_DM = WorkflowContract(
                   optional=True),
             Field("error", "string", "What went wrong, for a person.", optional=True, nullable=True),
             Field("stopReason", RUN_HALT_CODE, "Why the run stopped early (`action_blocked`...).", optional=True),
-            Field("textsRefused", "int", "Texts the AI mode wrote and the rule refused: not sent.", optional=True),
+            Field("textsRefused", "int", "Texts the AI mode wrote and the rule refused: not sent, each one said on "
+                  "its `cold_dm_text_refused` line.", optional=True),
             ai_dm_text_refusal_field("The text of `messages` that refused the run before the phone."),
         )),
     ),

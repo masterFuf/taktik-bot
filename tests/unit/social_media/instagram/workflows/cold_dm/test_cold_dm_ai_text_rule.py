@@ -15,7 +15,7 @@ from taktik.core.ai.dm_rules import AiDmRules, AiDmTextRefused
 from taktik.core.social_media.instagram.workflows.cold_dm import agent_handler
 from taktik.core.social_media.instagram.workflows.cold_dm import workflow as module
 from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome
-from unit.ai_dm_texts import EACH_REASON, FRENCH_ACCOUNT, WITHIN_RULES
+from unit.ai_dm_texts import BROKEN_TEXTS, EACH_REASON, FRENCH_ACCOUNT, WITHIN_RULES
 
 
 def _payload(**extra):
@@ -57,11 +57,11 @@ class _Phone:
         self.typed = []
 
 
-def _workflow(monkeypatch, *, sent=None):
+def _workflow(monkeypatch, *, sent=None, refused=None):
     monkeypatch.setattr(module, "look_for_action_block", lambda *args, **kwargs: False)
     monkeypatch.setattr(module, "ProblematicPageDetector", lambda device: None)
     phone = _Phone()
-    workflow = module.ColdDMWorkflow(object(), object(), sent=sent)
+    workflow = module.ColdDMWorkflow(object(), object(), sent=sent, refused=refused)
     workflow.open_recipient_profile = lambda recipient: True
     workflow.open_dm_from_profile = lambda policy=None, recipient=None: True
     workflow.send_message = lambda message: phone.typed.append(message) or ReplyOutcome.SENT
@@ -90,9 +90,9 @@ def test_a_text_the_ai_mode_wrote_within_the_rules_is_typed(monkeypatch):
     assert reached["outcome"] == module.SENT and phone.typed == [WITHIN_RULES]
 
 
-def _ai_run(monkeypatch, written, rules):
+def _ai_run(monkeypatch, written, rules, *, refused=None):
     announced = []
-    workflow, phone = _workflow(monkeypatch, sent=lambda **line: announced.append(line))
+    workflow, phone = _workflow(monkeypatch, sent=lambda **line: announced.append(line), refused=refused)
     monkeypatch.setattr("taktik.core.social_media.instagram.workflows.cold_dm.messages.generate_ai_message",
                         lambda username, *args, **kwargs: written[username])
     monkeypatch.setattr(module, "apply_cold_dm_send_result",
@@ -112,6 +112,27 @@ def test_an_ai_run_sends_the_texts_within_the_rules_and_announces_each_one(monke
     assert phone.typed == [WITHIN_RULES]
     assert announced == [{"current": 1, "username": "lea_bakery", "message": WITHIN_RULES, "ai_written": True}]
     assert result["texts_refused"] == 1 and result["dms_failed"] == 0
+
+
+def test_an_ai_run_announces_each_refused_text_with_its_recipient_rule_and_measure(monkeypatch):
+    """One line per recipient whose text the rule refused, with the text: the journal of the DM texts
+    keeps it, where the count of `textsRefused` alone said nothing of who or why."""
+    too_long, other_language = BROKEN_TEXTS["too_long"], BROKEN_TEXTS["language"]
+    written = {"lea_bakery": too_long, "marc_shop": WITHIN_RULES, "anna_flowers": other_language}
+    refused = []
+
+    result, phone, announced = _ai_run(monkeypatch, written, AiDmRules(base_language="fr"),
+                                       refused=lambda **line: refused.append(line))
+
+    assert phone.typed == [WITHIN_RULES]
+    assert [(line["current"], line["username"], line["message"]) for line in refused] == [
+        (1, "lea_bakery", too_long), (3, "anna_flowers", other_language)]
+    assert refused[0]["refusal"].as_line() == {"reason": "too_long", "detail": "508 characters, 500 at most",
+                                               "measure": 508, "limit": 500}
+    assert refused[1]["refusal"].as_line() == {"reason": "language",
+                                               "detail": "written in en, the account writes in fr"}
+    assert [line["username"] for line in announced] == ["marc_shop"]
+    assert result["texts_refused"] == 2 and result["dms_failed"] == 0
 
 
 def test_the_launcher_holds_the_ai_mode_to_the_most_prudent_frame_without_a_block(monkeypatch):

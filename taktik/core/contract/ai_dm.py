@@ -91,9 +91,10 @@ def ai_dm_rules_field(doc: str, **kwargs) -> Field:
     return Field("aiDmRules", AI_DM_RULES, doc, by=HOST, via=_RULES_READER, **kwargs)
 
 
-def ai_dm_text_refusal_field(doc: str) -> Field:
-    """The `textRefusal` key of a line that reports a refused text."""
-    return Field("textRefusal", AI_DM_TEXT_REFUSAL, doc, optional=True)
+def ai_dm_text_refusal_field(doc: str, *, optional: bool = True) -> Field:
+    """The `textRefusal` key of a line that reports a refused text; `optional=False` on a line that
+    exists only to report one."""
+    return Field("textRefusal", AI_DM_TEXT_REFUSAL, doc, optional=optional)
 
 
 __all__ = [

@@ -15,7 +15,7 @@ import sys
 from bridges.common.network import enforce_pre_session_ip_rotation, send_network_refusal
 from taktik.core.shared.device.network_door import NetworkUnreachableError
 from bridges.common.entrypoint import MISSING_CONFIG
-from bridges.instagram.cold_dm.progress import emit_cold_dm_progress, emit_cold_dm_sent
+from bridges.instagram.cold_dm.progress import emit_cold_dm_progress, emit_cold_dm_sent, emit_cold_dm_text_refused
 from taktik.core.social_media.instagram.workflows.common.device import InstagramDeviceBase
 from bridges.instagram.common.ipc import _ipc, logger
 from taktik.core.ai.dm_rules import AiDmTextRefused
@@ -85,6 +85,7 @@ def run_cold_dm(config: dict) -> None:
             connect=lambda package_name: _connect(config, device_id, package_name),
             progress=emit_cold_dm_progress,
             sent=emit_cold_dm_sent,
+            refused=emit_cold_dm_text_refused,
             ai_ipc=_ipc,
             on_session_start=_ipc.session_start,
         )

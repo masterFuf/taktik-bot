@@ -3,8 +3,8 @@
 It was the cold DM bridge's own class, built on the bridge's device base; the CLI had a second
 engine with other reads and no record of what it sent. The host now hands the workflow what used
 to come from the bridge base: the device (the bridges' clone-aware, facade-wrapped device), its
-manager and the clean restart of Instagram, plus where the progress lines, the texts sent and the
-AI spend go. The keyboard is not the host's to give: the send reads the one of the device itself.
+manager and the clean restart of Instagram, plus where the progress lines, the texts sent, the texts
+the rule refused and the AI spend go. The keyboard is not the host's to give: the send reads the one of the device itself.
 
 A text written by an AI (the AI mode's, or a list `aiDmRules` says an AI wrote) goes through the one
 rule of `taktik/core/ai/dm_rules.py`: a list is checked when the payload is read, a text the AI mode
@@ -60,6 +60,9 @@ ACTION_BLOCKED = "action_blocked"
 ProgressCallback = Callable[..., None]
 #: `sent(current=, username=, message=, ai_written=)`: a text the conversation took.
 SentCallback = Callable[..., None]
+#: `refused(current=, username=, message=, refusal=)`: a text the AI mode wrote and the rule refused
+#: (`refusal`: the `AiDmRefusal`), nothing typed.
+RefusedCallback = Callable[..., None]
 
 
 class ColdDMWorkflow(
@@ -77,6 +80,7 @@ class ColdDMWorkflow(
         restart: Optional[Callable[[], Any]] = None,
         progress: Optional[ProgressCallback] = None,
         sent: Optional[SentCallback] = None,
+        refused: Optional[RefusedCallback] = None,
         ai_ipc=None,
     ):
         self.device = device
@@ -84,6 +88,7 @@ class ColdDMWorkflow(
         self._restart = restart
         self._progress = progress
         self._sent = sent
+        self._refused = refused
         self._ai_ipc = ai_ipc
         self.dms_sent = 0
         self.dms_success = 0
@@ -166,6 +171,9 @@ class ColdDMWorkflow(
                 if outcome == TEXT_REFUSED:
                     self.texts_refused += 1
                     logger.warning(f"Text for {recipient} refused ({reached['refusal'].reason}): not sent")
+                    if self._refused is not None:
+                        self._refused(current=i + 1, username=recipient, message=reached["message"],
+                                      refusal=reached["refusal"])
                 elif outcome in PRIVATE_SKIP_REASONS:
                     self.private_profiles += 1
                 elif outcome == SKIP_VERIFIED:
@@ -217,8 +225,8 @@ class ColdDMWorkflow(
         `rules`: the composed text was written by an AI and is held to them before it is typed.
         Returns `outcome` (`SENT`, a `recipient_policy.SKIP_*` reason, or one of the
         `NOT_FOUND`, `NOT_ON_PROFILE`, `NO_CONVERSATION`, `NO_MESSAGE`
-        failures, or `TEXT_REFUSED` with its `refusal`), with `message` and `send_result` once
-        sent. Counting and recording are the caller's.
+        failures, or `TEXT_REFUSED` with its `refusal` and the refused `message`), with `message`
+        and `send_result` once sent. Counting and recording are the caller's.
         """
         if not self.open_recipient_profile(recipient):
             logger.warning(f"The profile search opened no profile of {recipient}")
@@ -239,7 +247,7 @@ class ColdDMWorkflow(
         if rules is not None:
             refusal = check_ai_dm_text(message, rules)
             if refusal is not None:
-                return {"outcome": TEXT_REFUSED, "refusal": refusal}
+                return {"outcome": TEXT_REFUSED, "refusal": refusal, "message": message}
         send_result = self.send_message(message)
         if look_for_action_block(ProblematicPageDetector(self.device), after='dm', target=recipient):
             return {"outcome": ACTION_BLOCKED, "message": message, "send_result": ReplyOutcome.NOT_SENT}
