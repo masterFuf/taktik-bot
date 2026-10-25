@@ -11,11 +11,6 @@ from taktik.core.clone import patch_selectors_for_package, set_active_package
 from taktik.core.clone.packages import get_original_package
 from taktik.core.social_media.instagram.ui.language import detect_and_optimize
 
-# NB: `apply_version_overrides` is imported lazily inside the function below.
-# `compat.selectors.setup` imports the Instagram selector catalogs, which forces
-# this package (`social_media.instagram`) to initialize; a module-level import here
-# would re-enter the still-initializing compat module and raise a circular ImportError.
-
 LogCallback = Callable[[str, str], None]
 VersionProvider = Callable[[], Optional[str]]
 

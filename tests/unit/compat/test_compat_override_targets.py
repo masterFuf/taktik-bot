@@ -12,12 +12,12 @@ These tests read the shipped override files and fail on a key that would be sile
 import pytest
 import yaml
 
-from taktik.core.compat.selectors.setup import (
-    INSTAGRAM_SELECTOR_DOMAINS,
-    TIKTOK_SELECTOR_DOMAINS,
-)
+from taktik.core.compat.selectors.platforms import platform_selectors
 from unit.paths import CORE
 
+# The tables the harness registered, as a bridge's entry does (`tests/unit/conftest.py`).
+INSTAGRAM_SELECTOR_DOMAINS = platform_selectors("instagram").domains
+TIKTOK_SELECTOR_DOMAINS = platform_selectors("tiktok").domains
 DOMAINS = {"instagram": INSTAGRAM_SELECTOR_DOMAINS, "tiktok": TIKTOK_SELECTOR_DOMAINS}
 OVERRIDES_DIR = CORE / "taktik/core/compat/data/overrides"
 
@@ -139,7 +139,7 @@ def test_every_shipped_catalogue_is_reachable_by_the_override_machinery():
         if obj_id not in registered
     )
     assert unreachable == sorted(TIKTOK_CATALOGUES_OUT_OF_THE_MAP), (
-        f"TikTok catalogues out of TIKTOK_SELECTOR_DOMAINS: {unreachable}; "
+        f"TikTok catalogues out of its compat map (ui/selectors/domains.py): {unreachable}; "
         f"listed with a reason: {sorted(TIKTOK_CATALOGUES_OUT_OF_THE_MAP)}"
     )
 
@@ -158,7 +158,7 @@ def test_every_instagram_catalogue_is_reachable():
         and is_dataclass(getattr(instagram_barrel, name, None))
         and id(getattr(instagram_barrel, name)) not in registered
     )
-    assert not unreachable, f"catalogues shipped but not registered in INSTAGRAM_SELECTOR_DOMAINS: {unreachable}"
+    assert not unreachable, f"catalogues shipped but not in the Instagram compat map (ui/selectors/domains.py): {unreachable}"
 
 
 def test_the_compat_map_and_the_language_optimiser_see_the_same_catalogues():

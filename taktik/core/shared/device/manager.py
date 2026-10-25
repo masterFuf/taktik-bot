@@ -71,8 +71,8 @@ class DeviceManager:
             # it here covers every caller through the one funnel they all share. Once per
             # device: reading the installed versions costs two adb round trips.
             if self._compat_device != self.device_id:
-                self._compat_device = self.device_id
                 self._apply_selector_overrides(self.device_id)
+                self._compat_device = self.device_id
             
             # Verify ATX agent is working (only once per session)
             # Non-blocking: log warning but don't prevent connection
@@ -104,15 +104,17 @@ class DeviceManager:
 
     @staticmethod
     def _apply_selector_overrides(device_id: str) -> None:
-        """Match the selector catalog to the apps installed on this phone. Never raises."""
-        try:
-            from taktik.core.compat.selectors.setup import apply_overrides_for_device
+        """Match the selector catalogs the host registered to the apps installed on this phone.
 
-            applied = apply_overrides_for_device(device_id)
-            if applied:
-                logger.debug(f"[Compat] Selector overrides applied for {device_id}: {applied}")
-        except Exception as exc:
-            logger.warning(f"[Compat] Selector overrides not applied for {device_id}, baseline selectors kept: {exc}")
+        Reading the versions is best-effort (`apply_overrides_for_device` keeps the baseline and says
+        so). A host that registered no platform, or a catalogue that does not load, raises: the
+        connection fails with those words rather than running on tables nobody filled.
+        """
+        from taktik.core.compat.selectors.setup import apply_overrides_for_device
+
+        applied = apply_overrides_for_device(device_id)
+        if applied:
+            logger.debug(f"[Compat] Selector overrides applied for {device_id}: {applied}")
 
     def _verify_and_repair_atx(self, max_retries: int = 2) -> bool:
         """Verify ATX agent is working, attempt repair if not.

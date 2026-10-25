@@ -29,7 +29,7 @@ import taktik.core.social_media.instagram.workflows.dm.agent_handler as agent_ha
 import taktik.core.social_media.instagram.workflows.dm.conversation_state as conversation_state
 import taktik.core.social_media.instagram.workflows.dm.inbox_reset as inbox_reset
 import taktik.core.social_media.instagram.workflows.dm.reader as reader_module
-from taktik.core.compat.selectors.setup import INSTAGRAM_TARGET_VERSION, apply_version_overrides
+from taktik.core.compat.selectors.setup import apply_version_overrides, baseline_version
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.instagram.workflows.dm.inbox_reset import DMInboxResetMixin
 from taktik.core.social_media.instagram.workflows.dm.reader import DMConversationReaderMixin
@@ -153,7 +153,7 @@ def _a_447_phone(monkeypatch):
     set_active_locale("fr")
     apply_version_overrides("instagram", "447.0.0.55.81")
     yield
-    apply_version_overrides("instagram", INSTAGRAM_TARGET_VERSION)
+    apply_version_overrides("instagram", baseline_version("instagram"))
     set_active_locale(None)
 
 
@@ -207,7 +207,7 @@ def test_the_reference_takes_the_hidden_requests_row_for_no_conversation():
     carry a digest), this 447 capture is the only one. The reference reads the three requests and
     never the row without a digest.
     """
-    apply_version_overrides("instagram", INSTAGRAM_TARGET_VERSION)
+    apply_version_overrides("instagram", baseline_version("instagram"))
     phone = _Phone(start=REQUESTS)
 
     _Runtime(phone).read_conversations(0)

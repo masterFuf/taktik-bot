@@ -209,19 +209,16 @@ CONTRACTS = (
 
 #: (contract, file): (ceiling, why it holds and what removes it). The list only shrinks.
 EXCEPTIONS: dict[tuple[str, str], tuple[int, str]] = {
-    ("transverse-no-platform", "taktik/core/compat/selectors/setup.py"): (
-        2, "By construction today: the version override registry registers the selector catalogs of "
-           "Instagram and TikTok, and `shared/device/manager.py` applies it on connection (the "
-           "\"exception de compat\" AGENTS.md allows `shared`). Inverting it, each platform "
-           "registering its own catalogs, removes the entry."),
     ("shared-below-transverse", "taktik/core/shared/device/app_inspection.py"): (
         1, "`is_platform_foreground` asks the clone package map (lazily) whether the package in front "
            "belongs to a platform, clones included. The map is package data owned by `clone`: moving "
            "it below `shared`, or the question above it, removes the entry."),
     ("shared-below-transverse", "taktik/core/shared/device/manager.py"): (
         1, "The device manager applies the selector version overrides of the installed apps on "
-           "connection (`compat.selectors.setup`, lazily): the \"exception de compat\" AGENTS.md allows "
-           "`shared`. Inverting it, each platform registering its own catalogs, removes the entry."),
+           "connection (`compat.selectors.setup`, lazily): the connection is the one funnel every run goes "
+           "through, and compat patches the catalogues the host registered. Since the hosts register the "
+           "platforms (2026-10-25), compat imports none; the manager still asks compat. A connection hook "
+           "the host would register in `shared` removes the entry, at the price of a second registry."),
     ("shared-below-transverse", "taktik/core/shared/diagnostics/foreground_guard.py"): (
         1, "The foreground guard asks the clone package map whether the app in front is still the "
            "run's platform: the same data as `app_inspection.py`, the same way out."),
@@ -454,9 +451,6 @@ def self_test_cases(modules: Mapping[str, SourceModule]) -> dict[str, dict]:
         return {"modules": {**modules, module.path: module}, "expect": expect}
 
     one = modules["taktik/core/shared/device/manager.py"]
-    two = modules["taktik/core/compat/selectors/setup.py"]
-    without_tiktok = tuple(s for s in two.statements
-                           if not any(t.startswith("taktik.core.social_media.tiktok") for t in s.targets))
     signup = modules["taktik/core/social_media/tiktok/workflows/account/signup_workflow.py"]
     without_gmail = tuple(s for s in signup.statements
                           if not any(t.startswith("taktik.core.social_media.gmail") for t in s.targets))
@@ -523,8 +517,13 @@ def self_test_cases(modules: Mapping[str, SourceModule]) -> dict[str, dict]:
         "a listed file imports once more": listed(
             _with_extra_import(one, "taktik.core.kernel.contracts"), "times, ceiling"),
         "a listed file no longer crosses": listed(replace(one, statements=()), "no longer crosses"),
-        "a listed file crosses less than its ceiling": listed(
-            replace(two, statements=without_tiktok), "lower the ceiling"),
+        "a listed file crosses less than its ceiling": {
+            "modules": modules, "expect": "lower the ceiling",
+            "exceptions": {**EXCEPTIONS, ("shared-below-transverse", one.path): (2, "a ceiling above the count")}},
+        "compat imports a platform again": fake(
+            "taktik/core/compat/selectors/fake.py",
+            "def f():\n    from taktik.core.social_media.instagram.ui.selectors import AUTH_SELECTORS\n",
+            "(transverse-no-platform)"),
         "a listed file removed": {
             "modules": {p: m for p, m in modules.items() if p != one.path}, "expect": "no longer exists"},
         "the CLI imports a bridge": fake(
@@ -581,7 +580,7 @@ def deep_relative_caught(modules: Mapping[str, SourceModule]) -> bool:
 
 
 def caught(fake: dict) -> bool:
-    return any(fake["expect"] in failure for failure in check(fake["modules"]))
+    return any(fake["expect"] in failure for failure in check(fake["modules"], fake.get("exceptions", EXCEPTIONS)))
 
 
 def shared_bridge_code_left_alone(modules: Mapping[str, SourceModule]) -> bool:

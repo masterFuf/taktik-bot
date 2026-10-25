@@ -122,6 +122,10 @@ def test_close_popup(device_id=None):
 
 if __name__ == "__main__":
     import argparse
+
+    from bridges.common.selector_platforms import register_selector_platforms
+
+    register_selector_platforms()
     
     parser = argparse.ArgumentParser(description="Test TikTok popup closing")
     parser.add_argument("--device", type=str, help="Device ID to use")

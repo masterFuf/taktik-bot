@@ -17,8 +17,8 @@ def test_prepare_runtime_applies_config_package_version_clone_and_language(monke
     logs = []
 
     monkeypatch.setattr(runtime_setup, "set_active_package", lambda package: calls.append(("active", package)))
-    # apply_version_overrides is imported lazily inside prepare_*_runtime (to break a
-    # circular import), so it resolves from its owner module at call time — patch there.
+    # apply_version_overrides is imported inside prepare_*_runtime, so it resolves from its
+    # owner module at call time — patch there.
     monkeypatch.setattr(
         "taktik.core.compat.selectors.setup.apply_version_overrides",
         lambda platform, version: calls.append(("version", platform, version)) or 2,

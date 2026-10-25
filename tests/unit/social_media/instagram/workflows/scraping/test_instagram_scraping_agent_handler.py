@@ -6,7 +6,7 @@ import yaml
 from taktik.core.kernel.contracts import AgentPlan, PlanStep, WorkflowInvocation
 from taktik.core.kernel.executor import AgentPlanExecutor
 from taktik.core.kernel.registry import WorkflowRegistry
-from taktik.core.compat.selectors.setup import INSTAGRAM_TARGET_VERSION, apply_version_overrides
+from taktik.core.compat.selectors.setup import apply_version_overrides, baseline_version
 from taktik.core.social_media.instagram.ui.selectors import PROFILE_SELECTORS
 from taktik.core.social_media.instagram.workflows.common import runtime_setup
 from taktik.core.social_media.instagram.workflows.common.startup import InstagramRunPhone
@@ -292,7 +292,7 @@ class _Phone:
 @pytest.fixture
 def back_to_baseline():
     yield
-    apply_version_overrides("instagram", INSTAGRAM_TARGET_VERSION)
+    apply_version_overrides("instagram", baseline_version("instagram"))
 
 
 def test_the_launcher_matches_the_selectors_to_the_phone_before_the_workflow(detections, back_to_baseline):

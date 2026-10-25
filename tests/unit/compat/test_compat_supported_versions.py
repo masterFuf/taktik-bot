@@ -77,8 +77,8 @@ def test_published_file_matches_its_sources():
 
 def test_reference_is_the_version_the_patcher_uses():
     supported = load_supported_versions()
-    assert supported.app("instagram").reference == setup.INSTAGRAM_TARGET_VERSION
-    assert supported.app("tiktok").reference == setup.TIKTOK_TARGET_VERSION
+    assert supported.app("instagram").reference == setup.baseline_version("instagram")
+    assert supported.app("tiktok").reference == setup.baseline_version("tiktok")
 
 
 def test_every_download_is_a_mirror_search_never_our_server():

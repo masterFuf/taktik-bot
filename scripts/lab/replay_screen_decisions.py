@@ -212,9 +212,11 @@ def _child_decisions(files, version, language, dump_ms, only=None):
 
     phone = _fake_phone(dump_ms, "com.zhiliaoapp.musically")
 
+    from bridges.common.selector_platforms import register_selector_platforms
     from taktik.core.compat.selectors.setup import apply_version_overrides
     from taktik.core.social_media.tiktok.ui.language import detect_and_optimize
 
+    register_selector_platforms()
     apply_version_overrides("tiktok", version)
     phone.xml = Path(files[0]).read_text(encoding="utf-8", errors="replace")
     detect_and_optimize(phone, override=language if language in ("fr", "en") else None)
@@ -311,9 +313,11 @@ def _child_instagram_decisions(files, version, language, dump_ms, only=None):
 
     phone = _fake_phone(dump_ms, INSTAGRAM_PACKAGE)
 
+    from bridges.common.selector_platforms import register_selector_platforms
     from taktik.core.compat.selectors.setup import apply_version_overrides
     from taktik.core.social_media.instagram.ui.language import detect_and_optimize
 
+    register_selector_platforms()
     apply_version_overrides("instagram", version)
     phone.xml = Path(files[0]).read_text(encoding="utf-8", errors="replace")
     detect_and_optimize(phone, override=language if language in ("fr", "en") else None)

@@ -395,4 +395,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 
 if __name__ == "__main__":
+    from bridges.common.selector_platforms import register_selector_platforms
+
+    register_selector_platforms()
     raise SystemExit(main())
