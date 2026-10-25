@@ -371,3 +371,33 @@ def test_every_follower_the_lock_leaves_out_is_reported_with_its_reason(dm_recor
         ("fan_two", "wrote_to_us", False), ("fan_three", "already_dmed", False),
     ]
     assert all(line["error"] for line in skipped)
+
+
+# ---------------------------------------------------------------------------
+# The follow-back taps the page's row, which shows the display name
+# ---------------------------------------------------------------------------
+
+
+def test_a_follower_is_followed_back_by_the_name_the_page_shows(followers_page):
+    """The page shows « Fan Two », their profile @fan_two. The pass asked the page to follow back
+    « fan_two », and `follow_back` takes only the row whose name is exactly the one asked for: the
+    follower the AI chose was never found."""
+    asked = []
+
+    def follow_back_users(names):
+        asked.append(list(names))
+        return [{"username": name, "success": True} for name in names]
+
+    outcome = welcome_pass.run_welcome_pass(
+        [{"username": "Fan Two"}], _policy(follow_back=True, welcome_dm=False),
+        workflow=SimpleNamespace(follow_back_users=follow_back_users),
+        started=SimpleNamespace(device=object(), bot_username="acting_account", manager=object()),
+        device_id="device-1", ai_config={"enabled": True}, language="fr", notifier=_Notifier(),
+        qualifier_factory=lambda ai_config, language: (
+            lambda device, username: {"relevant": True, "score": 0.9, "follow": True}),
+    )
+
+    assert asked == [["Fan Two"]]
+    assert outcome["follow_back"] == [{"username": "Fan Two", "success": True}]
+    # The decision itself still travels under the handle: the DM and the guard address the person.
+    assert [decision["username"] for decision in outcome["decisions"]] == ["fan_two"]
