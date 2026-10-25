@@ -175,8 +175,16 @@ def sample_profiles(conn: sqlite3.Connection, legacy_id: int, count: int, seed: 
                  AND q.ai_classification IS NOT NULL AND q.ai_classification <> ''""",
             (username,),
         ).fetchone()
-        if row:
-            picked.append({"row": row, "shot": shot})
+        if not row:
+            continue
+        # Some old rows hold a classification that is not JSON: no baseline to compare with, so
+        # the profile is left out before anything is paid for it.
+        try:
+            json.loads(row["ai_classification"])
+        except json.JSONDecodeError as exc:
+            print(f"  @{username}: stored classification is not JSON ({exc}), left out of the sample")
+            continue
+        picked.append({"row": row, "shot": shot})
         if len(picked) >= count:
             break
     return picked
