@@ -114,6 +114,42 @@ def test_post_specific_comment_decision_fails_closed_on_bare_text(monkeypatch):
     assert out["comment"] == ""
 
 
+# The shape of a real answer of Sonnet 5.5 (model benchmark, 2026-10-25, post text replaced), cut
+# by the 220-token ceiling the generator used to set: the JSON never closes, and the fallback
+# published it whole.
+CUT_ANSWER = (
+    '{"anchor": "Qu\'est-ce qui vous manque le plus dans notre studio ?", '
+    '"reasoning": "Je reagis a la question posee par le studio.", '
+    '"comment": "Belle question, c\'est souvent le souffle partage a plusieurs qui manque le plus", '
+    '"safe_comment": "Cette posture en avant sur le tapis, dans cette lumiere tamisee, a quelque'
+)
+
+
+def test_a_cut_json_answer_is_never_published(monkeypatch):
+    svc = _service(monkeypatch, CUT_ANSWER)
+
+    out = svc.generate_smart_comment(post_description="d", username="x", language="fr", app_language="fr")
+
+    assert out["comment"] == ""
+    assert out["should_comment"] is False
+
+
+def test_both_writers_leave_room_for_a_verbose_model(monkeypatch):
+    # The smart comment answers four fields (anchor, reasoning, comment, safe_comment): Sonnet
+    # 5.5 writes 200 to 250 tokens of it, and was cut at 220 one answer in two. Only the tokens
+    # written are billed, so the ceiling costs nothing where it is not reached.
+    asked = []
+    svc = _service(monkeypatch, '{"reasoning": "r", "comment": "c"}')
+    svc.text_completion = lambda *a, **k: asked.append(k["max_tokens"]) or {
+        "success": True, "text": '{"should_reply": true, "reasoning": "r", "comment": "c"}',
+        "model": "test/model", "cost_usd": 0.0}
+
+    svc.generate_smart_comment(post_description="d", username="x", language="fr", app_language="fr")
+    svc.generate_comment_reply(comment_text="trop beau", username="x", language="fr")
+
+    assert len(asked) == 2 and min(asked) >= 600
+
+
 # --- Temporal anchor + anti-tic blocks (prompt content) ---
 
 def _service_capturing_prompt(monkeypatch, captured):
