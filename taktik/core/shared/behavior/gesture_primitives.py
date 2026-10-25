@@ -235,6 +235,9 @@ _DEVICE_MAX_POINTS = 400
 # A hand keeping contact with the glass while it drags: roughly 0.8-3.2 k px/s. `_long_drag` already
 # derives its duration from an explicit 1500-2200 px/s band; this is the wider envelope around it.
 _CONTROLLED_VEL_RANGE = (800.0, 3200.0)
+# The long continuous drag's own band (`_long_drag`, and a drag between two given points that is
+# not handed a duration): inside the envelope above, away from both of its edges.
+_LONG_DRAG_VEL_RANGE = (1500.0, 2200.0)
 
 
 def _controlled_duration(duration: float, distance_px: float, speed: float = 1.0,
@@ -493,7 +496,7 @@ class GestureMixin:
             return False
 
     def _long_drag(self, direction: str = "up", distance_px: Optional[float] = None,
-                   vel_range: tuple = (1500.0, 2200.0),
+                   vel_range: tuple = _LONG_DRAG_VEL_RANGE,
                    start_point: Optional[Tuple[int, int]] = None,
                    guard_start: bool = False,
                    velocity_scale: float = 1.0) -> bool:
@@ -837,7 +840,7 @@ def human_hswipe_raw(raw_device, direction: str = "left", distance_ratio: float 
 
 
 def human_drag_between_raw(raw_device, start: Tuple[int, int], end: Tuple[int, int],
-                           duration: float = 0.65, logger=None) -> bool:
+                           duration: Optional[float] = None, logger=None) -> bool:
     """Continuous finger-down drag from `start` to `end` that TRACKS the finger 1:1 and lifts at
     near-zero velocity — press, hold, accompany, release.
 
@@ -849,10 +852,17 @@ def human_drag_between_raw(raw_device, start: Tuple[int, int], end: Tuple[int, i
 
     Endpoints are given, not sampled: callers here are aiming at a grab bar or a sheet's content,
     not scrolling a page. `_long_drag` owns the sampled-endpoint case.
+
+    Without a `duration`, it is drawn like `_long_drag`'s: the distance over a hand's dragging
+    speed, 0.40-0.85 s. A fixed duration is a different speed on every screen height: the same
+    0.6 s carried a sheet's grab bar to the bottom of a 2160 px screen at 3260 px/s, past what a
+    hand does while it stays on the glass.
     """
     host = _raw_host(raw_device, logger)
     sx, sy = int(start[0]), int(start[1])
     ex, ey = int(end[0]), int(end[1])
+    if duration is None:
+        duration = _drag_duration(math.hypot(ex - sx, ey - sy) or 1, _LONG_DRAG_VEL_RANGE)
 
     raw = getattr(host.device, "_device", None) or raw_device
     try:

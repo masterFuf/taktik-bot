@@ -357,3 +357,39 @@ def test_horizontal_velocity_scale_changes_duration(monkeypatch):
     assert _Host(fast_raw)._human_horizontal_swipe("left", velocity_scale=1.2) is True
 
     assert slow_raw.calls[0][4] > fast_raw.calls[0][4]
+
+
+class _Lines(_Log):
+    def __init__(self):
+        self.lines = []
+
+    def debug(self, message, *_args, **_kwargs):
+        self.lines.append(message)
+
+
+class _RawJsonRpcScreen(_RawJsonRpc):
+    """The whole-path device, on a screen of 1080x2160."""
+
+    info = {"displayWidth": 1080, "displayHeight": 2160}
+
+    def window_size(self):
+        return 1080, 2160
+
+
+def test_a_drag_between_two_points_without_a_duration_has_a_dragging_hands_speed():
+    """No duration given: the drag's own, the long drag's draw (distance over 1500-2200 px/s, in
+    0.40-0.85 s), and never one fixed duration. A fixed 0.6 s carried a sheet's grab bar to the
+    bottom of a 2160 px screen at 3260 px/s, past what a hand does while it stays on the glass."""
+    low, high = gp._CONTROLLED_VEL_RANGE
+    durations = set()
+    for distance in (700, 1956):
+        for _ in range(30):
+            log = _Lines()
+            assert gp.human_drag_between_raw(_RawJsonRpcScreen(), (540, 96), (540, 96 + distance),
+                                             logger=log) is True
+            (line,) = [entry for entry in log.lines if entry.startswith("Gesture drag down:")]
+            ms = int(line.rsplit(" in ", 1)[1].split()[0])
+            assert 400 <= ms <= 850, line
+            assert low <= distance / (ms / 1000) <= high, line
+            durations.add(ms)
+    assert len(durations) > 10, durations
