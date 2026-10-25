@@ -197,3 +197,22 @@ def test_the_requests_of_447_are_read_and_nothing_else_is_tapped():
     assert tapped_rows == set(REQUEST_ROWS), taps
     assert not any(_inside(tap, DELETE_ALL) for tap in taps), f"« Tout supprimer » tapped: {taps}"
     assert not any(_inside(tap, HIDDEN_REQUESTS_ROW) for tap in taps), f"hidden requests opened: {taps}"
+
+
+def test_the_reference_takes_the_hidden_requests_row_for_no_conversation():
+    """The 410 reference, without any version override, on the same requests screen.
+
+    Its rows are the old ones, the form 410 lists every conversation in; no 410 capture of the corpus
+    shows the « Invitations masquées » row (the 56 row_inbox_container rows of its 1 578 dumps all
+    carry a digest), this 447 capture is the only one. The reference reads the three requests and
+    never the row without a digest.
+    """
+    apply_version_overrides("instagram", INSTAGRAM_TARGET_VERSION)
+    phone = _Phone(start=REQUESTS)
+
+    _Runtime(phone).read_conversations(0)
+
+    taps = [(x, y) for on_requests, x, y in phone.clicks if on_requests]
+    tapped_rows = {row for row in REQUEST_ROWS for tap in taps if _inside(tap, row)}
+    assert tapped_rows == set(REQUEST_ROWS), taps
+    assert not any(_inside(tap, HIDDEN_REQUESTS_ROW) for tap in taps), f"hidden requests opened: {taps}"

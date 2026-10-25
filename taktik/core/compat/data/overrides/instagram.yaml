@@ -109,7 +109,7 @@ versions:
   # digest in its content-desc), with one more such row without a digest, « Invitations masquées »,
   # that opens the hidden requests, and a « Tout supprimer » button under the list (Pixel 6a, French,
   # 2026-10-24, rd5-apres-invitations-447). A str field: both kinds in one xpath (a union), the
-  # old rows only with a digest.
+  # old rows only with a digest, as in the reference.
   "442.0.0.0":
 
     dm.thread_container:
