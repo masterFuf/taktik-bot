@@ -35,7 +35,6 @@ not what is tested: it types what it is given. What the profile shows once opene
 (`_verify_profile_navigation`, recorded here).
 """
 
-import time as real_time
 from contextlib import ExitStack
 
 import pytest
@@ -59,6 +58,7 @@ from search_screens_phone import (
     PKG,
     SEARCH_410,
     LEFT_OPEN_STACK,
+    RunningClock,
     SEARCH_447,
     SEARCH_447_KEYWORD_ROW,
     SEARCH_447_LEFT_OPEN,
@@ -66,23 +66,6 @@ from search_screens_phone import (
     row_buttons,
     selectors_of,
 )
-
-
-class _Clock:
-    """The waits loop on `time.time()`: a clock that runs, and sleeps that do not."""
-
-    def __init__(self):
-        self.now = 0.0
-
-    def time(self):
-        self.now += 0.7
-        return self.now
-
-    def sleep(self, _seconds):
-        pass
-
-    def __getattr__(self, name):
-        return getattr(real_time, name)
 
 
 @pytest.fixture
@@ -113,7 +96,7 @@ def phone_on(monkeypatch):
 
     for module in (facade_module, shared_facade_module, search_navigation, delays_module):
         monkeypatch.setattr(module.time, "sleep", lambda *_: None)
-    monkeypatch.setattr(base_action_module, "time", _Clock())
+    monkeypatch.setattr(base_action_module, "time", RunningClock())
     monkeypatch.setattr(miss_capture, "signaler_ecran_inconnu", lambda *a, **k: None)
     monkeypatch.setattr(miss_capture, "blocage_a_signaler", lambda: False)
     monkeypatch.setattr(search_navigation, "get_active_package", lambda: PKG)

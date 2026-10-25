@@ -26,7 +26,15 @@ Explore grid with its search bar, then the results Instagram listed for the quer
   profile (`ig447_fr_search_results_left_open.xml`, "natgeo" typed, here `name_21`). None of them
   shows the tab bar. Anonymized together: a name reads the same on the four screens.
 
-The phone moves as Instagram did: a tap on the tab bar's search tab opens Explore, a text typed
+- Instagram 447 (same phone, 2026-10-25), a cold DM sent from a profile opened by the search, then
+  its way home: the conversation with the keyboard still up after Send
+  (`ig447_fr_dm_conversation_keyboard_after_send.xml`), the same conversation once a Back hid the
+  keyboard (`ig447_fr_dm_conversation_after_send.xml`), the profile under it
+  (`ig447_fr_profile_under_conversation.xml`), then the results of the search that opened it
+  (`ig447_fr_search_results_under_profile.xml`). None of them shows the tab bar. Anonymized together.
+
+The phone moves as Instagram did: a tap on the tab bar's search tab opens Explore, one on its home
+tab shows the home feed, a text typed
 there by the keyboard shows the results, a tap on a keyword row shows the results of that keyword
 (when the phone was given them), a Back shows the screen under the one shown (when the
 phone was given what is under it). Nothing else moves the screen: a tap on a result row is
@@ -35,6 +43,7 @@ through uiautomator2's own engine; the tests put it behind the clone proxy and t
 bridges mount, with the selectors the version of the screens gets at connect (`selectors_of`).
 """
 
+import time as real_time
 from contextlib import contextmanager
 from dataclasses import dataclass
 
@@ -53,6 +62,7 @@ KEYWORD_SUBTITLE_ID = f"{PKG}:id/row_search_keyword_subtitle"
 AVATAR_RING_ID = f"{PKG}:id/row_search_avatar_with_ring"
 FOLLOW_BUTTON_ID = f"{PKG}:id/row_search_user_follow_button"
 SEARCH_TAB_ID = f"{PKG}:id/search_tab"
+HOME_TAB_ID = f"{PKG}:id/feed_tab"
 #: What follows the handle in the subtitle of a keyword row: "nasa • 104 M followers".
 KEYWORD_SUBTITLE_SEPARATOR = " • "
 
@@ -112,9 +122,16 @@ class SearchScreens:
     keyword_results_of: str = ""
 
     def search_tab(self, screen: str):
-        nodes = [n for n in etree.fromstring(screen.encode("utf-8")).iter("node")
-                 if n.get("resource-id") == SEARCH_TAB_ID]
-        return _bounds(nodes[0]) if nodes else None
+        return _tab(screen, SEARCH_TAB_ID)
+
+    def home_tab(self, screen: str):
+        return _tab(screen, HOME_TAB_ID)
+
+
+def _tab(screen: str, tab_id: str):
+    """The bounds of the tab bar's tab `tab_id` on `screen`, None when the screen has no tab bar."""
+    nodes = [n for n in etree.fromstring(screen.encode("utf-8")).iter("node") if n.get("resource-id") == tab_id]
+    return _bounds(nodes[0]) if nodes else None
 
 
 SEARCH_410 = SearchScreens(
@@ -142,6 +159,16 @@ SEARCH_447_LEFT_OPEN = SearchScreens(
     results=_capture("ig447_fr_search_results_left_open.xml"),
     width=1080, height=2400, version="447.0.0.55.81",
 )
+#: The cold DM's way home after Send, top first: the conversation with the keyboard up, then what
+#: each Back showed under it, down to the results of the search that opened the profile, and the
+#: Explore grid under them.
+WAY_HOME_AFTER_A_COLD_DM = (
+    _capture("ig447_fr_dm_conversation_keyboard_after_send.xml"),
+    _capture("ig447_fr_dm_conversation_after_send.xml"),
+    _capture("ig447_fr_profile_under_conversation.xml"),
+    _capture("ig447_fr_search_results_under_profile.xml"),
+    SEARCH_447.explore,
+)
 #: What an earlier run left on the phone of `SEARCH_447_LEFT_OPEN`, top first: the likers sheet,
 #: then what each Back showed under it, down to the results of the search.
 LEFT_OPEN_STACK = (
@@ -150,6 +177,23 @@ LEFT_OPEN_STACK = (
     _capture("ig447_fr_profile_opened_from_search.xml"),
     SEARCH_447_LEFT_OPEN.results,
 )
+
+
+class RunningClock:
+    """The waits loop on `time.time()`: a clock that runs, and sleeps that do not."""
+
+    def __init__(self):
+        self.now = 0.0
+
+    def time(self):
+        self.now += 0.7
+        return self.now
+
+    def sleep(self, _seconds):
+        pass
+
+    def __getattr__(self, name):
+        return getattr(real_time, name)
 
 
 @contextmanager
@@ -207,6 +251,10 @@ class SearchPhone:
         tab = self.screens.search_tab(self.screen)
         if self.screen is self.screens.home and tab and _inside((x, y), tab):
             self.screen = self.screens.explore
+            return
+        home = self.screens.home_tab(self.screen)
+        if home and _inside((x, y), home):
+            self.screen = self.screens.home
 
     def long_click(self, x, y, _duration=0.0):
         self.click(x, y)

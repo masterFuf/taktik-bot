@@ -82,6 +82,14 @@ class NavigationSelectors:
         '//android.widget.EditText[@focused="true" and @package="com.instagram.android"]',
     ])
 
+    # The keyboard on screen: the input area of the keyboard's own window, the same in every input
+    # method (Android's `inputArea`, here the Taktik Keyboard's, over a DM conversation after Send,
+    # 447, Pixel 6a, 2026-10-25). The field stays focused once the keyboard is hidden: the focused
+    # EditText above does not tell whether a Back would hide it.
+    keyboard_window: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="android:id/inputArea"]',
+    ])
+
     # === Back buttons for the followers/following list ===
     back_buttons_action_bar: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/left_action_bar_buttons"]//android.widget.ImageView[@clickable="true"]',

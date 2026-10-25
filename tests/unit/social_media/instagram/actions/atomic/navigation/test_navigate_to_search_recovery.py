@@ -35,6 +35,7 @@ def _nav(tab_results, search_bar=(False,)):
 
     nav._navigate_to_tab = _tab
     nav._is_search_bar_shown = lambda: next(bars, search_bar[-1])
+    nav._is_element_present = lambda selectors: False  # no keyboard up
     nav._back_one_screen = lambda: setattr(nav, "backs", nav.backs + 1)
     nav.navigate_to_home = lambda: setattr(nav, "home_calls", nav.home_calls + 1) or True
     nav._is_instagram_open = lambda: True

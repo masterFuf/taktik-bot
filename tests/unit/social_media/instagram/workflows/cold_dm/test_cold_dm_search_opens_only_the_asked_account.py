@@ -20,7 +20,6 @@ types what it is given. Neither is the profile opened: once the row is tapped, t
 opened profile and the cold DM's decision on it are recorded, not played.
 """
 
-import time as real_time
 from contextlib import ExitStack
 from types import SimpleNamespace
 
@@ -45,27 +44,11 @@ from unit.social_media.instagram.actions.atomic.navigation.search_screens_phone 
     PKG,
     SEARCH_410,
     SEARCH_447,
+    RunningClock,
     SEARCH_447_KEYWORD_ROW,
     SearchPhone,
     selectors_of,
 )
-
-
-class _Clock:
-    """The waits loop on `time.time()`: a clock that runs, and sleeps that do not."""
-
-    def __init__(self):
-        self.now = 0.0
-
-    def time(self):
-        self.now += 0.7
-        return self.now
-
-    def sleep(self, _seconds):
-        pass
-
-    def __getattr__(self, name):
-        return getattr(real_time, name)
 
 
 @pytest.fixture
@@ -74,7 +57,7 @@ def run_on(monkeypatch):
     what happened: the phone, the outcome, the profile checks and decisions, the deep links."""
     for module in (facade_module, shared_facade_module, search_navigation, delays_module):
         monkeypatch.setattr(module.time, "sleep", lambda *_: None)
-    monkeypatch.setattr(base_action_module, "time", _Clock())
+    monkeypatch.setattr(base_action_module, "time", RunningClock())
     monkeypatch.setattr(miss_capture, "signaler_ecran_inconnu", lambda *a, **k: None)
     monkeypatch.setattr(miss_capture, "blocage_a_signaler", lambda: False)
     monkeypatch.setattr(search_navigation, "get_active_package", lambda: PKG)
