@@ -237,12 +237,19 @@ def test_a_scraping_run_with_nothing_to_scrape_is_refused_in_its_last_line(scrap
 # ------------------------------------------------------------------------------------- cold DM
 
 
+#: What the AI mode writes, one text per recipient of the probe list, in order: the first within the
+#: rule (English, an account of unknown language: French or English), the second too short for it.
+AI_WRITTEN = ("Hello there, your bakery looks lovely, could we talk about it?", "Hello there")
+
+
 class _Response:
-    """What OpenRouter answers a generation: the text and its cost."""
+    """What OpenRouter answers a generation: the next text of `written`, and its cost."""
+
+    written: List[str] = []
 
     def __init__(self, *args, **kwargs):
         self.body = json.dumps({
-            "model": "qwen", "choices": [{"message": {"content": "Hello there"}, "finish_reason": "stop"}],
+            "model": "qwen", "choices": [{"message": {"content": self.written.pop(0)}, "finish_reason": "stop"}],
             "usage": {"cost": 0.0003, "prompt_tokens": 40, "completion_tokens": 6},
         }).encode("utf-8")
 
@@ -271,10 +278,17 @@ def _cold_dm_class():
         def go_home(self):
             return None
 
-        def reach_and_send(self, recipient, compose, policy=None, *, rules=None):
+        # The production `reach_and_send`, and so the rule of a text written by an AI; the phone answers.
+        def open_recipient_profile(self, recipient):
+            return True
+
+        def open_dm_from_profile(self, policy=None, recipient=None):
+            return True
+
+        def send_message(self, message):
             from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome
 
-            return {"outcome": workflow.SENT, "message": compose(), "send_result": ReplyOutcome.SENT}
+            return ReplyOutcome.SENT
 
     return ColdDm
 
@@ -293,8 +307,11 @@ def cold_dm_bridge(monkeypatch, no_ip_rotation):
     monkeypatch.setattr(workflow, "apply_cold_dm_send_result",
                         lambda *, workflow, **kwargs: setattr(workflow, "dms_sent", workflow.dms_sent + 1))
     monkeypatch.setattr(workflow, "wait_before_next_cold_dm", lambda **kwargs: None)
+    monkeypatch.setattr(workflow, "look_for_action_block", lambda *args, **kwargs: False)
+    monkeypatch.setattr(workflow, "ProblematicPageDetector", lambda device: None)
     monkeypatch.setattr(local, "get_local_database", lambda: SimpleNamespace(
         create_session=lambda **kwargs: 11, finalize_session=lambda *args, **kwargs: None))
+    monkeypatch.setattr(_Response, "written", list(AI_WRITTEN))
     monkeypatch.setattr(urllib.request, "urlopen", _Response)
     return bridge
 
@@ -311,6 +328,25 @@ def test_the_cold_dm_bridge_follows_its_contract(cold_dm_bridge, printed):
     check_lines(INSTAGRAM_COLD_DM, lines)
     assert {line["type"] for line in lines} == {event.type for event in INSTAGRAM_COLD_DM.events}
     assert lines[-1]["type"] == "cold_dm_result" and lines[-1]["success"] is True
+
+
+def test_a_cold_dm_in_ai_mode_says_each_refused_text_on_its_own_line(cold_dm_bridge, printed):
+    """The second recipient's text breaks the rule: its line says who, what and why, before the
+    verdict, which still counts it; only the first text is announced as sent."""
+    data = app_file(INSTAGRAM_COLD_DM, messageMode="ai", aiPrompt="Say hello", aiProvider="openrouter", aiApiKey="sk-test")
+
+    assert cold_dm_bridge.ColdDmRun(data).run() == 0
+
+    lines = printed()
+    check_lines(INSTAGRAM_COLD_DM, lines)
+    texts = [line for line in lines if line["type"] in ("cold_dm_sent", "cold_dm_text_refused", "cold_dm_result")]
+    assert [line["type"] for line in texts] == ["cold_dm_sent", "cold_dm_text_refused", "cold_dm_result"]
+    sent, refused, verdict = texts
+    assert (sent["username"], sent["message"]) == ("alpha0", AI_WRITTEN[0])
+    assert refused == {"type": "cold_dm_text_refused", "current": 2, "username": "beta0", "message": AI_WRITTEN[1],
+                       "textRefusal": {"reason": "too_short", "detail": "11 characters, 20 at least",
+                                       "measure": 11, "limit": 20}}
+    assert verdict["textsRefused"] == 1 and verdict["dmsSent"] == 1
 
 
 def test_a_cold_dm_without_a_message_is_refused_in_its_last_line(cold_dm_bridge, printed):

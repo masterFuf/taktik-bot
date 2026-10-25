@@ -10,6 +10,8 @@ registered as `instagram.engagement.coldDm` (the CLI) calls: read the Cold DM pa
 - `progress(current, total, username)`: where the per-recipient progress goes (the bridge's stdout).
 - `sent(current, username, message, ai_written)`: where each text the conversation took goes (the
   bridge's `cold_dm_sent`, which the app journals).
+- `refused(current, username, message, refusal)`: where each text of the AI mode the DM rule refused
+  goes, nothing typed (the bridge's `cold_dm_text_refused`).
 - `ai_ipc`: where the AI spend is reported (the bridge's stdout IPC).
 - `instagram_ai_key() -> AICredential | None`: the AI key and its provider when the payload brings
   none (the CLI's environment).
@@ -57,6 +59,7 @@ class ColdDmRuntime:
 RuntimeProvider = Callable[[Optional[str]], ColdDmRuntime]
 ProgressCallback = Callable[..., None]
 SentCallback = Callable[..., None]
+RefusedCallback = Callable[..., None]
 WorkflowFactory = Callable[..., Any]
 SessionStartCallback = Callable[[int], None]
 
@@ -74,6 +77,7 @@ def run_instagram_cold_dm(
     connect: RuntimeProvider,
     progress: Optional[ProgressCallback] = None,
     sent: Optional[SentCallback] = None,
+    refused: Optional[RefusedCallback] = None,
     ai_ipc=None,
     instagram_ai_key: Optional[AICredentialProvider] = None,
     workflow_factory: Optional[WorkflowFactory] = None,
@@ -111,6 +115,7 @@ def run_instagram_cold_dm(
         restart=runtime.restart,
         progress=progress,
         sent=sent,
+        refused=refused,
         ai_ipc=ai_ipc,
     )
 
