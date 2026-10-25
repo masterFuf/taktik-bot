@@ -79,6 +79,9 @@ def run_dm_command(config: dict) -> None:
         sys.exit(1)
 
     if not result.get("success"):
-        emit_dm_error(result.get("error") or "DM command failed")
+        # The failure as the run gives it, its code and its other fields with it (`error_code`: a list
+        # not read, a reply waiting to be sent), for the app's sentence.
+        emit_dm_error(result.get("error") or "DM command failed",
+                      **{key: value for key, value in result.items() if key not in ("success", "error")})
         sys.exit(1)
     emit_dm_result(result)

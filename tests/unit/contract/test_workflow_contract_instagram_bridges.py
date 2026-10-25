@@ -522,3 +522,37 @@ def test_a_reply_written_by_an_ai_that_breaks_the_rule_says_why_in_its_last_line
     assert [line["type"] for line in lines] == ["result"]
     assert lines[0]["success"] is False
     assert lines[0]["textRefusal"] == {"reason": "language", "detail": "written in en, the account writes in fr"}
+
+
+@pytest.mark.parametrize("command", ["read", "read_requests"])
+def test_a_list_the_reader_could_not_read_says_its_code_in_its_last_line(dm_bridge, printed, monkeypatch, command):
+    """The bridge printed only the words of a failed command: the code of a list not read (C57S, 410,
+    2026-10-25, the requests folder before it loaded) never reached the app's sentence."""
+    from taktik.core.social_media.instagram.workflows.dm.session import DmListNotRead
+
+    not_loaded = DmListNotRead(error_code="DM_LIST_NOT_LOADED", error="The conversations did not load")
+    monkeypatch.setattr(dm_bridge.InstagramDMRuntime, "read_conversations", lambda self, limit: not_loaded)
+
+    with pytest.raises(SystemExit):
+        dm_bridge.DMCommand(app_file(INSTAGRAM_DM_READ, command=command)).run()
+
+    lines = printed()
+    check_lines(INSTAGRAM_DM_READ, lines)
+    assert lines[-1]["type"] == "result" and lines[-1]["success"] is False
+    assert lines[-1]["error_code"] == "DM_LIST_NOT_LOADED"
+
+
+def test_a_reply_waiting_to_be_sent_says_so_in_its_last_line(dm_bridge, printed, monkeypatch):
+    """The same loss for a reply waiting for the network: its code and `pending` stayed in the run."""
+    from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome
+
+    monkeypatch.setattr(dm_bridge.InstagramDMRuntime, "send_message", lambda self, message: ReplyOutcome.PENDING)
+
+    with pytest.raises(SystemExit):
+        dm_bridge.DMCommand(app_file(INSTAGRAM_DM_SEND, command="send")).run()
+
+    lines = printed()
+    check_lines(INSTAGRAM_DM_SEND, lines)
+    assert [line["type"] for line in lines] == ["result"]
+    assert lines[0]["success"] is False
+    assert lines[0]["error_code"] == "DM_SEND_PENDING" and lines[0]["pending"] is True
