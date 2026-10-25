@@ -12,7 +12,6 @@ from taktik.core.shared.device.app_inspection import foreground_activity
 from taktik.core.shared.device.facade import as_device_facade
 from taktik.core.shared.device.screen import screen_size_of
 from taktik.core.shared.device.snapshot import SnapshotUnavailable
-from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.selectors import POPUP_SELECTORS, PROBLEMATIC_PAGE_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.locales import L_all, active_locale, available_locales
 
@@ -69,6 +68,10 @@ class ProblematicPageDetector:
                 gestures.
             debug_mode: when True, save dumps and screenshots for debugging
         """
+        # Imported here: the actions package imports this detector, so a module-level import
+        # closes a cycle as soon as `ui.detectors` is loaded first (the likers reader does).
+        from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
+
         self.device = as_device_facade(device, DeviceFacade)
         self.debug_mode = debug_mode
         
