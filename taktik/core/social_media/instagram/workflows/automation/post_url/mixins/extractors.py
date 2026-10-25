@@ -23,8 +23,6 @@ class PostUrlExtractorsMixin:
             self.logger.error(f"Error opening first post: {e}")
             return False
     
-    # _extract_likers_from_current_post, _extract_likers_from_regular_post,
-    # _extract_likers_from_reel,
     # _determine_interactions_from_config, etc.
     # are all inherited from LikersWorkflowBase / BaseBusinessAction — no wrappers needed.
     

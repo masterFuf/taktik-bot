@@ -205,12 +205,3 @@ class ScrollEndDetector:
             'consecutive_empty_pages': self._consecutive_empty_pages,
             'is_end': self.is_the_end()
         }
-
-    def reset(self):
-        """Reset every counter and history."""
-        self.pages.clear()
-        self._last_seen.clear()
-        self._repeat_count = 0
-        self._consecutive_empty_pages = 0
-        self._total_unique_users = 0
-        self.logger.debug("ScrollEndDetector réinitialisé")

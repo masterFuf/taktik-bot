@@ -322,26 +322,6 @@ class LikersWorkflowBase(BaseBusinessAction):
         if scroll_attempts >= max_scroll_attempts:
             self.logger.info(f"🛑 Stop: {max_scroll_attempts} scrolls in a row without a new row in the {source.label} list")
 
-    # ─── Liker extraction from current post ─────────────────────────────
-
-    def _extract_likers_from_current_post(self, is_reel: bool = None, max_interactions: int = None) -> list:
-        """Extract likers from the currently displayed post (regular or reel).
-        Shared by HashtagBusiness and PostUrlBusiness."""
-        try:
-            if is_reel is None:
-                is_reel = self._is_reel_post()
-
-            if is_reel:
-                self.logger.debug("Reel post detected")
-                return self._extract_likers_from_reel(max_interactions=max_interactions)
-            else:
-                self.logger.debug("Regular post detected")
-                return self._extract_likers_from_regular_post(max_interactions=max_interactions)
-
-        except Exception as e:
-            self.logger.error(f"Error extracting likers: {e}")
-            return []
-
     # ─── Perform interactions on a single profile ────────────────────────
 
     def _perform_likers_interactions(

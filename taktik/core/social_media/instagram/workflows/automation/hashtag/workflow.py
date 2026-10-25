@@ -20,7 +20,6 @@ from taktik.core.database.instagram_hashtag_posts import InstagramHashtagPostSer
 from taktik.core.social_media.instagram.ui.extractors import parse_number_from_text
 
 from taktik.core.social_media.instagram.workflows.automation.hashtag.mixins.post_finder import HashtagPostFinderMixin
-from taktik.core.social_media.instagram.workflows.automation.hashtag.mixins.extractors import HashtagExtractorsMixin
 
 
 # "No maximum": a high bound stays simpler to read than a null tested in each of the
@@ -58,7 +57,6 @@ def resolve_post_like_bounds(config: Dict[str, Any]) -> tuple:
 
 class HashtagBusiness(
     HashtagPostFinderMixin,
-    HashtagExtractorsMixin,
     LikersWorkflowBase
 ):
     
