@@ -2,7 +2,7 @@
 
 import time
 from typing import TYPE_CHECKING, Any, Callable
-from taktik.core.shared.device.screen import screen_size_of
+from taktik.core.social_media.instagram.actions.atomic.interaction.bottom_sheet import drag_sheet_off_screen
 
 if TYPE_CHECKING:
     from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
@@ -205,61 +205,22 @@ class PopupHandlingMixin:
             return False
     
     def _close_popup_by_swipe_down(self) -> bool:
-        try:
-            handle_element = self.device.xpath(self.popup_selectors.drag_handle_selector)
-            
-            if handle_element.exists:
-                bounds = handle_element.info.get('bounds', {})
-                if bounds:
-                    handle_y = (bounds.get('top', 710) + bounds.get('bottom', 710)) // 2
-                    center_x = (bounds.get('left', 492) + bounds.get('right', 588)) // 2
-                    
-                    _width, screen_height = screen_size_of(self.device)
-                    
-                    # If handle is near top of screen (< 10%), bottom sheet is fully
-                    # expanded — swipe won't work, use back press directly
-                    if handle_y < int(screen_height * 0.10):
-                        self.logger.debug(f"📍 Bottom sheet fully expanded (handle_y={handle_y}), using press('back')")
-                        self.device.press("back")
-                        time.sleep(0.8)
-                        return True
-                    
-                    self.logger.debug(f"📍 Handle detected at Y={handle_y}, X={center_x}")
-                    
-                    end_y = int(screen_height * 0.95)
-                    
-                    self.device.swipe_coordinates(center_x, handle_y, center_x, end_y, duration=0.3)
-                    self.logger.debug(f"✅ Swipe to close: ({center_x}, {handle_y}) → ({center_x}, {end_y})")
-                    time.sleep(0.5)
-                    
-                    # Verify — if popup is still open, fallback to back press
-                    if self._is_likers_popup_open() or self._is_comments_view_open():
-                        self.logger.debug("⚠️ Swipe did not close popup, falling back to press('back')")
-                        self.device.press("back")
-                        time.sleep(0.8)
-                    return True
-            
-            screen_width, screen_height = screen_size_of(self.device)
-            center_x = screen_width // 2
-            handle_y = int(screen_height * 0.37)
-            end_y = int(screen_height * 0.95)
-            self.device.swipe_coordinates(center_x, handle_y, center_x, end_y, duration=0.3)
-            time.sleep(0.5)
-            
-            # Verify fallback swipe
-            if self._is_likers_popup_open() or self._is_comments_view_open():
-                self.logger.debug("⚠️ Fallback swipe did not close popup, using press('back')")
-                self.device.press("back")
-                time.sleep(0.8)
+        """Drag the open likers or comments sheet off the screen, then Back when it is still up.
+        True once neither sheet is on screen.
+
+        The drag is the shared sheet drag (`drag_sheet_off_screen`): from the grab bar, an
+        accompanied drag it verifies. It was a 0.3 s swipe that Android read as a fling (the sheet
+        dropped one state and stayed open), replaced by a blind Back on a full-screen sheet.
+        """
+        def sheet_up() -> bool:
+            return self._is_likers_popup_open() or self._is_comments_view_open()
+
+        if drag_sheet_off_screen(self.device, sheet_up, self.logger):
             return True
-        except Exception as e:
-            self.logger.debug(f"❌ Error closing popup: {e}")
-            try:
-                self.device.press("back")
-                time.sleep(0.5)
-            except Exception:
-                pass
-            return False
+        self.logger.debug("⚠️ The drag did not close the sheet, falling back to press('back')")
+        self.device.press("back")
+        time.sleep(0.8)
+        return not sheet_up()
 
     def _handle_follow_suggestions_popup(self) -> bool:
         """Observe Instagram's inline post-follow suggestions without moving the profile.

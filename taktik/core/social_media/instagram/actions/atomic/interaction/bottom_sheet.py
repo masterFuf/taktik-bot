@@ -32,7 +32,7 @@ is how a caller ends up reporting a URL it captured behind a modal that never we
 """
 
 import time
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, TypedDict
 
 from loguru import logger as _default_logger
 
@@ -50,13 +50,22 @@ _HANDLE_MAX_HEIGHT_RATIO = 0.012      # 28px on 2340, 38px on 3200 — the bar i
 _HANDLE_MIN_WIDTH_RATIO = 0.03        # 32px on 1080, 43px on 1440 — the bar is ~88px / ~117px
 _HANDLE_MAX_WIDTH_RATIO = 0.45
 _HANDLE_CENTER_TOLERANCE_RATIO = 0.08
-# Margin below the app window's top edge before a drag may start: touching down INSIDE the status
-# bar pulls the notification shade instead of the sheet. Expressed as a fraction, like the rest.
-_SHADE_SAFETY_MARGIN_RATIO = 0.005
-# Highest a "tap outside the sheet" may land: below the status bar and the shade pull-down zone.
-_OUTSIDE_TAP_MIN_RATIO = 0.12
+# The status bar and the strip under it where a finger going down pulls Android's notification
+# shade: no tap lands and no drag starts above it. Not the status bar alone: on a C57 S (576x1280,
+# status bar down to y=43) a drag that started at y=53, on the grab bar of a sheet expanded to the
+# top, pulled the shade down instead of the sheet (2026-10-25).
+_SHADE_ZONE_RATIO = 0.12
 # A sheet steps EXPANDED -> COLLAPSED -> HIDDEN; two drags suffice, the third is a safety net.
 _MAX_DRAG_STEPS = 3
+
+
+class GrabBar(TypedDict):
+    """Where a sheet's grab bar is: its centre, and how it was found ('id' or 'geometry', with the
+    selector that matched for an id)."""
+    x: int
+    y: int
+    source: str
+    selector: Optional[str]
 
 
 def _bounds_of(element) -> Optional[Dict[str, int]]:
@@ -90,7 +99,7 @@ def _sheet_top(device) -> int:
     return min(tops) if tops else 0
 
 
-def find_drag_handle(device, log=None) -> Optional[Dict[str, object]]:
+def find_drag_handle(device, log=None) -> Optional[GrabBar]:
     """Locate the sheet's grab bar. Returns {x, y, source} or None.
 
     `source` is 'id' or 'geometry' — the Lab surfaces it so a silent fallback to geometry is
@@ -129,7 +138,8 @@ def find_drag_handle(device, log=None) -> Optional[Dict[str, object]]:
         except Exception:
             continue
 
-    best = None
+    best: Optional[GrabBar] = None
+    best_top = 0
     for candidate in candidates:
         try:
             bounds = candidate.bounds  # (left, top, right, bottom)
@@ -147,18 +157,17 @@ def find_drag_handle(device, log=None) -> Optional[Dict[str, object]]:
         if abs(((left + right) / 2) - screen_center) > tolerance:
             continue
         # The bar is the topmost thing in the sheet; anything thin further down is a divider.
-        if best is None or c_top < best['top']:
+        if best is None or c_top < best_top:
+            best_top = c_top
             best = {
                 'x': (left + right) // 2,
                 'y': (c_top + bottom) // 2,
-                'top': c_top,
                 'source': 'geometry',
                 'selector': None,
             }
 
     if best:
         log.debug(f"Sheet grab bar found by geometry at ({best['x']},{best['y']})")
-        best.pop('top', None)
     return best
 
 
@@ -178,8 +187,6 @@ def dismiss_bottom_sheet(
 
     if not is_open():
         return True
-
-    screen_width, screen_height = screen_size_of(device)
 
     # 1. Defocus — a focused text field eats the first back press.
     for selector in (defocus_selectors or []):
@@ -208,28 +215,42 @@ def dismiss_bottom_sheet(
             return True
 
     # 3. Drag the sheet down and off the screen.
-    #
-    # One accompanied drag is enough — checked by hand on a device: press, hold, and carry the
-    # sheet all the way down and it closes from full screen in a single gesture. An earlier
-    # version used `swipe_coordinates`, whose coarse down/move/up Android reads as a fling; a
-    # flung sheet settles one state down (expanded -> collapsed) no matter how far the gesture
-    # travelled, which is why it kept stopping at two thirds. The loop below is kept as a safety
-    # net for that class of outcome: it drags again while the sheet keeps moving and stops as
-    # soon as a pass changes nothing, since repeating a gesture that achieves nothing only
-    # delays the caller.
-    #
-    # Progress is measured on the GRAB BAR, not on the sheet container: the container is a
-    # full-screen host that reads the same whether the sheet peeks or fills the screen, while the
-    # bar travels with the sheet (y=183 expanded, y=910 collapsed on the device measured).
+    if drag_sheet_off_screen(device, is_open, log):
+        return True
+    log.warning("Sheet still open after every dismiss strategy")
+    return False
+
+
+def drag_sheet_off_screen(device, is_open: Callable[[], bool], log=None) -> bool:
+    """Drag the open sheet down and off the screen, from its grab bar. True once `is_open()` says
+    it is gone; False when it is still up after the drags, or a drag could not be made.
+
+    The one way the project drags a sheet closed: the sheets' own closers, the check of pages
+    (`swipe_down_handle`) and the likers and comments popups all come here.
+
+    One accompanied drag is enough — checked by hand on a device: press, hold, and carry the
+    sheet all the way down and it closes from full screen in a single gesture. An earlier
+    version used `swipe_coordinates`, whose coarse down/move/up Android reads as a fling; a
+    flung sheet settles one state down (expanded -> collapsed) no matter how far the gesture
+    travelled, which is why it kept stopping at two thirds. The loop below is kept as a safety
+    net for that class of outcome: it drags again while the sheet keeps moving and stops as
+    soon as a pass changes nothing, since repeating a gesture that achieves nothing only
+    delays the caller.
+
+    Progress is measured on the GRAB BAR, not on the sheet container: the container is a
+    full-screen host that reads the same whether the sheet peeks or fills the screen, while the
+    bar travels with the sheet (y=183 expanded, y=910 collapsed on the device measured).
+    """
+    log = log or _default_logger
+    screen_width, screen_height = screen_size_of(device)
     end_y = int(screen_height * 0.95)
     center_x = screen_width // 2
 
-    # The post-swipe lookup of one pass is the pre-swipe lookup of the next: locating the bar
+    # The post-drag lookup of one pass is the pre-drag lookup of the next: locating the bar
     # costs two selector probes plus a subtree scan, and doing it twice per pass was most of the
     # nine seconds this took on the Lab run.
     handle = find_drag_handle(device, log)
-    # The app window's top edge does not move while the sheet slides, so read it once.
-    shade_floor = _sheet_top(device) + int(screen_height * _SHADE_SAFETY_MARGIN_RATIO)
+    shade_floor = int(screen_height * _SHADE_ZONE_RATIO)
 
     for step in range(_MAX_DRAG_STEPS):
         handle_y_before = handle['y'] if handle else None
@@ -246,28 +267,28 @@ def dismiss_bottom_sheet(
         # it settled back to collapsed however cleanly the finger tracked. Two passes for one
         # gesture's worth of work.
         #
-        # The only reason not to start on the bar is the notification shade, and that risk is a
-        # touch-down inside the status bar — which is exactly the strip above the app window, so
-        # the window's own top edge is the honest floor rather than a fraction of the screen.
-        if handle and handle['y'] >= shade_floor:
-            start_x, start_y = handle['x'], handle['y']
+        # The only reason not to start on the bar is the notification shade: a bar inside its
+        # pull-down zone (a sheet expanded against the status bar) is reached from just below the
+        # zone, straight under the bar. The finger then lands on the sheet's top rows, which the
+        # sheet carries along as it does its bar, and loses only the few pixels between the two.
+        if handle:
+            start_x, start_y = handle['x'], max(handle['y'], shade_floor)
             how = f"handle drag ({handle['source']})"
-            duration = 0.6
+            if handle['y'] < shade_floor:
+                how = f"drag under the grab bar ({handle['source']}), below the shade zone"
         else:
-            if handle:
-                log.debug(f"Grab bar at y={handle['y']} is inside the status bar (floor {shade_floor}) "
-                          f"— dragging from the content instead")
             start_x = center_x
             start_y = int(screen_height * 0.40)
             how = "content drag"
-            duration = 0.7
 
         log.debug(f"{how} #{step + 1}: ({start_x},{start_y}) -> ({start_x},{end_y})")
-        # Accompanied drag, not a swipe. A coarse down/move/up reads as a fling and the sheet
-        # settles one state down however far the gesture went — which is why an expanded sheet
-        # only ever collapsed to two thirds. Keeping the finger down and reporting the whole
-        # path carries the sheet along, and it is already at the bottom when the finger lifts.
-        human_drag_between_raw(device, (start_x, start_y), (start_x, end_y), duration, log)
+        # Accompanied drag, not a swipe: a coarse down/move/up reads as a fling and the sheet
+        # settles one state down however far the gesture went. Its duration is a hand's for the
+        # distance (the drag's own draw), never a fixed one: the same 0.6 s was 1930 px/s on a
+        # 1280 px screen and 3260 px/s on a 2160 px one.
+        if not human_drag_between_raw(device, (start_x, start_y), (start_x, end_y), logger=log):
+            log.warning(f"Sheet drag could not be made ({how}), the sheet is left as it is")
+            return False
         time.sleep(0.7)
 
         if not is_open():
@@ -276,13 +297,17 @@ def dismiss_bottom_sheet(
 
         handle = find_drag_handle(device, log)
         handle_y_after = handle['y'] if handle else None
+        if handle_y_before is not None and handle_y_after is None:
+            # The bar is gone and `is_open()` does not say the sheet is: the screen is something
+            # else (the notification shade, another app). Dragging again would drag that.
+            log.warning("Grab bar gone after the drag, the sheet not proven closed — stopping")
+            break
         if handle_y_before is not None and handle_y_after is not None:
             if handle_y_after <= handle_y_before:
                 log.debug(f"Sheet did not move (grab bar {handle_y_before} -> {handle_y_after}) — stopping")
                 break
             log.debug(f"Sheet collapsed a step (grab bar {handle_y_before} -> {handle_y_after}), dragging again")
 
-    log.warning("Sheet still open after every dismiss strategy")
     return False
 
 
@@ -303,7 +328,7 @@ def sheet_outside_tap_point(device):
         return None
 
     # Leave a margin below the status bar so the tap cannot land on it or pull the shade.
-    lowest_safe = int(screen_height * _OUTSIDE_TAP_MIN_RATIO)
+    lowest_safe = int(screen_height * _SHADE_ZONE_RATIO)
     if top <= lowest_safe:
         return None
     return screen_width // 2, (lowest_safe + top) // 2
