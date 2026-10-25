@@ -130,7 +130,9 @@ def _quiet_detector():
 
 @pytest.mark.skipif(not CORPUS.is_dir(), reason="no captured dumps here (they never enter the repository)")
 def test_no_baseline_profile_of_the_corpus_is_a_problematic_page(_quiet_detector):
-    detector = ProblematicPageDetector(device=None)
+    # Reads the dumps it is handed, never the phone: a placeholder device (the detector wraps what it
+    # receives in the facade since 2026-10-25, and refuses None).
+    detector = ProblematicPageDetector(device=object())
     sheets = ("bottom_sheet_container", "background_dimmer", "igds_alert_dialog_headline",
               "direct_private_share_container_view")
     profiles = 0
