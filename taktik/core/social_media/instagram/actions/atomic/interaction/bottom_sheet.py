@@ -32,7 +32,7 @@ is how a caller ends up reporting a URL it captured behind a modal that never we
 """
 
 import time
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, TypedDict
 
 from loguru import logger as _default_logger
 
@@ -57,6 +57,15 @@ _HANDLE_CENTER_TOLERANCE_RATIO = 0.08
 _SHADE_ZONE_RATIO = 0.12
 # A sheet steps EXPANDED -> COLLAPSED -> HIDDEN; two drags suffice, the third is a safety net.
 _MAX_DRAG_STEPS = 3
+
+
+class GrabBar(TypedDict):
+    """Where a sheet's grab bar is: its centre, and how it was found ('id' or 'geometry', with the
+    selector that matched for an id)."""
+    x: int
+    y: int
+    source: str
+    selector: Optional[str]
 
 
 def _bounds_of(element) -> Optional[Dict[str, int]]:
@@ -90,7 +99,7 @@ def _sheet_top(device) -> int:
     return min(tops) if tops else 0
 
 
-def find_drag_handle(device, log=None) -> Optional[Dict[str, object]]:
+def find_drag_handle(device, log=None) -> Optional[GrabBar]:
     """Locate the sheet's grab bar. Returns {x, y, source} or None.
 
     `source` is 'id' or 'geometry' — the Lab surfaces it so a silent fallback to geometry is
@@ -129,7 +138,8 @@ def find_drag_handle(device, log=None) -> Optional[Dict[str, object]]:
         except Exception:
             continue
 
-    best = None
+    best: Optional[GrabBar] = None
+    best_top = 0
     for candidate in candidates:
         try:
             bounds = candidate.bounds  # (left, top, right, bottom)
@@ -147,18 +157,17 @@ def find_drag_handle(device, log=None) -> Optional[Dict[str, object]]:
         if abs(((left + right) / 2) - screen_center) > tolerance:
             continue
         # The bar is the topmost thing in the sheet; anything thin further down is a divider.
-        if best is None or c_top < best['top']:
+        if best is None or c_top < best_top:
+            best_top = c_top
             best = {
                 'x': (left + right) // 2,
                 'y': (c_top + bottom) // 2,
-                'top': c_top,
                 'source': 'geometry',
                 'selector': None,
             }
 
     if best:
         log.debug(f"Sheet grab bar found by geometry at ({best['x']},{best['y']})")
-        best.pop('top', None)
     return best
 
 
