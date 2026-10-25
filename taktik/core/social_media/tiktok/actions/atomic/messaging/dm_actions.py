@@ -387,29 +387,49 @@ class DMActions(BaseAction):
         return followers
 
     def _say_hello_lines(self) -> List[Tuple[str, str]]:
-        """(the line as the dump holds it, the display name it greets), for each wave on screen."""
+        """(the line as the dump holds it, the display name it names), for each row line on screen
+        that names someone to greet. A line, not an offer: `_wave_button` says whether its row
+        has the button."""
+        prefixes = self.inbox_selectors.say_hello_line_prefixes
         lines: List[Tuple[str, str]] = []
         for element in first_matching(self.device, self.inbox_selectors.say_hello_rows):
             line = getattr(element, "text", "") or ""
             text = clean_shown_text(line)
-            for prefix in ("Dis bonjour à ", "Say hi to "):
-                if text.startswith(prefix):
-                    name = text[len(prefix):].strip()
-                    if name:
-                        lines.append((line, name))
-                    break
+            prefix = next((prefix for prefix in prefixes if text.startswith(prefix)), None)
+            name = text[len(prefix):].strip() if prefix else ""
+            if name:
+                lines.append((line, name))
         return lines
 
+    def _wave_button(self, line: str):
+        """The wave button of the row whose line is `line`, or None when that row has none.
+
+        On 43.1.4 none has it: `Say hi to <name>` is only the row's preview, and the row's last
+        clickable is the camera shortcut (`InboxSelectors.say_hello_button_for_line`).
+        """
+        found = first_matching(self.device, self.inbox_selectors.say_hello_button_for_line(line))
+        return found[0] if found else None
+
     def say_hello_candidates(self) -> List[str]:
-        """The display names the inbox is offering a one-tap wave to.
+        """The display names the inbox is offering a one-tap wave to: a line that names them AND a
+        wave button in its row.
 
         TikTok surfaces these on people we have a thread with but have not written to. It is the
-        cheapest possible re-open of a conversation -- one tap, no text to compose.
+        cheapest possible re-open of a conversation -- one tap, no text to compose. A row that
+        only names them in its preview offers nothing to tap from the inbox, and is said.
         """
         names: List[str] = []
-        for _line, name in self._say_hello_lines():
-            if name not in names:
+        previews: List[str] = []
+        for line, name in self._say_hello_lines():
+            if self._wave_button(line) is None:
+                previews.append(name)
+            elif name not in names:
                 names.append(name)
+        if previews:
+            self.logger.info(
+                f"« Dis bonjour » : {len(previews)} ligne(s) le proposent dans leur aperçu seulement, "
+                f"sans bouton de bonjour dans la ligne : {previews}"
+            )
         return names
 
     def say_hello(self, shown_name: str) -> bool:
@@ -421,7 +441,8 @@ class DMActions(BaseAction):
         when it lands on the avatar next to the button.
 
         The row is the one whose wave names exactly `shown_name` (`same_shown_name`): « Say hi to
-        Alexis » is not the wave of « Alex ».
+        Alexis » is not the wave of « Alex ». Only its wave button is tapped: a row without one
+        gets no gesture at all, and False.
         """
         name = clean_shown_text(shown_name)
         if not name:
@@ -431,34 +452,27 @@ class DMActions(BaseAction):
             self.logger.warning(f"« Dis bonjour » introuvable pour {name!r}")
             return False
 
-        selectors = self.inbox_selectors.say_hello_button_for_line(line)
-        button = None
-        for selector in selectors:
-            try:
-                found = self.device.xpath(selector).all()
-            except Exception:
-                continue
-            if found:
-                # The last one: the scoped subtree also holds the avatar and the row itself, and
-                # the button is the deepest of the three.
-                button = found[-1]
-                break
+        button = self._wave_button(line)
         if button is None:
-            self.logger.warning(f"« Dis bonjour » introuvable pour {name!r}")
+            self.logger.warning(
+                f"say_hello: la ligne de {name!r} n'a pas de bouton de bonjour ({line!r} n'est que "
+                f"son aperçu) — aucun geste"
+            )
             return False
 
         try:
             button.click()
         except Exception as exc:
-            self.logger.debug(f"say_hello: bouton non tappable pour {name!r} ({exc})")
+            self.logger.warning(f"say_hello: bouton non tappable pour {name!r} ({exc})")
             return False
 
         # The confirmation is transient; the disappearance is not. Waiting for the second avoids
-        # racing the first.
+        # racing the first. The line, not the candidates: a line whose button went is not a wave
+        # gone out.
         deadline = time.time() + 8.0
         while time.time() < deadline:
             time.sleep(1.0)
-            if not any(same_shown_name(greeted, name) for greeted in self.say_hello_candidates()):
+            if not any(same_shown_name(greeted, name) for _line, greeted in self._say_hello_lines()):
                 self.logger.info(f"👋 Bonjour envoyé à {name!r}")
                 return True
 
@@ -532,7 +546,8 @@ class DMActions(BaseAction):
 
         The item is the one whose name is exactly `username` (`same_shown_name`), and the button is
         looked for inside it only, so it never taps another follower's button: « user » is not
-        « user_1 ».
+        « user_1 ». The button is the one that reads the follow-back label: the « Message » of a
+        follower already followed sits in the same place under the same id, and is never tapped.
         """
         username = clean_shown_text(username)
         if not username:
@@ -544,7 +559,7 @@ class DMActions(BaseAction):
 
         selectors = self.inbox_selectors.follow_back_for_username(shown)
         if not self._find_and_click(selectors, timeout=3):
-            self.logger.warning(f"« Suivre en retour » introuvable pour {username}")
+            self.logger.warning(f"La ligne de {username} n'offre pas « Suivre en retour » — aucun geste")
             return False
 
         # Having clicked is not having followed. Measured on device: the tap landed on the right

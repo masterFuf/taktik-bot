@@ -255,9 +255,11 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.Button[@text=\"Delete\"]",
         "//android.widget.Button[@text=\"Decline\"]",
     ],
-    "inbox.follow_back_button": [
-        "//android.widget.Button[@text=\"Follow back\"]",
-        "//*[@text=\"Follow back\"]",
+    # What the follow-back button of a new follower reads: a bare label, the button is built from
+    # it. The row's « Message » button carries the same id (43.1.4), so the label is what tells them
+    # apart. Measured on the C57S, 43.1.4, 2026-10-25.
+    "inbox.follow_back_labels": [
+        "Follow back",
     ],
     "inbox.inbox_title": [
         "//*[contains(@resource-id, \":id/title\")][@text=\"Inbox\"]",
@@ -271,6 +273,11 @@ STRINGS: Dict[str, List[str]] = {
     "inbox.new_followers_section": [
         "//*[contains(@resource-id, \":id/b8h\")][@text=\"New followers\"]",
         "//*[@text=\"New followers\"]",
+    ],
+    # The start of a conversation row's line that names someone to greet. On 43.1.4 it is only the
+    # row's preview (no wave button in the row). Measured on the C57S, 43.1.4, 2026-10-25.
+    "inbox.say_hello_line_prefixes": [
+        "Say hi to ",
     ],
     "inbox.search_inbox_button": [
         "//android.widget.ImageView[@content-desc=\"Search\"]",
