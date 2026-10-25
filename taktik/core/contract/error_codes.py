@@ -69,6 +69,14 @@ BRIDGE_ERROR_PHRASES: Mapping[str, str] = {
     # A DM reply in the conversation, waiting to be sent (no network): Instagram sends it by itself
     # when the network is back; sent again, it would be there twice (`dm_send`).
     "DM_SEND_PENDING": "errorDmSendPending",
+    # A reading of the DM inbox, or of its requests folder, that read nothing, and never says « 0
+    # conversation » for it (`dm_read`, `workflows/dm/session.py`): the inbox is not on screen; its
+    # list shows no row, no header and no empty page (not loaded); Instagram says it did not load it;
+    # the requests folder did not open.
+    "DM_INBOX_NOT_SHOWN": "errorDmInboxNotShown",
+    "DM_LIST_NOT_LOADED": "errorDmListNotLoaded",
+    "DM_LIST_LOAD_FAILED": "errorDmListLoadFailed",
+    "DM_REQUESTS_NOT_OPENED": "errorDmRequestsNotOpened",
     # A run that asks for the AI (`WorkflowContract.ai_request`) and has no usable key (`MissingAIKeyError`).
     "missing_ai_key": "errorMissingAiKey",
     # The launcher (`bridges/launcher.py`): it was named no bridge, or one its manifest does not list

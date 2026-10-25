@@ -16,6 +16,7 @@ from loguru import logger
 from bridges.tools.lab.actions.instagram import action
 from bridges.tools.lab.action_test.params import lab_flag
 from taktik.core.shared.device.screen import screen_size_of
+from taktik.core.social_media.instagram.workflows.dm.session import DmListNotRead
 
 
 def _dm_runtime(a):
@@ -76,8 +77,9 @@ def list_unread(a, p):
     except (TypeError, ValueError):
         limit = 5
     convs = _dm_runtime(a).read_conversations(limit)
-    if convs is None:
-        return {"success": False, "message": "the DM inbox is not on screen: nothing read"}
+    if isinstance(convs, DmListNotRead):
+        # Not read, never 0 conversation: the inbox off screen, a list not loaded or failed to load.
+        return {"success": False, "message": convs.error, "details": {"error_code": convs.error_code}}
     items = []
     for c in convs:
         get = c.get if isinstance(c, dict) else (lambda k, d=None: getattr(c, k, d))

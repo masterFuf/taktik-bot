@@ -35,7 +35,11 @@ from taktik.core.social_media.instagram.workflows.dm.persistence import (
 )
 from taktik.core.social_media.instagram.workflows.dm.payload import DM_COMMANDS, dm_command_from_payload
 from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome
-from taktik.core.social_media.instagram.workflows.dm.session import ensure_dm_inbox, return_to_inbox
+from taktik.core.social_media.instagram.workflows.dm.session import (
+    DmListNotRead,
+    ensure_dm_inbox,
+    return_to_inbox,
+)
 from taktik.core.social_media.instagram.workflows.common.startup import package_name_from_payload
 
 
@@ -46,8 +50,17 @@ RuntimeProvider = Callable[[Optional[str]], Any]
 Emit = Callable[[dict], None]
 
 
-def _failure(error: str) -> dict[str, Any]:
-    return {"success": False, "error": error}
+def _failure(error: str, error_code: Optional[str] = None) -> dict[str, Any]:
+    """The result of a command that failed: why, for a person, and its code when the cause has one
+    (`contract/error_codes.py`), for the app's sentence."""
+    if error_code is None:
+        return {"success": False, "error": error}
+    return {"success": False, "error": error, "error_code": error_code}
+
+
+def _not_read(not_read: DmListNotRead) -> dict[str, Any]:
+    """The result of a reading the reader could not do: a failure with its code, never 0 conversation."""
+    return _failure(not_read.error, error_code=not_read.error_code)
 
 
 def run_instagram_dm(config: Mapping[str, Any], *, connect: RuntimeProvider,
@@ -104,8 +117,8 @@ def _read(runtime, limit: int, emit: Optional[Emit]) -> dict[str, Any]:
 
     time.sleep(2)
     conversations = runtime.read_conversations(limit)
-    if conversations is None:
-        return _failure("The DM inbox is not on screen: no conversation read")
+    if isinstance(conversations, DmListNotRead):
+        return _not_read(conversations)
 
     # Leave the inbox in a deterministic state for the next command. Without
     # this, the following send process can start from the bottom of a long DM
@@ -147,17 +160,16 @@ def _read_requests(runtime, limit: int) -> dict[str, Any]:
     account_username = getattr(runtime, "_dm_account_username", None)
 
     if not runtime.open_requests_folder():
-        # No pending requests (or the folder could not be opened): return an empty result.
-        return {
-            "type": "result", "success": True, "conversations": [], "total": 0,
-            "is_requests": True, "account_username": account_username,
-        }
+        # No entry to the folder, or its screen not reached: the folder is not on screen, so nothing
+        # says it is empty (the rule of 2026-10-25).
+        return _failure("The message requests folder did not open: no request read",
+                        error_code="DM_REQUESTS_NOT_OPENED")
 
     time.sleep(2)
     # Request rows reuse the inbox row structure, so the standard reader handles them.
     conversations = runtime.read_conversations(limit)
-    if conversations is None:
-        return _failure("The requests folder is not on screen: no conversation read")
+    if isinstance(conversations, DmListNotRead):
+        return _not_read(conversations)
 
     return {
         "type": "result",

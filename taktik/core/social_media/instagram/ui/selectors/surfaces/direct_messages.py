@@ -76,6 +76,35 @@ class DirectMessageSelectors:
         '//*[@resource-id="com.instagram.android:id/direct_inbox_action_bar"]',
         '//*[@resource-id="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview"]',
     ])
+    # What a list of conversations shows once it has loaded, rows or not. The action bar and the
+    # thread list are up before it (the requests folder of 410 on a C57S, Android 14, 2026-10-25:
+    # its action bar « Message requests » and an empty thread list, then, a moment later, its empty
+    # page, ig410_en_dm_requests_loading.xml then ig410_en_dm_requests_empty.xml): they prove the
+    # screen, not its content.
+    # - The inbox's header, at the top of its list: « Messages » and the « Requests » entry
+    #   (`header_container`, ig410_en_dm_inbox_messages_header.xml), or the pills of the other layout
+    #   (`primary_pill`, `requests_pill`).
+    list_header_container: str = '//*[@resource-id="com.instagram.android:id/header_container"]'
+    # - The page of an empty list, its headline (« No message requests », ig410_en_dm_requests_empty.xml).
+    list_empty_page_headline: str = (
+        '//*[@resource-id="com.instagram.android:id/empty_state_view_root"]'
+        '//*[@resource-id="com.instagram.android:id/igds_headline_emphasized_headline"]'
+    )
+    # - The same page when the list did not load: the headline says so (« Couldn't load requests »)
+    #   and a link offers to try again (« Try again », the phone without network,
+    #   ig410_en_dm_requests_load_failed.xml). Its link tells it from an empty list, in any language.
+    list_load_failed_link: str = (
+        '//*[@resource-id="com.instagram.android:id/empty_state_view_root"]'
+        '//*[@resource-id="com.instagram.android:id/igds_headline_link"]'
+    )
+
+    @property
+    def list_loaded_markers(self) -> List[str]:
+        """What proves that a list without rows is empty: its header, or its empty page (never a
+        page that failed to load: see `list_load_failed_link`)."""
+        return [self.list_header_container, *self.primary_pill, *self.requests_pill,
+                self.list_empty_page_headline]
+
     inbox_header_text_resource_id: str = "com.instagram.android:id/header_text"
     # The older header entry to the message requests ("Requests" / "Demandes" button).
     inbox_header_action_button_resource_id: str = "com.instagram.android:id/header_action_button"

@@ -654,7 +654,7 @@
   "db": []
  },
  "requests_none": {
-  "exit": 0,
+  "exit": 1,
   "calls": [
    "connect",
    "version_overrides 410.0.0.53.71",
@@ -669,11 +669,9 @@
   "stdout": [
    {
     "type": "result",
-    "success": true,
-    "conversations": [],
-    "total": 0,
-    "is_requests": true,
-    "account_username": "alpha_bot"
+    "success": false,
+    "error": "The message requests folder did not open: no request read",
+    "error_code": "DM_REQUESTS_NOT_OPENED"
    }
   ],
   "db": []

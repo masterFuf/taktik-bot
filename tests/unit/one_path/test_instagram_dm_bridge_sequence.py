@@ -73,7 +73,8 @@ def test_the_requests_folder_is_read_like_the_inbox(igd_rig):
     _check("requests", igd_rig, igd_rig.run_bridge(dm_command("read_requests")))
 
 
-def test_no_requests_folder_is_an_empty_result(igd_rig):
+def test_a_requests_folder_that_does_not_open_is_no_read(igd_rig):
+    """Changed on purpose on 2026-10-25: it answered 0 conversation, with no folder on screen to say so."""
     igd_rig.requests_ok = False
     _check("requests_none", igd_rig, igd_rig.run_bridge(dm_command("read_requests")))
 

@@ -158,4 +158,6 @@ def test_off_the_inbox_nothing_is_read_and_no_empty_inbox_is_claimed():
     phone = _Phone(NAMED)
     phone.screen = (FIXTURES / "ig410_en_dm_conversation_no_tab_bar.xml").read_text(encoding="utf-8")
 
-    assert _Reader(phone).read_conversations(5) is None
+    not_read = _Reader(phone).read_conversations(5)
+
+    assert getattr(not_read, "error_code", None) == "DM_INBOX_NOT_SHOWN", not_read
