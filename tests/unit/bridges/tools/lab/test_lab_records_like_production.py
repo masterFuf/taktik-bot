@@ -124,3 +124,23 @@ def test_the_likers_loop_without_an_account_touches_nothing(lab_base, monkeypatc
     assert walked == []
     assert result["success"] is False
     assert "account param is required" in result["message"]
+
+
+def test_the_likers_loop_knows_the_account_it_acts_as(lab_base, monkeypatch):
+    """The loop leaves the acting account out of the likers it opens (`automation.active_username`,
+    as a run reads it off its own profile): in the Lab, that account is the `account` parameter."""
+    from bridges.tools.lab.actions.instagram import ACTION_REGISTRY, register_actions
+
+    register_actions()
+    bundle = _bundle()
+    acting = []
+    monkeypatch.setattr(bundle.feed, "_interact_with_likers_list",
+                        lambda **kw: acting.append(bundle.feed.automation.active_username))
+    monkeypatch.setattr(runner, "emit", lambda payload: None)
+    runner._execute_action(ACTION_REGISTRY, "engagement.engage_likers", bundle, {"account": "@lab_tester"},
+                           SelectorTracer(), exit_on_error=False)
+    runner._execute_action(ACTION_REGISTRY, "engagement.engage_likers", bundle, {}, SelectorTracer(),
+                           exit_on_error=False)
+
+    assert acting == ["lab_tester"]
+    assert bundle.identity.active_username is None, "an action without an account keeps none of the one before"

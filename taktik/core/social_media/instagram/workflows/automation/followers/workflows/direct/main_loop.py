@@ -7,6 +7,7 @@ from taktik.core.shared.diagnostics import capture_screen_snapshot, run_halt
 from taktik.core.social_media.instagram.actions.base.stats import create_workflow_stats, sync_aliases
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
 from taktik.core.shared.telemetry import emit_step
+from taktik.core.shared.actions.utils import ActionUtils
 from taktik.core.social_media.instagram.workflows.common.session import stop_reasons
 from taktik.core.social_media.instagram.actions.base.ipc import IPCEmitter
 from taktik.core.social_media.instagram.workflows.common.revisit_policy import RevisitPolicy
@@ -284,15 +285,14 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                     if username in processed_usernames:
                         continue
                     
-                    # Skip own account
-                    if account_username and account_username != "unknown":
-                        if username.lower() == account_username.lower():
-                            self.logger.info(f"⏭️ Skipping own account @{username}")
-                            processed_usernames.add(username)
-                            emit_step("follower_decision", action="skipped", target=username,
-                                      reason="own_account", encounter_order=total_usernames_seen + 1,
-                                      source_type="FOLLOWERS")
-                            continue
+                    # Skip own account (the same comparison as the likers loop)
+                    if account_username != "unknown" and ActionUtils.same_username(username, account_username):
+                        self.logger.info(f"⏭️ Skipping own account @{username}")
+                        processed_usernames.add(username)
+                        emit_step("follower_decision", action="skipped", target=username,
+                                  reason="own_account", encounter_order=total_usernames_seen + 1,
+                                  source_type="FOLLOWERS")
+                        continue
 
                     # Skip target account
                     if target_username and username.lower() == target_username.lower():

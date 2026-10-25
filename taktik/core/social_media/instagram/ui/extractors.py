@@ -405,11 +405,16 @@ class InstagramUIExtractors:
         follows a scroll but the first. A list whose first likers were all handled before still
         moves, and the reading goes on.
 
-        Without `automation`, every liker shown is kept (the scraping's reading). `keep_going`, when
-        given, is asked before each screen: the scraping's session clock stops the reading too."""
+        With `automation` (the run), a liker is eligible when the account the run acts as has not
+        handled it before, and is not that account itself (`automation.active_username`): a run
+        that liked the post is among its likers. Without `automation`, every liker shown is kept
+        (the scraping's reading). `keep_going`, when given, is asked before each screen: the
+        scraping's session clock stops the reading too."""
 
         logger_to_use = logger_instance if logger_instance else log
-        
+        account_id = getattr(automation, 'active_account_id', None) if automation else None
+        acting_username = getattr(automation, 'active_username', None) if automation else None
+
         usernames = []
         
         if max_interactions is not None:
@@ -446,7 +451,9 @@ class InstagramUIExtractors:
                 for username in new_users:
                     if username not in usernames and len(usernames) < target_count:
                         if automation:
-                            account_id = getattr(automation, 'active_account_id', None)
+                            if ActionUtils.same_username(username, acting_username):
+                                logger_to_use.debug(f"⏭️ @{username} is the account the run acts as: not eligible")
+                                continue
                             if InstagramWorkflowStateService.is_profile_already_processed(username, account_id):
                                 continue
                         

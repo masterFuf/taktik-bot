@@ -39,7 +39,7 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
 
     # What a likers walk counts and the run adds up (`_engage_post_likers`).
     _LIKERS_WALK_COUNTS = (
-        'users_found', 'users_interacted', 'profiles_filtered', 'skipped',
+        'users_found', 'users_interacted', 'profiles_visited', 'profiles_filtered', 'skipped',
         'already_processed', 'already_filtered', 'likes_made', 'follows_made',
         'comments_made', 'stories_watched', 'stories_liked', 'errors',
     )

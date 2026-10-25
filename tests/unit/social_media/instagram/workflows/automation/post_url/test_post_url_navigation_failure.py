@@ -56,7 +56,7 @@ class _StatsManager:
         pass
 
     def to_dict(self):
-        return {'profiles_visited': 1}
+        return {'profiles_visited': 1, 'profiles_interacted': 1}
 
 
 class _PostUrl(PostUrlBusiness):

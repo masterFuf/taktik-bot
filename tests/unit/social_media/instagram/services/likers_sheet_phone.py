@@ -1,8 +1,10 @@
 """A phone that replays a real capture of a post's likers sheet, for the tests that read or walk it.
 
 The screens are real dumps of a C57 S (Instagram 410 in English, 576x1280), anonymized: the sheet
-of a post liked twice (`TWO_LIKERS`) and the sheet of a post with thousands of likes, six rows on
-screen (`LONG_LIST`). A drag up moves the sheet's list by its travel when the list `moves`, and the
+of a post liked twice (`TWO_LIKERS`), the sheet of a post with thousands of likes, six rows on
+screen (`LONG_LIST`), and the sheet of a post of the test account that the account liked itself,
+five likers among whom the account (`OWN_ACCOUNT_AMONG_LIKERS`: `user_1`, the post's author, the
+fourth row, the one without a button). A drag up moves the sheet's list by its travel when the list `moves`, and the
 phone keeps the likers shown after each one; a drag down (the sheet closing) moves nothing. A tap
 lands nowhere: the screen stays the sheet.
 """
@@ -14,6 +16,9 @@ from taktik.core.shared.device.ui_dump import parse_ui_dump
 
 TWO_LIKERS = "ig410_en_likers_sheet_two_likers_c57s.xml"
 LONG_LIST = "ig410_en_likers_sheet_long_list_c57s.xml"
+OWN_ACCOUNT_AMONG_LIKERS = "ig410_en_likers_sheet_own_account_c57s.xml"
+#: The account that posted, then liked, the post of `OWN_ACCOUNT_AMONG_LIKERS`.
+OWN_ACCOUNT = "user_1"
 C57S_W, C57S_H = 576, 1280
 ROW_NAME_ID = f"{PKG}:id/row_user_primary_name"
 

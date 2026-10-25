@@ -91,6 +91,30 @@ def test_the_likers_walk_reuses_the_shared_loop():
     assert hasattr(FeedBusiness, '_interact_with_likers_list')
 
 
+def test_the_likers_walk_adds_its_visits_to_the_runs_figures():
+    """The walk counts on figures of its own, added to the run's afterwards: the profiles it
+    visited were left out of that sum, and the run said 0 visits whatever the walk did."""
+    from types import SimpleNamespace
+
+    feed = FeedBusiness.__new__(FeedBusiness)
+    feed.logger = SimpleNamespace(debug=lambda *_a, **_k: None, info=lambda *_a, **_k: None)
+    feed.nav_actions = SimpleNamespace(navigate_to_home=lambda: True)
+    feed._is_reel_post = lambda: False
+    feed._open_likers_popup = lambda is_reel: True
+
+    def walk(stats, **_kw):
+        stats['profiles_visited'] += 3
+        stats['users_interacted'] += 1
+
+    feed._interact_with_likers_list = walk
+    run_stats = {'profiles_visited': 2, 'users_interacted': 1}
+
+    feed._engage_post_likers({}, run_stats)
+
+    assert run_stats['profiles_visited'] == 5
+    assert run_stats['users_interacted'] == 2
+
+
 @pytest.mark.parametrize("method", ['_engage_post_author', '_engage_post_likers'])
 def test_both_excursions_always_hand_the_feed_back(method):
     """The loop's next advance assumes it is standing on the feed: a crawl that resumes from

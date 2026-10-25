@@ -24,6 +24,7 @@ from taktik.core.social_media.instagram.workflows.common.revisit_policy import R
 from taktik.core.social_media.instagram.workflows.common.relationship_filter import relationship_skip_reason, wants_relationship_skip
 from taktik.core.social_media.instagram.workflows.common.list_sources import InteractionListSource, make_likers_source
 from taktik.core.shared.config import resolve_filter_criteria
+from taktik.core.shared.actions.utils import ActionUtils
 
 
 class LikersWorkflowBase(BaseBusinessAction):
@@ -81,6 +82,11 @@ class LikersWorkflowBase(BaseBusinessAction):
 
         account_id = getattr(self.automation, 'active_account_id', None) if self.automation else None
         session_id = getattr(self.automation, 'current_session_id', None) if self.automation else None
+        # The account the run acts as, read off its own profile when the run starts (the Lab's
+        # `account` parameter). A run that likes a post and then walks its likers finds itself
+        # among them: opening that row lands on its own profile, from which the way back did not
+        # find the sheet again, and the post was left (C57 S, 2026-10-25).
+        acting_username = getattr(self.automation, 'active_username', None) if self.automation else None
 
         def _ledger(uname: str, outcome: str, reason: Optional[str] = None, **extra) -> None:
             """One audit entry per UNIQUE encountered user → its outcome + reason. The
@@ -145,6 +151,14 @@ class LikersWorkflowBase(BaseBusinessAction):
                     continue
 
                 processed_usernames.add(username)
+
+                # The acting account is no target: its row is passed without a tap, and counts
+                # neither as a profile found nor in the known streak, as in the followers loop.
+                if ActionUtils.same_username(username, acting_username):
+                    self.logger.info(f"⏭️ Skipping own account @{username}")
+                    _ledger(username, "skipped", "own_account")
+                    continue
+
                 new_likers_found = True
                 stats['users_found'] += 1
 
@@ -267,6 +281,12 @@ class LikersWorkflowBase(BaseBusinessAction):
                         break
                     continue
 
+                # Through the filters: a visit, acted on or left by the plan's draw (the base marks
+                # it processed either way), as the followers loop counts it. Counted once, here, in
+                # the run's figures and in the session's (the live panel's « Profiles visited »).
+                stats['profiles_visited'] += 1
+                self.stats_manager.increment('profiles_visited')
+
                 if result.actually_interacted:
                     stats['users_interacted'] += 1
                     # Feed the SESSION profile counter too. This loop walks PEOPLE -- the likers
@@ -283,9 +303,9 @@ class LikersWorkflowBase(BaseBusinessAction):
                     stats['stories_watched'] += result.stories
                     stats['stories_liked'] += result.stories_liked
 
-                    self._update_stats_from_interaction_result(
-                        username, result.interaction_result, account_id, session_id
-                    )
+                    # The profile only: the action counters (likes, follows, comments, stories)
+                    # move at each gesture, in the interaction engine, which also records them.
+                    self.stats_manager.increment('profiles_interacted')
                     self.stats_manager.display_stats(current_profile=username)
                     _ledger(username, "interacted", None,
                             likes=result.likes, follows=result.follows,
