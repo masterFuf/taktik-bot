@@ -19,6 +19,7 @@ from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.social_media.instagram.workflows.common.session import stop_reasons
 from taktik.core.social_media.instagram.actions.base.ipc import IPCEmitter
+from taktik.core.social_media.instagram.ui.detectors.scroll_end import likers_list_end_detector
 from taktik.core.social_media.instagram.workflows.common.revisit_policy import RevisitPolicy
 from taktik.core.social_media.instagram.workflows.common.relationship_filter import relationship_skip_reason, wants_relationship_skip
 from taktik.core.social_media.instagram.workflows.common.list_sources import InteractionListSource, make_likers_source
@@ -52,14 +53,23 @@ class LikersWorkflowBase(BaseBusinessAction):
             max_interactions: Target number of successful interactions
             source_type: 'HASHTAG' or 'POST_URL' (for DB recording)
             source_name: e.g. '#travel' or 'https://instagram.com/p/...'
-            max_scroll_attempts: Max scroll attempts before giving up
+            max_scroll_attempts: scrolls in a row without a new row before giving up, a backstop:
+                the list ends before, on `likers_list_end_detector`
             list_source: WHERE the rows come from — the likers sheet (default, historical
                 behaviour) or the comments thread. Only the row plumbing differs; everything
                 downstream of the click is identical.
+
+        The end of the list is the one the reading of the likers tells (`likers_list_end_detector`),
+        fed with every row SHOWN, walked before or not, by the first reading and by each reading
+        that follows a scroll. After walking the rows of a screen, the loop reads that same screen
+        again without scrolling: that reading tells nothing about the end (journal IG-FEED-031).
         """
         source = list_source or make_likers_source(self)
         processed_usernames: Set[str] = set()
         scroll_attempts = 0
+        scrolls_made = 0
+        list_end = likers_list_end_detector()
+        reading_follows_scroll = True  # the first reading: the page the next scroll is measured on
         consecutive_empty = 0
         known_usernames_streak = 0
         max_consecutive_known_usernames = effective_config.get('max_consecutive_known_usernames')
@@ -92,25 +102,32 @@ class LikersWorkflowBase(BaseBusinessAction):
             # Get the visible rows (likers sheet or comments thread)
             visible_likers = source.get_visible()
 
+            if reading_follows_scroll:
+                reading_follows_scroll = False
+                list_end.notify_new_page([row['username'] for row in visible_likers])
+                end_reason = list_end.end_reason()
+                if end_reason is not None:
+                    self.logger.info(
+                        f"🏁 Stop: end of the {source.label} list after {scrolls_made} scroll(s), {end_reason}"
+                    )
+                    break
+
             if not visible_likers:
                 consecutive_empty += 1
-                popup_open = source.is_open()
                 # WRONG SCREEN: tapping a REEL's like count can drop us into the full-screen clips/
                 # Reels viewer instead of the likers list, and the popup then never opens no matter
                 # how much we scroll. Detect it (likers-popup indicators absent for a couple of
                 # cycles — tolerates a slow-loading popup) and LEAVE this post instead of scrolling
                 # into the void (a real run wasted ~40s / 50 scrolls stuck on a reel viewer).
-                if not popup_open and consecutive_empty >= 2:
+                if consecutive_empty >= 2 and not source.is_open():
                     self.logger.warning(f"{source.label} list not open after retries (wrong screen, e.g. reel/clips viewer) — leaving this post")
                     source.exit_wrong_screen()
                     break
-                # List IS open but shows nothing more after several scrolls → end of the list.
-                if popup_open and consecutive_empty >= 4:
-                    self.logger.debug(f"No more {source.label} after several scrolls — end of list")
-                    break
                 self.logger.debug(f"No visible {source.label} found on screen")
                 scroll_attempts += 1
+                scrolls_made += 1
                 source.scroll()
+                reading_follows_scroll = True
                 self._human_like_delay('scroll')
                 continue
 
@@ -295,10 +312,15 @@ class LikersWorkflowBase(BaseBusinessAction):
             # Scroll if no new likers found
             if not new_likers_found:
                 scroll_attempts += 1
+                scrolls_made += 1
                 source.scroll()
+                reading_follows_scroll = True
                 self._human_like_delay('scroll')
             else:
                 scroll_attempts = 0
+
+        if scroll_attempts >= max_scroll_attempts:
+            self.logger.info(f"🛑 Stop: {max_scroll_attempts} scrolls in a row without a new row in the {source.label} list")
 
     # ─── Liker extraction from current post ─────────────────────────────
 
@@ -353,7 +375,8 @@ class LikersWorkflowBase(BaseBusinessAction):
                     self.logger.debug("⬅️ No UI back button found, using system back (fallback)")
                     self.device.press('back')
                     self._human_like_delay('click')
-            except Exception:
+            except Exception as exc:
+                self.logger.debug(f"⬅️ Back button lookup failed ({exc}), using system back")
                 self.device.press('back')
                 self._human_like_delay('click')
 
@@ -397,9 +420,10 @@ class LikersWorkflowBase(BaseBusinessAction):
 
     def _exit_wrong_likers_screen(self) -> None:
         """Best-effort: a single back press to leave the wrong fullscreen surface we got dropped into
-        (e.g. the reel/clips viewer), so the run isn't left stuck on it. Never raises."""
+        (e.g. the reel/clips viewer), so the run isn't left stuck on it. Never raises: a back that
+        fails is logged, and the caller's way back to its feed or post takes over."""
         try:
             self.device.press("back")
             self._human_like_delay('navigation')
-        except Exception:
-            pass
+        except Exception as exc:
+            self.logger.warning(f"Could not press back to leave the wrong screen: {exc}")

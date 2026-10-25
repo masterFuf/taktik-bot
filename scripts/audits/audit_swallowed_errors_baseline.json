@@ -93,7 +93,6 @@
   "taktik/core/social_media/instagram/workflows/common/comments_thread.py": 1,
   "taktik/core/social_media/instagram/workflows/common/detection.py": 5,
   "taktik/core/social_media/instagram/workflows/common/distribution.py": 1,
-  "taktik/core/social_media/instagram/workflows/common/likers_base.py": 2,
   "taktik/core/social_media/instagram/workflows/common/list_sources.py": 2,
   "taktik/core/social_media/instagram/workflows/common/post_navigation.py": 3,
   "taktik/core/social_media/instagram/workflows/dm/conversation_navigation.py": 4,

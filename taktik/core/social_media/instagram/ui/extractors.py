@@ -8,13 +8,9 @@ from taktik.core.database.instagram_workflow_state import InstagramWorkflowState
 from taktik.core.shared.actions.utils import ActionUtils, normalise_number_spaces
 from taktik.core.shared.behavior.gesture_primitives import human_drag_between_raw
 from taktik.core.social_media.instagram.ui.labels import is_ui_label
-from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
+from taktik.core.social_media.instagram.ui.detectors.scroll_end import likers_list_end_detector
 
 log = logger.bind(module="instagram-ui-extractors")
-
-#: Scrolls in a row that change nothing on the likers sheet before its reading takes the list for
-#: finished. The second one is the margin for a list still loading its next rows.
-LIKERS_STILL_SCROLLS_TO_END = 2
 
 
 class InstagramUIExtractors:
@@ -376,9 +372,10 @@ class InstagramUIExtractors:
         """The eligible likers of the open likers sheet, read screen after screen until the target,
         the end of the list or `max_scrolls`.
 
-        The end of the list is the one `ScrollEndDetector` tells from the likers SHOWN on each
-        screen, eligible or not: `LIKERS_STILL_SCROLLS_TO_END` scrolls in a row that change nothing.
-        A list whose first likers were all handled before still moves, and the reading goes on."""
+        The end of the list is the one `likers_list_end_detector` tells from the likers SHOWN on
+        each screen, eligible or not: two scrolls in a row that change nothing. Every reading here
+        follows a scroll but the first. A list whose first likers were all handled before still
+        moves, and the reading goes on."""
 
         logger_to_use = logger_instance if logger_instance else log
         
@@ -393,12 +390,7 @@ class InstagramUIExtractors:
         
         max_scrolls = min(200, target_count * 2)
         scroll_count = 0
-        # The first reading comes before any scroll: an identical page is one scroll that changed
-        # nothing, while an empty page counts from that first reading on.
-        list_end = ScrollEndDetector(
-            identical_pages_to_end=LIKERS_STILL_SCROLLS_TO_END,
-            empty_pages_to_end=LIKERS_STILL_SCROLLS_TO_END + 1,
-        )
+        list_end = likers_list_end_detector()
         
         logger_to_use.info(f"🔄 Optimized extraction for {target_count} users")
         

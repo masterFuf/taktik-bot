@@ -2,6 +2,25 @@ from typing import List, Set, Optional
 from loguru import logger
 from taktik.core.social_media.instagram.ui.selectors import SCROLL_SELECTORS
 
+#: Scrolls in a row that change nothing on a post's likers sheet before the list is taken for
+#: finished. The second one is the margin for a list still loading its next rows.
+LIKERS_STILL_SCROLLS_TO_END = 2
+
+
+def likers_list_end_detector() -> "ScrollEndDetector":
+    """The end of a post's likers sheet, for whoever walks it: the reading of the likers and the
+    interaction loop of the runs (which walks the comments thread the same way).
+
+    Feed it the usernames SHOWN by the first reading and by each reading that follows a scroll,
+    never a second reading of a screen nothing scrolled (journal IG-FEED-031). The first reading
+    comes before any scroll: an identical page is one scroll that changed nothing, while an empty
+    page counts from that first reading on, hence one more of them."""
+    return ScrollEndDetector(
+        identical_pages_to_end=LIKERS_STILL_SCROLLS_TO_END,
+        empty_pages_to_end=LIKERS_STILL_SCROLLS_TO_END + 1,
+    )
+
+
 class ScrollEndDetector:
     """
     Detects the end of a list scroll by watching the repetition of the same

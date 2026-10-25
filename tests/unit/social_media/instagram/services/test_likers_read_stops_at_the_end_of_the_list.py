@@ -22,62 +22,14 @@ import time
 from types import SimpleNamespace
 
 import pytest
-from uiautomator2.xpath import XPathEntry
 
-from profile_posts_phone import PKG, capture, scrolled
+from likers_sheet_phone import LONG_LIST, TWO_LIKERS, LikersSheetPhone
+from profile_posts_phone import PKG, capture
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
-from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.social_media.instagram.actions.base.base_business import BaseBusinessAction
 from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
-
-TWO_LIKERS = "ig410_en_likers_sheet_two_likers_c57s.xml"
-LONG_LIST = "ig410_en_likers_sheet_long_list_c57s.xml"
-C57S_W, C57S_H = 576, 1280
-ROW_NAME_ID = f"{PKG}:id/row_user_primary_name"
-
-
-class _LikersSheetPhone:
-    """uiautomator2 behind the proxy and the facade, replaying a likers sheet. A drag up moves the
-    sheet's list by its travel when `moves`, and the phone keeps the likers shown after each one."""
-
-    wait_timeout = 0.0
-
-    def __init__(self, screen, moves):
-        self.screen = screen
-        self.moves = moves
-        self.offset = 0
-        self.likers_after_each_drag_up = []
-        self.xpath = XPathEntry(self)
-        self.info = {"displayWidth": C57S_W, "displayHeight": C57S_H}
-
-    def dump_hierarchy(self, *_a, **_k):
-        return scrolled(self.screen, self.offset, holding=ROW_NAME_ID)
-
-    def window_size(self):
-        return C57S_W, C57S_H
-
-    def app_current(self):
-        return {"package": PKG}
-
-    def swipe_points(self, points, _duration):
-        (_x0, start_y), (_x1, end_y) = points[0], points[-1]
-        if end_y >= start_y:
-            return  # the sheet closed by a drag down, after the reading
-        if self.moves:
-            self.offset += start_y - end_y
-        self.likers_after_each_drag_up.append(self.likers_shown())
-
-    def likers_shown(self):
-        root = parse_ui_dump(self.dump_hierarchy())
-        return sorted(n.get("text") for n in root.iter() if n.get("resource-id") == ROW_NAME_ID)
-
-    def click(self, *_a, **_k):
-        return None
-
-    def press(self, *_a, **_k):
-        return True
 
 
 @pytest.fixture(autouse=True)
@@ -96,14 +48,14 @@ def _lab_popup_host(phone, automation=None):
 
 
 def test_the_captured_sheet_holds_two_likers():
-    phone = _LikersSheetPhone(capture(TWO_LIKERS), moves=False)
+    phone = LikersSheetPhone(capture(TWO_LIKERS), moves=False)
 
     assert _lab_popup_host(phone)._is_likers_popup_open() is True
     assert len(phone.likers_shown()) == 2
 
 
 def test_a_finished_list_stops_the_reading_after_two_drags_that_show_nothing_new():
-    phone = _LikersSheetPhone(capture(TWO_LIKERS), moves=False)
+    phone = LikersSheetPhone(capture(TWO_LIKERS), moves=False)
 
     likers = _lab_popup_host(phone)._extract_likers_after_click(max_interactions=10, multiply_by=1)
 
@@ -113,7 +65,7 @@ def test_a_finished_list_stops_the_reading_after_two_drags_that_show_nothing_new
 
 
 def test_a_list_whose_first_likers_were_handled_goes_on_while_it_moves(monkeypatch):
-    phone = _LikersSheetPhone(capture(LONG_LIST), moves=True)
+    phone = LikersSheetPhone(capture(LONG_LIST), moves=True)
     first_screen = phone.likers_shown()
     assert len(first_screen) == 6
     handled = []
