@@ -90,7 +90,7 @@ class StoryRelayBusiness(BaseBusinessAction):
             result["reason"] = "add_to_story_not_offered"
             # Shared verified cascade, the same one the Lab and production dismiss with: it
             # re-checks that the sheet is really gone instead of firing a blind back.
-            dismiss_share_sheet(self.device, log=self.logger.debug)
+            dismiss_share_sheet(self.device, log=self.logger)
             return result
 
         self._human_like_delay('story_load')
