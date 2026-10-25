@@ -11,6 +11,7 @@ regress again.
 import re
 import types
 
+from taktik.core.shared.text import clean_shown_text
 from taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions import DMActions
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.inbox import INBOX_SELECTORS
 
@@ -74,9 +75,9 @@ class _FakeDevice:
         self._followable = set(followable)
 
     def xpath(self, selector):
-        # selector = follow_back_for_username(name) -> on extrait le name (forme contains)
-        m = re.search(r'contains\(@text, "([^"]+)"\)', selector)
-        name = m.group(1) if m else ''
+        # selector = follow_back_for_username(shown): the row's name node as the dump holds it
+        m = re.search(r'\[@text="([^"]+)"\]', selector)
+        name = clean_shown_text(m.group(1)) if m else ''
         return _FakeXPath(name in self._followable)
 
     def snapshot(self):
@@ -149,16 +150,9 @@ def test_get_new_followers_empty_when_no_usernames():
     assert dm.get_new_followers(max_items=10) == []
 
 
-def test_clean_username_strips_bidi_marks():
-    # Real text captured on device: invisible bidi marks around the name.
-    assert DMActions._clean_username('‎⁨NK19⁩') == 'NK19'
-    assert DMActions._clean_username('⁨Éric Langevingt Vignac⁩') == 'Éric Langevingt Vignac'
-    assert DMActions._clean_username(None) == ''
-
-
 def test_get_new_followers_cleans_bidi_and_matches_follow_back():
-    # The device bug: the wrapped username made the exact match fail.
-    # Après fix : username nettoyé ('NK19') + contains(@text) -> match OK.
+    # The device bug: the wrapped username made the exact match fail. The row is now addressed
+    # by its name node exactly as the dump holds it, marks included (U+200E U+2068 NK19 U+2069).
     device = _FakeDevice(
         usernames=['‎⁨NK19⁩', '⁨Rafael⁩'],
         activities=['a commencé à te suivre', 'a commencé à te suivre'],

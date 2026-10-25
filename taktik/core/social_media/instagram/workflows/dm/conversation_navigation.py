@@ -5,11 +5,9 @@ from __future__ import annotations
 import time
 from typing import Any, Optional
 
-from taktik.core.social_media.instagram.workflows.dm.conversation_payload import (
-    extract_inbox_username,
-    same_inbox_name,
-)
+from taktik.core.social_media.instagram.workflows.dm.conversation_payload import extract_inbox_username
 from loguru import logger
+from taktik.core.shared.text import same_shown_name
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
@@ -38,7 +36,7 @@ class DMConversationNavigationMixin:
             except Exception as exc:
                 logger.debug(f"Inbox row {i} unreadable: {exc}")
                 continue
-            if same_inbox_name(item_username, username):
+            if same_shown_name(item_username, username):
                 logger.info(f"Found conversation: {item_username}")
                 return self._open_row(item, username)
         return None
@@ -53,7 +51,7 @@ class DMConversationNavigationMixin:
             except Exception as exc:
                 logger.debug(f"Inbox row name {i} unreadable: {exc}")
                 continue
-            if same_inbox_name(item_username, username):
+            if same_shown_name(item_username, username):
                 logger.info(f"Found via direct username element: {item_username}")
                 return self._open_row(elem, username)
         return None
@@ -80,7 +78,7 @@ class DMConversationNavigationMixin:
             except Exception as exc:
                 logger.debug(f"Inbox row digest unreadable: {exc}")
                 continue
-            if same_inbox_name(row_username, username):
+            if same_shown_name(row_username, username):
                 logger.info(f"Found conversation via digest xpath: {row_username}")
                 return self._open_row(thread, username)
         return None
@@ -97,7 +95,7 @@ class DMConversationNavigationMixin:
 
     def open_conversation(self, username: str) -> bool:
         """Open the conversation of `username` from the DM inbox on screen: the row of exactly that
-        name (`same_inbox_name`), tapped, then the conversation on screen. False, nothing tapped, off
+        name (`same_shown_name`), tapped, then the conversation on screen. False, nothing tapped, off
         the inbox, or when no row shows that name.
 
         A row whose name only holds the name asked for, or starts like it, is another account's:

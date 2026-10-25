@@ -360,19 +360,6 @@ class InboxSelectors:
         phase 3). Capturé : z05="Demandes de messages" / l35="Tu as reçu N demandes"."""
         return ['demande', 'request']
 
-    def conversation_username_by_text(self, name: str) -> str:
-        """Build the conversation username selector for an exact visible name."""
-        return f'{self.conversation_username[0]}[@text="{name}"]'
-
-    def new_followers_username_by_text(self, name: str) -> str:
-        """Build the new-follower username selector for a visible name (page dédiée).
-
-        Containment rather than equality, because usernames are wrapped in invisible bidi
-        (LRM/FSI/PDI : ‎⁨…⁩) — un match exact échouerait ; `name` doit être
-        marks; the name passed in is cleaned of them beforehand.
-        """
-        return f'//*[contains(@resource-id, ":id/o0f")][contains(@text, "{name}")]'
-
     def new_follower_row_for_name(self, name: str) -> List[str]:
         """The tappable row of ONE new follower, addressed by the name the page shows.
 
@@ -404,29 +391,33 @@ class InboxSelectors:
             f'//*[contains(@text, "{isolated}")]/ancestor::*[@clickable="true"][1]',
         ]
 
-    def message_request_by_username(self, name: str) -> List[str]:
-        """Selectors for the message-request row of a visible username, richest first.
+    def message_request_by_username(self, shown: str) -> List[str]:
+        """Selectors for the message-request row whose name node reads exactly `shown`, richest
+        first.
 
-        Containment, because the username is wrapped in invisible bidi marks (see
-        DMActions._clean_username) ; on remonte à l'item t5a cliquable contenant ce username.
+        `shown` is the name node's text as the dump holds it, bidi marks included
+        (`DMActions._shown_name_on_screen`): equality, so a row whose name only starts like it is
+        never this one. Up to the clickable item that holds that node.
         """
+        exact = (shown or "").replace('"', "")
         return [
             '//*[contains(@resource-id, ":id/t5a")]'
-            f'[.//*[contains(@resource-id, ":id/z05")][contains(@text, "{name}")]]',
+            f'[.//*[contains(@resource-id, ":id/z05")][@text="{exact}"]]',
             # Both ids above are dead on 46.6.3, so the row could not be opened there at all.
             # Structural fallback: the clickable ancestor of the row that names this person.
             # `user_name` is a readable id, which is what makes it addressable across versions.
             '//*[@clickable="true"]'
-            f'[.//*[contains(@resource-id, ":id/user_name")][contains(@text, "{name}")]]',
+            f'[.//*[contains(@resource-id, ":id/user_name")][@text="{exact}"]]',
         ]
 
-    def follow_back_for_username(self, name: str) -> List[str]:
-        """Build the 'Suivre en retour' button scoped to the new-follower item of `name`.
+    def follow_back_for_username(self, shown: str) -> List[str]:
+        """Build the 'Suivre en retour' button scoped to the new-follower item of `shown`.
 
         Dynamic selector built from the centralized resource-ids: the follow-back button
-        of the item whose username contains `name`. Containment, because the node text is
-        wrapped in invisible bidi marks and the name is cleaned beforehand. This is what stops
-        the tap from landing on another follower's button.
+        of the item whose name node reads exactly `shown`, the text as the dump holds it, bidi
+        marks included (`DMActions._shown_name_on_screen`). Equality, so the item of « user_1 » is
+        never the item of « user ». This is what stops the tap from landing on another follower's
+        button.
 
         WHEN THERE IS NO BUTTON AT ALL, which is most of the time. Measured on 2026-08-30: a
         new-follower row shows a single button on its right, and once a CONVERSATION exists with
@@ -439,9 +430,10 @@ class InboxSelectors:
         trigger is the conversation or something else, since every follower on it now has a
         thread. Stated rather than guessed.
         """
+        exact = (shown or "").replace('"', "")
         return [
             '//*[contains(@resource-id, ":id/o0v")]'
-            f'[.//*[contains(@resource-id, ":id/o0f")][contains(@text, "{name}")]]'
+            f'[.//*[contains(@resource-id, ":id/o0f")][@text="{exact}"]]'
             '//*[contains(@resource-id, ":id/rdh")]',
             # A2. The three ids above are 43.1.4 only, so on 46.6.3 this resolved nothing:
             # `can_follow_back` came back False for every follower and `follow_back` could never
@@ -456,14 +448,14 @@ class InboxSelectors:
             # so `can_follow_back` said yes to followers already followed. The state IS the
             # label; the labels come from `follow_back_button`, not respelled here.
             *[
-                f'//android.widget.Button[contains(@text, "{name}")]'
+                f'//android.widget.Button[@text="{exact}"]'
                 '/ancestor::*[@clickable="true"][1]' + selector
                 for selector in self.follow_back_button
             ],
         ]
 
 
-    def say_hello_button_for_name(self, shown_name: str) -> List[str]:
+    def say_hello_button_for_line(self, line: str) -> List[str]:
         """The wave button of ONE named row, and nobody else's.
 
         Scoped from the row's own text up four levels to the row container -- measured
@@ -476,15 +468,14 @@ class InboxSelectors:
         the precise form wins where it exists, and the structural one carries builds where it
         does not.
 
-        The name is a DISPLAY NAME, which is what this row shows and all it shows.
+        `line` is the wave's line as the dump holds it (`Say hi to Alexis`, from
+        `DMActions._say_hello_lines`): equality, so the wave of « Alexis » is never the row of
+        « Alex ». The name in it is a DISPLAY NAME, which is what this row shows and all it shows.
         """
-        safe = (shown_name or "").replace('"', "")
-        if not safe:
+        exact = (line or "").replace('"', "")
+        if not exact:
             return []
-        row = (
-            f'//*[contains(@text, "Dis bonjour à {safe}") '
-            f'or contains(@text, "Say hi to {safe}")]/ancestor::*[4]'
-        )
+        row = f'//*[@text="{exact}"]/ancestor::*[4]'
         return [
             f'{row}//*[contains(@resource-id, ":id/hhq")]',
             f'{row}//*[@clickable="true"]',

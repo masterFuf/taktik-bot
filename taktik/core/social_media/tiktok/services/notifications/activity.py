@@ -20,16 +20,10 @@ must open the row, exactly as the comment sheet and the new-followers page both 
 from __future__ import annotations
 
 import re
-import unicodedata
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-#: What TikTok inserts for rendering and what a reader has to take back out. `⁠` is the word
-#: joiner that letter-spaces every date; the rest are direction marks.
-_INVISIBLE = dict.fromkeys(map(ord, "‎‏‪‫‬‭‮⁠﻿"), None)
-
-#: Isolate marks. Stripped only AFTER the names inside them have been read.
-_ISOLATES = dict.fromkeys(map(ord, "⁦⁧⁨⁩"), None)
+from taktik.core.shared.text import clean_shown_text
 
 _NAME_IN_ISOLATE = re.compile("⁨(.*?)⁩", re.DOTALL)
 
@@ -96,19 +90,6 @@ class ActivityRow:
         return self.kind in ENGAGING_KINDS
 
 
-def clean_row_text(text: Optional[str]) -> str:
-    """The row as a human sees it: no direction marks, no word joiners, single spaces.
-
-    Also folds the non-breaking spaces TikTok puts inside counts, so `20 h` and `20\\u00a0h` are
-    the same string.
-    """
-    if not text:
-        return ""
-    cleaned = unicodedata.normalize("NFC", text).translate(_INVISIBLE).translate(_ISOLATES)
-    cleaned = cleaned.replace(" ", " ").replace(" ", " ")
-    return re.sub(r"\s+", " ", cleaned).strip()
-
-
 def parse_activity_row(text: Optional[str]) -> ActivityRow:
     """Take one Activity row apart. Never raises; an unreadable row comes back `unknown`.
 
@@ -123,7 +104,7 @@ def parse_activity_row(text: Optional[str]) -> ActivityRow:
     # Names first, while the isolates are still there to delimit them.
     row.usernames = [name.strip() for name in _NAME_IN_ISOLATE.findall(raw) if name.strip()]
 
-    body = clean_row_text(raw)
+    body = clean_shown_text(raw)
     if not row.usernames:
         # No isolates at all: some builds render a single-actor row without them. Everything up to
         # the verb is then the name, and the verb is what locates it.
@@ -192,6 +173,5 @@ __all__ = [
     "ACTIVITY_KINDS",
     "ENGAGING_KINDS",
     "ActivityRow",
-    "clean_row_text",
     "parse_activity_row",
 ]
