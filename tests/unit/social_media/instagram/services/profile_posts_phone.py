@@ -46,14 +46,17 @@ def bounds_of(node):
     return left, top, right, bottom
 
 
-def scrolled(xml: str, offset: int) -> str:
+def scrolled(xml: str, offset: int, holding: str = None) -> str:
     """The captured screen with its list content moved UP by `offset` px (down when negative).
 
-    Nodes inside the list move and are clipped to it, as uiautomator reports them; a node that
-    leaves the list is gone. Nothing outside the list moves. Content that was off the capture
-    stays unknown: what scrolls in shows as empty list."""
+    The list is the screen's first one, or with `holding` (a resource-id) the first that holds a
+    node of that id: a sheet's list over the list of the screen under it. Nodes inside the list
+    move and are clipped to it, as uiautomator reports them; a node that leaves the list is gone.
+    Nothing outside the list moves. Content that was off the capture stays unknown: what scrolls
+    in shows as empty list."""
     root = etree.fromstring(xml.encode("utf-8"))
-    lists = [node for node in root.iter() if node.get("resource-id") == LIST_ID]
+    lists = [node for node in root.iter() if node.get("resource-id") == LIST_ID
+             and (holding is None or any(n.get("resource-id") == holding for n in node.iter()))]
     if not lists or not offset:
         return xml
     list_node = lists[0]

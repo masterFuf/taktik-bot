@@ -8,8 +8,13 @@ from taktik.core.database.instagram_workflow_state import InstagramWorkflowState
 from taktik.core.shared.actions.utils import ActionUtils, normalise_number_spaces
 from taktik.core.shared.behavior.gesture_primitives import human_drag_between_raw
 from taktik.core.social_media.instagram.ui.labels import is_ui_label
+from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
 
 log = logger.bind(module="instagram-ui-extractors")
+
+#: Scrolls in a row that change nothing on the likers sheet before its reading takes the list for
+#: finished. The second one is the margin for a list still loading its next rows.
+LIKERS_STILL_SCROLLS_TO_END = 2
 
 
 class InstagramUIExtractors:
@@ -368,6 +373,12 @@ class InstagramUIExtractors:
         add_initial_sleep: bool = False,
         current_max_interactions_attr: Any = None
     ) -> List[str]:
+        """The eligible likers of the open likers sheet, read screen after screen until the target,
+        the end of the list or `max_scrolls`.
+
+        The end of the list is the one `ScrollEndDetector` tells from the likers SHOWN on each
+        screen, eligible or not: `LIKERS_STILL_SCROLLS_TO_END` scrolls in a row that change nothing.
+        A list whose first likers were all handled before still moves, and the reading goes on."""
 
         logger_to_use = logger_instance if logger_instance else log
         
@@ -382,8 +393,12 @@ class InstagramUIExtractors:
         
         max_scrolls = min(200, target_count * 2)
         scroll_count = 0
-        consecutive_no_new = 0
-        max_consecutive = 20
+        # The first reading comes before any scroll: an identical page is one scroll that changed
+        # nothing, while an empty page counts from that first reading on.
+        list_end = ScrollEndDetector(
+            identical_pages_to_end=LIKERS_STILL_SCROLLS_TO_END,
+            empty_pages_to_end=LIKERS_STILL_SCROLLS_TO_END + 1,
+        )
         
         logger_to_use.info(f"🔄 Optimized extraction for {target_count} users")
         
@@ -396,6 +411,11 @@ class InstagramUIExtractors:
                 users_before = len(usernames)
                 
                 new_users = self.extract_visible_usernames(logger_instance=logger_to_use)
+                list_end.notify_new_page(new_users)
+                end_reason = list_end.end_reason()
+                if end_reason is not None:
+                    logger_to_use.info(f"🏁 Stop: end of the likers list after {scroll_count} scroll(s), {end_reason}")
+                    break
                 
                 for username in new_users:
                     if username not in usernames and len(usernames) < target_count:
@@ -416,14 +436,8 @@ class InstagramUIExtractors:
                     break
                 
                 if len(usernames) == users_before:
-                    consecutive_no_new += 1
-                    logger_to_use.debug(f"⚠️ No new eligible user found (attempt {consecutive_no_new}/{max_consecutive})")
-                    
-                    if consecutive_no_new >= max_consecutive:
-                        logger_to_use.info(f"🛑 Stop: {consecutive_no_new} consecutive attempts without new eligible users")
-                        break
+                    logger_to_use.debug(f"⚠️ No new eligible user on this screen ({len(new_users)} shown)")
                 else:
-                    consecutive_no_new = 0
                     gained = len(usernames) - users_before
                     logger_to_use.info(f"📈 Scroll #{scroll_count + 1}: +{gained} eligible users (total: {len(usernames)}/{target_count})")
                 
@@ -435,6 +449,8 @@ class InstagramUIExtractors:
                 scroll_count += 1
                 time.sleep(0.6)
             
+            if scroll_count >= max_scrolls and len(usernames) < target_count:
+                logger_to_use.info(f"🛑 Stop: {max_scrolls} scrolls, the most a reading of {target_count} users makes")
             logger_to_use.info(f"🎯 Extraction completed: {len(usernames)} users in {scroll_count} scrolls")
             return usernames
             
