@@ -8,6 +8,18 @@ from typing import Optional
 from taktik.core.database.repositories._base.base_repository import BaseRepository
 
 
+#: A marker, written with its sync key.
+_RECORD = """
+    INSERT OR REPLACE INTO sent_dms (
+        account_id, recipient_username, message_hash, success, error_message, session_id, platform, sync_id
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, lower(hex(randomblob(16))))
+"""
+
+#: The same marker on a base without the sync column: the statement above, its key taken out.
+_RECORD_WITHOUT_SYNC_KEY = _RECORD.replace(", sync_id", "").replace(", lower(hex(randomblob(16)))", "")
+
+
 class SentDMRepository(BaseRepository):
     """Persist sent direct messages across supported social platforms."""
 
@@ -78,23 +90,20 @@ class SentDMRepository(BaseRepository):
         session_id: Optional[str] = None,
         platform: str = "instagram",
     ) -> None:
-        """Record a sent DM marker for duplicate prevention."""
+        """Record a sent DM marker for duplicate prevention, with its sync key.
+
+        Turso pushes only the rows that carry a `sync_id` (`lower(hex(randomblob(16)))`, as the other
+        repositories of synced tables write it): a marker written without one never left the PC. A
+        marker recorded again replaces the row, under a new key: the table is append-only on Turso.
+        A base the desktop has never opened (the bot's old steps, `ensure_table`) has no sync column
+        and nothing syncs from it: there the marker is recorded without a key.
+        """
         self.ensure_table()
         message_hash = hashlib.sha256(message.encode()).hexdigest() if message else None
+        statement = _RECORD if self.column_exists("sent_dms", "sync_id") else _RECORD_WITHOUT_SYNC_KEY
 
         self.execute(
-            """
-            INSERT OR REPLACE INTO sent_dms (
-                account_id,
-                recipient_username,
-                message_hash,
-                success,
-                error_message,
-                session_id,
-                platform
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
+            statement,
             (
                 account_id,
                 recipient.lower(),
