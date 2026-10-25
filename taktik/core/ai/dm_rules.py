@@ -8,10 +8,11 @@ forbidden terms. The cold DM, the DM reply and the welcome DM call `check_ai_dm_
 the frame in the `aiDmRules` block (`taktik/core/contract/ai_dm.py`), and checks a text before it
 keeps it in a proposal through `check_ai_dm_texts`, by the tool bridge `ai_dm_check_bridge`.
 
-Nothing here is new knowledge: the language of a text is `detect_text_language`, the account's
-language is `resolve_base_language`, the comments' rules. A text too short or too mixed for the
-detector passes the language rule (and the log says so): refusing every short greeting would refuse
-the DMs the rule exists for.
+Nothing here is new knowledge: the language of a text is the rule every text written by an AI goes
+through (`language_outside`, `taktik/core/ai/written_language.py`: `detect_text_language`, and
+letters of another script than the Latin one), the account's language is `resolve_base_language`,
+the comments' rules. A text too short or too mixed for the detector passes the language rule (and
+the log says so): refusing every short greeting would refuse the DMs the rule exists for.
 
 The language of a reply (decision of 19/10): the account's or that of the message received, the same
 `detect_text_language` on that message. A message too short to be recognised allows the account's
@@ -27,6 +28,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 from loguru import logger
 
 from taktik.core.ai.comments.decisions import UNKNOWN_ACCOUNT_LANGUAGES, resolve_base_language
+from taktik.core.ai.written_language import language_outside
 from taktik.core.contract.ai_dm import (
     AI_DM_MAX_CHARS,
     AI_DM_MIN_CHARS,
@@ -205,18 +207,15 @@ def _forbidden_term_in(body: str, terms: Tuple[str, ...]) -> Optional[str]:
 def _language_refusal(
     body: str, base_language: Optional[str], received_text: Optional[str] = None
 ) -> Optional[AiDmRefusal]:
-    detected = detect_text_language(body)
-    if detected is None:
-        logger.info("DM written by an AI: language not recognised (too short or mixed), accepted")
-        return None
     accepted = (base_language,) if base_language else UNKNOWN_ACCOUNT_LANGUAGES
     answered = detect_text_language(received_text)
     if answered is not None:
         accepted = (*accepted, answered)
-    if detected in accepted:
+    written = language_outside(body, accepted, "DM written by an AI")
+    if written is None:
         return None
     wanted = " or ".join(dict.fromkeys(accepted))
-    return AiDmRefusal(LANGUAGE, f"written in {detected}, the account writes in {wanted}")
+    return AiDmRefusal(LANGUAGE, f"written in {written}, the account writes in {wanted}")
 
 
 __all__ = [

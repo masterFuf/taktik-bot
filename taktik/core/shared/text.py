@@ -6,6 +6,9 @@ French, English, Spanish, German, Italian, Portuguese. The author's CAPTION is g
 post's language; the vision model's guess is not (a French post whose image carries stylised
 English design text reads as English). Returns None when unsure (too little signal, a mixed text no
 language clearly wins, any other language) so the caller keeps its own fallback.
+
+`letters_of_another_script` — the letters of a text that are not Latin ones, for the rule a text
+written by an AI goes through (`taktik/core/ai/written_language.py`).
 """
 
 import re
@@ -148,9 +151,37 @@ _DECORATED_LATIN = (
 )
 
 
-def _is_decorated_latin(char: str) -> bool:
+#: Every Latin letter: Basic Latin to Latin Extended-B, Latin Extended Additional (Vietnamese),
+#: and the decorated ones.
+_LATIN_LETTERS = ((0x0000, 0x024F), (0x1E00, 0x1EFF)) + _DECORATED_LATIN
+
+
+def _in_ranges(char: str, ranges: Sequence[Tuple[int, int]]) -> bool:
     code = ord(char)
-    return any(low <= code <= high for low, high in _DECORATED_LATIN)
+    return any(low <= code <= high for low, high in ranges)
+
+
+def _is_decorated_latin(char: str) -> bool:
+    return _in_ranges(char, _DECORATED_LATIN)
+
+
+def is_latin_letter(char: str) -> bool:
+    """Whether `char` is a letter of the Latin script, in any language or decoration."""
+    return char.isalpha() and _in_ranges(char, _LATIN_LETTERS)
+
+
+def letters_of_another_script(text: Optional[str]) -> str:
+    """The letters of `text` that are not Latin ones, each once, in the order they come.
+
+    "展示" for "sert de portfolio pour展示 son style"; "" for a Latin text, whatever its accents,
+    emoji and digits (they are not letters of another script). A model asked for French that
+    writes an ideograph has drifted: `taktik/core/ai/written_language.py` refuses such a text.
+    """
+    found = []
+    for char in text or "":
+        if char.isalpha() and not is_latin_letter(char) and char not in found:
+            found.append(char)
+    return "".join(found)
 
 
 def _is_foreign_letter(char: str) -> bool:

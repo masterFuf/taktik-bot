@@ -69,6 +69,17 @@ def test_a_text_too_short_to_be_recognised_passes_the_language_rule():
     assert check_ai_dm_text("Ciao Marco!!! 🙂 🙂 🙂 🙂 🙂 🙂", AiDmRules(base_language="de")) is None
 
 
+def test_letters_of_another_script_in_a_french_dm_are_refused_by_the_language_rule():
+    """The rule of every text written by an AI (`written_language`): the detector reads this as
+    French, the ideographs say the model drifted (audit of October 2026, profile summaries)."""
+    refusal = check_ai_dm_text(
+        "Bonjour, merci pour ton message, je serais ravie de展示 mon travail avec toi", FRENCH
+    )
+
+    assert refusal is not None and refusal.reason == "language"
+    assert refusal.detail == "written in letters of another script (展示), the account writes in fr"
+
+
 def test_an_account_of_unknown_language_writes_french_or_english_only():
     unknown = AiDmRules()
 
