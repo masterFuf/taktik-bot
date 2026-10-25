@@ -19,7 +19,25 @@ from .. import agreement as _agreement
 from .. import glossary as _glossary
 from ..prompting import cacheable_system, platform_label as _platform_label
 from ..spend import AI_SPEND_COMMENT
+from ..written_language import language_outside
 from .anchor import anchor_material, verify_anchor
+
+
+def _refuse_another_language(text: str, language: str, what: str) -> Tuple[str, Optional[str]]:
+    """`text` as it goes out, or emptied when it is written in another language than `language`.
+
+    Returns the text and, when it was refused, what it was written in (`language_outside`, the rule
+    every text written by an AI goes through); None when it is kept. `language="auto"` asks for the
+    language of what is answered: there is nothing to hold the text to. A refusal is logged with
+    the text, so a model that disobeys stays visible in the run's log.
+    """
+    if not text or not language or language == "auto":
+        return text, None
+    written = language_outside(text, (language,), what)
+    if written is None:
+        return text, None
+    logger.warning(f"[comment] {what}: written in {written}, {language} was asked, not published: {text!r}")
+    return "", written
 
 
 _LANGUAGE_NAMES = {
@@ -370,6 +388,10 @@ Respond with ONLY a JSON object, on a single line, nothing else:
         if agreement_fixes:
             logger.info(f"[agreement] reply @{username or '?'}: {', '.join(agreement_fixes)}")
 
+        reply, wrong_language = _refuse_another_language(reply, language, f"reply @{username or '?'}")
+        if wrong_language is not None:
+            should_reply = False
+
         if not should_reply:
             reply = ""
 
@@ -387,6 +409,7 @@ Respond with ONLY a JSON object, on a single line, nothing else:
             "reasoning": reasoning,
             "should_reply": should_reply,
             "agreement_fixes": agreement_fixes,
+            "wrong_language": wrong_language,
             "model": result.get("model"),
             "provider": result.get("provider"),
             "cost_usd": result.get("cost_usd"),
@@ -633,6 +656,13 @@ Respond with ONLY a JSON object, on a single line, nothing else:
         if agreement_fixes:
             logger.info(f"[agreement] @{username or '?'}: {', '.join(agreement_fixes)}")
 
+        # Then its language, on that same string. "Write in English" at the end of the prompt
+        # did not hold against a persona and style samples written in French: five comments out
+        # of five asked in English came back French in October 2026, and went out.
+        comment, wrong_language = _refuse_another_language(comment, language, f"comment @{username or '?'}")
+        if wrong_language is not None:
+            should_comment = False
+
         if self.ipc and should_comment:
             # Attach the DECISION CONTEXT to the card: WHY (reasoning), what the post was about
             # (vision description + author caption) and the exact image sent to the model.
@@ -665,6 +695,9 @@ Respond with ONLY a JSON object, on a single line, nothing else:
             # What the determiner check changed, if anything. Empty is the normal answer; a
             # non-empty list is the only trace that a mistake was caught before publication.
             "agreement_fixes": agreement_fixes,
+            # What the comment was written in when it was not the language asked (`language_outside`):
+            # the comment is then empty, and a caller skips the post rather than write another text.
+            "wrong_language": wrong_language,
             # The prompt this comment came out of, persona block and anti-tic window included, AS
             # THEY WERE at this moment. A persona edited later would otherwise silently rewrite
             # the explanation of every comment already published under the old one.

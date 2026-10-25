@@ -206,6 +206,10 @@ def install_instagram_ai_hooks(
                 platform="instagram",
                 app_language=language,
             )
+            if result.get("wrong_language"):
+                log("warning", f"No reply for @{username}: written in {result['wrong_language']}, "
+                               f"{reply_lang} was asked")
+                return None
             if not result.get("success") or not result.get("should_reply"):
                 log("info", f"No reply for @{username}: {result.get('reasoning') or result.get('error') or 'declined'}")
                 return None
@@ -483,6 +487,16 @@ def install_instagram_ai_hooks(
                         thread_context=thread_context,
                         target_gender=target_gender,
                     )
+                    # Written in another language than the one asked: the generator emptied it.
+                    # Skip the post; the custom comments below are for a generation that failed,
+                    # not for a text refused for its language.
+                    if result.get("wrong_language"):
+                        reason = (
+                            f"AI comment written in {result['wrong_language']}, "
+                            f"{comment_lang} was asked"
+                        )
+                        log("warning", f"Skipping comment for @{username}: {reason}")
+                        return skip_comment(reason, "comment_language")
                     if (
                         decision_mode
                         and result.get("success")

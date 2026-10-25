@@ -1,7 +1,8 @@
 """The rule every text written by an AI goes through: is it in a language it was asked for?
 
-The texts are shortened rewrites of real outputs the audit of October 2026 found: French comments
-written where English was asked, French profile summaries carrying Chinese ideographs.
+The texts (`unit.ai_written_texts`) are shortened rewrites of real outputs the audit of October 2026
+found: French comments written where English was asked, French profile summaries carrying
+Chinese ideographs.
 """
 
 from __future__ import annotations
@@ -10,22 +11,7 @@ import pytest
 
 from taktik.core.ai.written_language import language_outside
 from taktik.core.shared.text import letters_of_another_script
-
-#: French comments a model wrote where the prompt said "Write in English" (rewritten, no name).
-FRENCH_WHERE_ENGLISH_WAS_ASKED = (
-    "une esthétique si douce pour fêter ça, c’est un vrai choix 🎂",
-    "ce jeu de lumière dorée entre les pylônes est sublime 🌇",
-    "la désaturation donne une texture brute très cinématique aux lignes des bateaux 🎞️",
-    "la précision des détails capillaires fait toute la différence pour un rendu naturel",
-    "la finesse des traits au regard est juste parfaite 🤍",
-)
-
-#: French summaries with ideographs inside, as qwen wrote 363 of them in a month (rewritten).
-FRENCH_SUMMARIES_WITH_IDEOGRAPHS = (
-    "Photographe de portrait basée au Luxembourg, son compte sert de portfolio pour展示 ses séances.",
-    "Consultante en bien-être qui partage des conseils simples pour aider son audience à vivre plus轻.",
-    "Coach sportif certifié qui propose des séances en个人 et en entreprise, avec ses offres du moment.",
-)
+from unit.ai_written_texts import FRENCH_SUMMARIES_WITH_IDEOGRAPHS, FRENCH_WHERE_ENGLISH_WAS_ASKED
 
 
 @pytest.mark.parametrize("comment", FRENCH_WHERE_ENGLISH_WAS_ASKED)
