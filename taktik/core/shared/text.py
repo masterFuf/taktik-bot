@@ -325,6 +325,46 @@ def fold_case_and_accents(text: Optional[str]) -> str:
     return "".join(char for char in folded if not unicodedata.combining(char))
 
 
+#: What an app writes into a shown text to lay it out, and nobody types: the direction marks
+#: (LRM, RLM), embeddings and overrides, the isolates TikTok wraps every name in, the word joiner
+#: that letter-spaces its dates, and the byte-order mark.
+_LAYOUT_MARKS = dict.fromkeys(map(ord, "\u200e\u200f\u202a\u202b\u202c\u202d\u202e"
+                                       "\u2066\u2067\u2068\u2069\u2060\ufeff"), None)
+
+
+def clean_shown_text(text: Optional[str]) -> str:
+    """A text as a person reads it on screen: no layout marks, single spaces, nothing around.
+
+    The non-breaking spaces an app puts inside counts and dates are spaces too, so `20 h` and
+    `20\\u00a0h` are the same string. Measured on TikTok (43.1.4, 46.6.3): every inbox row name
+    starts with U+200E, every new-follower name sits in U+2068...U+2069, every Activity date is
+    letter-spaced with U+2060.
+    """
+    if not text:
+        return ""
+    cleaned = unicodedata.normalize("NFC", text).translate(_LAYOUT_MARKS)
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def same_shown_name(shown: Optional[str], wanted: Optional[str]) -> bool:
+    """Is `shown`, the name a row shows, the name `wanted`? The one comparison that picks a row by
+    its name, on every platform: the conversation a reply goes into, the request accepted, the
+    follower followed back.
+
+    Equal once the layout marks, case and spacing are put aside, and nothing else: a name that
+    holds another, or starts like it, is another account (« bob » is not « bobby »). Measured on a
+    TikTok inbox (43.1.4, 2026-10-25): « demo_fan🦋 » sits under « 1NE demo_fan ft AP »,
+    and the first row holding the name was the one opened.
+
+    Both sides are compared as an XML dump shows them (`as_xml_dumped`): a name read through the
+    selector API keeps its emoji, the same name read from a dump has two dots in their place, and
+    a caller may hold either. Two names that differ only by which emoji they carry therefore
+    compare equal; nothing else does. An empty name is no one's.
+    """
+    shown_key = as_xml_dumped(clean_shown_text(shown)).lower()
+    return bool(shown_key) and shown_key == as_xml_dumped(clean_shown_text(wanted)).lower()
+
+
 _HANDLE = re.compile(r"[A-Za-z0-9._]+")
 
 #: Length bounds each platform puts on a handle; another platform gets the widest.

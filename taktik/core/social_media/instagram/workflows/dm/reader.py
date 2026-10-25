@@ -13,9 +13,9 @@ from taktik.core.social_media.instagram.workflows.dm.conversation_payload import
     inbox_preview_matches_known,
     is_outgoing_last_message,
     masked_preview,
-    same_inbox_name,
     sort_threads_by_top,
 )
+from taktik.core.shared.text import same_shown_name
 from taktik.core.social_media.instagram.workflows.dm.conversation_state import DMConversationStateMixin
 from taktik.core.social_media.instagram.workflows.dm.message_extraction import DMMessageExtractionMixin
 from taktik.core.social_media.instagram.workflows.dm.persistence import (
@@ -78,7 +78,7 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
             return None
         conversations = []
         # The names of the rows read in this pass, as shown: a row is left when its name is one of
-        # them (`same_inbox_name`), never when its name only starts like one.
+        # them (`same_shown_name`), never when its name only starts like one.
         processed_usernames: list[str] = []
         processed_real_usernames = set()
         conversations_read = 0
@@ -116,7 +116,7 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                     username = extract_inbox_username(content_desc)
                     username = self._resolve_thread_username(thread_info, username)
 
-                    if any(same_inbox_name(username, seen) for seen in processed_usernames):
+                    if any(same_shown_name(username, seen) for seen in processed_usernames):
                         logger.debug(f"Skipping already processed: {username}")
                         continue
 

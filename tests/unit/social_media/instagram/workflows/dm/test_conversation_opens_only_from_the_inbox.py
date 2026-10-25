@@ -8,7 +8,7 @@ tapped the search field that held it, and answered "open=True" without looking a
 
 The row was also chosen by inclusion: a name asked for opened the first row whose name held it, or
 was held by it (« bob » opened « bobby », and the reply that followed went into bobby's conversation).
-A row is now the one whose name is the name asked for, case and spaces aside (`same_inbox_name`).
+A row is now the one whose name is the name asked for, case and spaces aside (`same_shown_name`).
 
 The screens are real dumps, anonymized: those search results (447), an inbox of 410 in French with a
 conversation of the same phone, and an inbox of 447 in French (Compose rows, their name in their

@@ -73,16 +73,6 @@ def extract_inbox_username(content_desc: str) -> str:
     return "Unknown"
 
 
-def same_inbox_name(shown: Optional[str], wanted: Optional[str]) -> bool:
-    """Is `shown`, the name an inbox row shows, the name `wanted`? Equal once case and the spaces
-    around are put aside, and nothing else: a name that holds another, or starts like it, is another
-    account (« bob » is not « bobby »). The one comparison of the DM code that picks an inbox row,
-    to open its conversation (`open_conversation`, the reply's way in) or to leave it as already
-    read in this pass (`read_conversations`). An empty name is no one's."""
-    shown_key = (shown or "").lower().strip()
-    return bool(shown_key) and shown_key == (wanted or "").lower().strip()
-
-
 def is_outgoing_last_message(content_desc: str, username: str, outgoing_prefixes) -> bool:
     """True when the inbox row shows WE sent the last message (no incoming preview).
 
@@ -246,7 +236,6 @@ __all__ = [
     "build_up_to_date_conversation",
     "conversation_partner",
     "pending_send_texts",
-    "same_inbox_name",
     "extract_inbox_username",
     "has_unseen_incoming",
     "inbox_preview_matches_known",
