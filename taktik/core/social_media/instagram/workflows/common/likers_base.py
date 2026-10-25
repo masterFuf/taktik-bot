@@ -24,6 +24,7 @@ from taktik.core.social_media.instagram.workflows.common.revisit_policy import R
 from taktik.core.social_media.instagram.workflows.common.relationship_filter import relationship_skip_reason, wants_relationship_skip
 from taktik.core.social_media.instagram.workflows.common.list_sources import InteractionListSource, make_likers_source
 from taktik.core.shared.config import resolve_filter_criteria
+from taktik.core.shared.actions.utils import ActionUtils
 
 
 class LikersWorkflowBase(BaseBusinessAction):
@@ -81,6 +82,11 @@ class LikersWorkflowBase(BaseBusinessAction):
 
         account_id = getattr(self.automation, 'active_account_id', None) if self.automation else None
         session_id = getattr(self.automation, 'current_session_id', None) if self.automation else None
+        # The account the run acts as, read off its own profile when the run starts (the Lab's
+        # `account` parameter). A run that likes a post and then walks its likers finds itself
+        # among them: opening that row lands on its own profile, from which the way back did not
+        # find the sheet again, and the post was left (C57 S, 2026-10-25).
+        acting_username = getattr(self.automation, 'active_username', None) if self.automation else None
 
         def _ledger(uname: str, outcome: str, reason: Optional[str] = None, **extra) -> None:
             """One audit entry per UNIQUE encountered user → its outcome + reason. The
@@ -145,6 +151,14 @@ class LikersWorkflowBase(BaseBusinessAction):
                     continue
 
                 processed_usernames.add(username)
+
+                # The acting account is no target: its row is passed without a tap, and counts
+                # neither as a profile found nor in the known streak, as in the followers loop.
+                if ActionUtils.same_username(username, acting_username):
+                    self.logger.info(f"⏭️ Skipping own account @{username}")
+                    _ledger(username, "skipped", "own_account")
+                    continue
+
                 new_likers_found = True
                 stats['users_found'] += 1
 

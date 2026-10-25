@@ -13,10 +13,14 @@ class LabRunIdentity:
     classes with this one, and `ActionBundle.bind_account` sets it. No `current_session_id` here:
     the session comes from the session manager an action attaches (`_get_session_id` falls back to
     it), as for the suggestions visit.
+
+    `active_username` is the handle of that account, as a run reads it off its own profile: the
+    likers loop and the reading of the likers leave it out of the profiles they open.
     """
 
     def __init__(self) -> None:
         self.active_account_id = None
+        self.active_username = None
 
 
 class ActionBundle:
@@ -35,8 +39,9 @@ class ActionBundle:
     #: that is not in here writes nothing, so it needs no identity.
     _IDENTITY_BEARING = ("comment", "like", "story", "feed", "unfollow", "popup")
 
-    def bind_account(self, account_id) -> int:
-        """Attach every recording component to ``account_id``. Returns how many were bound.
+    def bind_account(self, account_id, username=None) -> int:
+        """Attach every recording component to ``account_id``, and the run to ``username``, its
+        handle. Returns how many components were bound.
 
         The Lab runs production classes on a real device, so what they write is real. Built
         without an identity, those classes used to file everything under a default account
@@ -51,6 +56,7 @@ class ActionBundle:
         """
         identity = account_id or None
         self.identity.active_account_id = identity
+        self.identity.active_username = (username or None) if identity is not None else None
         bound = 0
         for name in self._IDENTITY_BEARING:
             component = getattr(self, name, None)
@@ -98,13 +104,18 @@ def open_bot_base() -> None:
         database.configure_db_service()
 
 
+def lab_account_username(params):
+    """The handle the ``account`` parameter names (without its ``@``), or None."""
+    return (params.get("account") or "").strip().lstrip("@") or None
+
+
 def resolve_lab_account_id(params):
     """Account id from the ``account`` parameter, or None.
 
     Without it, everything an action writes is filed under the default id, that is
     under another account.
     """
-    account = (params.get("account") or "").strip().lstrip("@")
+    account = lab_account_username(params)
     if not account:
         return None
     try:

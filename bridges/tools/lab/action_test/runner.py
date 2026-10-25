@@ -150,10 +150,11 @@ def _bind_bundle_account(bundle, params: dict) -> None:
         return
     try:
         from bridges.tools.lab.action_test.action_bundle import (
+            lab_account_username,
             resolve_lab_account_id,
         )
 
-        binder(resolve_lab_account_id(params))
+        binder(resolve_lab_account_id(params), lab_account_username(params))
     except Exception as exc:  # noqa: BLE001 — attribution must never break the action
         logger.warning(f"Lab: could not bind the bundle to an account: {exc}")
 

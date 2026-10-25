@@ -145,7 +145,14 @@ class ActionUtils:
         username = re.sub(r'[^\w._]', '', username)
         
         return username.lower()
-    
+
+    @staticmethod
+    def same_username(first: Optional[str], second: Optional[str]) -> bool:
+        """Do two handles name the same account, as `clean_username` reads them (case and `@`
+        aside)? A missing or empty handle names no account."""
+        cleaned = ActionUtils.clean_username(first or "")
+        return bool(cleaned) and cleaned == ActionUtils.clean_username(second or "")
+
     @staticmethod
     def is_valid_username(username: str, min_length: int = 1, max_length: int = 30) -> bool:
         """Validate username format.
