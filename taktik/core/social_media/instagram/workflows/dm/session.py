@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass
 
 from loguru import logger
 from taktik.core.shared.device.wait import find_element, wait_for_any
@@ -22,6 +23,55 @@ def dm_inbox_shown(device, timeout: float = 0.0) -> bool:
     if timeout <= 0:
         return find_element(device, markers) is not None
     return wait_for_any(device, markers, timeout=timeout, label="dm-inbox") is not None
+
+
+@dataclass(frozen=True)
+class DmListNotRead:
+    """A list of conversations (the inbox, or its requests folder) the reader could not read: never
+    an empty one. `error_code` names the cause in the catalogue of the bridges' codes
+    (`contract/error_codes.py`), `error` says it for a person. (In TypeScript: the failure branch of
+    a `{ ok: false, code, message }` union, the success branch being the list read.)"""
+
+    error_code: str
+    error: str
+
+
+#: Neither the inbox nor its requests folder is on screen.
+DM_INBOX_NOT_SHOWN = "DM_INBOX_NOT_SHOWN"
+#: The list is on screen without a row, without its header and without its empty page: it has not loaded.
+DM_LIST_NOT_LOADED = "DM_LIST_NOT_LOADED"
+#: Instagram says the list did not load (its page offers to try again).
+DM_LIST_LOAD_FAILED = "DM_LIST_LOAD_FAILED"
+
+#: How long a list without rows may take to show them, its header or its empty page.
+LIST_LOAD_TIMEOUT_S = 6.0
+
+
+def dm_list_without_rows(device) -> DmListNotRead | None:
+    """The verdict on a list that shows no row: None when the screen proves it empty, else why it is
+    not read. The one rule (2026-10-25): « 0 conversation » only with the list's
+    header or its empty page on screen; the action bar and the bare thread list are up before them.
+
+    Waits up to `LIST_LOAD_TIMEOUT_S` for the header, the empty page, a row or the page of a failed
+    load: the caller looks for its rows again after it. A page that failed to load is checked first:
+    it shows a headline like the empty page."""
+    wait_for_any(device, [DM_SELECTORS.thread_container, DM_SELECTORS.list_load_failed_link,
+                          *DM_SELECTORS.list_loaded_markers], timeout=LIST_LOAD_TIMEOUT_S, label="dm-list")
+    if find_element(device, [DM_SELECTORS.list_load_failed_link]) is not None:
+        return DmListNotRead(error_code=DM_LIST_LOAD_FAILED,
+                             error="Instagram did not load the conversations (its page offers to try again): "
+                                   "nothing read")
+    if find_element(device, DM_SELECTORS.list_loaded_markers) is not None:
+        return None
+    if not dm_inbox_shown(device):
+        return inbox_not_shown()
+    return DmListNotRead(error_code=DM_LIST_NOT_LOADED,
+                         error="The conversations did not load (no row, no header, no empty page): nothing read")
+
+
+def inbox_not_shown() -> DmListNotRead:
+    """Why a reading on a screen that is not the inbox (nor its requests folder) reads nothing."""
+    return DmListNotRead(error_code=DM_INBOX_NOT_SHOWN, error="The DM inbox is not on screen: no conversation read")
 
 
 #: How long a conversation may take to come up after the tap that opens it.

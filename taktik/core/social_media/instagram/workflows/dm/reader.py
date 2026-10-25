@@ -26,7 +26,12 @@ from loguru import logger
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
-from taktik.core.social_media.instagram.workflows.dm.session import dm_inbox_shown
+from taktik.core.social_media.instagram.workflows.dm.session import (
+    DmListNotRead,
+    dm_inbox_shown,
+    dm_list_without_rows,
+    inbox_not_shown,
+)
 from taktik.core.shared.device.ui_dump import whole_in_band
 
 
@@ -66,16 +71,19 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
             flush=True,
         )
 
-    def read_conversations(self, limit: int) -> list | None:
+    def read_conversations(self, limit: int) -> list | DmListNotRead:
         """Read DM conversations. ``limit <= 0`` means read all (until the inbox bottom).
 
-        None, and nothing read, when the screen is not the inbox (or its requests folder): an
-        inbox not on screen is no empty inbox (Lab `dm.list_unread` on a conversation, Pixel 6 Pro,
-        2026-10-24: « No threads found », then « 0 conversation(s) read » as a success).
+        The list of what was read, or why nothing could be (`DmListNotRead`), never an empty list for
+        a list the screen does not show: an inbox not on screen is no empty inbox (Lab
+        `dm.list_unread` on a conversation, Pixel 6 Pro, 2026-10-24: « No threads found », then
+        « 0 conversation(s) read » as a success), and neither is a list that has not loaded, or that
+        Instagram could not load (`dm_list_without_rows`).
         """
         if not dm_inbox_shown(self.device):
-            logger.error("The DM inbox is not on screen: no conversation read")
-            return None
+            not_read = inbox_not_shown()
+            logger.error(not_read.error)
+            return not_read
         conversations = []
         # The names of the rows read in this pass, as shown: a row is left when its name is one of
         # them (`same_shown_name`), never when its name only starts like one.
@@ -88,6 +96,17 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
 
         while (read_all or conversations_read < limit) and scroll_count < max_scrolls:
             threads = self.device.xpath(DM_SELECTORS.thread_container).all()
+
+            if not threads and scroll_count == 0:
+                # No row on the first screen: an empty list only when the screen proves it.
+                not_read = dm_list_without_rows(self.device)
+                threads = self.device.xpath(DM_SELECTORS.thread_container).all()
+                if not threads and not_read is not None:
+                    logger.error(not_read.error)
+                    return not_read
+                if not threads:
+                    logger.info("No conversation: the list shows its header or its empty page")
+                    break
 
             if not threads:
                 if dm_inbox_shown(self.device):
