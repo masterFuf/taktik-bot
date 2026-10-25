@@ -4,6 +4,7 @@ from typing import List
 from dataclasses import dataclass, field
 
 from taktik.core.social_media.tiktok.ui.selectors.locales import L
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_HANDLE_BUTTON
 
 
 @dataclass
@@ -63,10 +64,11 @@ class FollowersSelectors:
     # === Profile page elements ===
     #: `qh5` est un id de 43.1.4 et ne resout nulle part en 46.6.3 — mesure le 2026-09-01 sur les
     #: dix surfaces capturees de chaque version. Le pseudo, lui, se designe tout seul : c'est le
-    #: seul bouton de l'ecran dont le texte commence par « @ ». Verifie sur les deux versions, sur
+    #: seul bouton de l'ecran dont le texte commence par « @ » (hors auteur d'une video du fil, voir
+    #: `PROFILE_HANDLE_BUTTON`). Verifie sur les deux versions, sur
     #: le profil pilote comme sur un profil visite, et neutre en langue par construction.
     profile_username: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[starts-with(@text, "@")]',
+        PROFILE_HANDLE_BUTTON,
         '//*[contains(@resource-id, ":id/qh5")]',
         '//android.widget.Button[contains(@resource-id, ":id/qh5")]',
     ])
