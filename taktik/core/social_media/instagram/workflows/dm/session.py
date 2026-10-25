@@ -24,6 +24,10 @@ def dm_inbox_shown(device, timeout: float = 0.0) -> bool:
     return wait_for_any(device, markers, timeout=timeout, label="dm-inbox") is not None
 
 
+#: How long a conversation may take to come up after the tap that opens it.
+CONVERSATION_OPEN_TIMEOUT_S = 6.0
+
+
 def dm_conversation_shown(device, timeout: float = 0.0) -> bool:
     """Is a conversation open on screen? Its header bar (`conversation_screen_marker`), the one
     sign of a conversation, asked after every tap meant to open one: a tap only says that

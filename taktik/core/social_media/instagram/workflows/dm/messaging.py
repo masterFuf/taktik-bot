@@ -14,7 +14,7 @@ from taktik.core.shared.diagnostics.foreground_guard import paquet_etranger
 from taktik.core.shared.device.wait import find_element, wait_for_any
 from taktik.core.social_media.instagram.actions.atomic.navigation.deep_link_navigation import instagram_handle
 from taktik.core.social_media.instagram.workflows.dm.navigation import open_dm_inbox
-from taktik.core.social_media.instagram.workflows.dm.session import dm_conversation_shown
+from taktik.core.social_media.instagram.workflows.dm.session import CONVERSATION_OPEN_TIMEOUT_S, dm_conversation_shown
 from taktik.core.social_media.instagram.workflows.dm.reply_check import ConversationBubbles, ReplyOutcome, reply_outcome
 from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import (
@@ -24,9 +24,6 @@ from taktik.core.social_media.instagram.ui.selectors.shell.navigation import (
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
-
-#: How long a conversation may take to come up after the tap that opens it.
-CONVERSATION_OPEN_TIMEOUT_S = 6.0
 
 #: `send_dm_from_profile` outcome when the conversation shows a message request already sent.
 INVITE_ALREADY_SENT = "invite_sent"
