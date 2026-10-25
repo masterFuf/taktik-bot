@@ -2,14 +2,14 @@
 
 Measured on the C57S (TikTok 43.1.4, English, 2026-10-25): the tap on « New followers » opened the
 page, and `open_new_followers_page` still answered False. It paused one second, then looked for the
-rows (`o0v`) for two more; that phone is slow to dump its screen and to render the list, so the
-rows came after the look had ended. The welcome pass and the manual follow-back then stopped on
-`page_unavailable`, on a page that was open.
+rows (`o0v`) for two more; on that slow phone the rows came after the look had ended. The welcome
+pass and the manual follow-back then stopped on `page_unavailable`, on a page that was open.
 
-The screens are real dumps of that phone, anonymized: its inbox, and its new-followers page. The
-phone below takes `DUMP_S` seconds for every dump and shows the page `LOAD_S` seconds after the tap
-lands on the section; until then it still shows the inbox, as a dump taken during the transition
-does. The clock is the test's: nothing sleeps.
+The screens are real dumps of that phone, anonymized: its inbox; the dump taken right after the
+tap, while the page opens (TikTok's window is still empty, only the status bar reads); and the
+page with its rows. The phone below takes `DUMP_S` seconds for every dump and shows the rows
+`load_s` seconds after the tap lands on the section (1.2 to 2.0 s in three openings measured on
+that phone the same evening, more on the one that failed). The clock is the test's: nothing sleeps.
 """
 
 from types import SimpleNamespace
@@ -30,10 +30,11 @@ from unit.paths import CORE
 
 FIXTURES = CORE / "tests/unit/social_media/tiktok/fixtures"
 INBOX = (FIXTURES / "tt4314_en_inbox.xml").read_text(encoding="utf-8")
+OPENING = (FIXTURES / "tt4314_en_new_followers_opening.xml").read_text(encoding="utf-8")
 PAGE = (FIXTURES / "tt4314_en_new_followers.xml").read_text(encoding="utf-8")
 #: The section the tap opens the page from, on the inbox dump.
 SECTION = '//*[@text="New followers"]'
-#: What one dump costs on the C57S, in seconds.
+#: What one dump costs on the C57S, in seconds (0.2 to 1.5 s measured).
 DUMP_S = 1.2
 
 
@@ -46,7 +47,8 @@ def _bounds(xml, xpath):
 
 
 class _SlowPhone:
-    """The inbox; a tap on the section shows the page `load_s` seconds later (never, for None)."""
+    """The inbox; after the tap on the section, the opening screen, then the page `load_s` seconds
+    later (never, for None)."""
 
     wait_timeout = 0.0
     serial = "PHONE-1"
@@ -60,8 +62,10 @@ class _SlowPhone:
         self.xpath = XPathEntry(self)
 
     def _screen(self):
-        if self.tapped_at is None or self.load_s is None or self.clock.now < self.tapped_at + self.load_s:
+        if self.tapped_at is None:
             return INBOX
+        if self.load_s is None or self.clock.now < self.tapped_at + self.load_s:
+            return OPENING
         return PAGE
 
     def dump_hierarchy(self, *_a, **_k):
