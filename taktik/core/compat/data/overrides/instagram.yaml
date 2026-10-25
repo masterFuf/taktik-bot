@@ -76,6 +76,16 @@ versions:
       - '//*[@resource-id="com.instagram.android:id/message_content"][.//*[@resource-id="com.instagram.android:id/action_icon"][@content-desc="{label}"]]//*[@resource-id="com.instagram.android:id/direct_text_message_text_view"]'
       - '//*[@resource-id="com.instagram.android:id/message_list"]/*[.//*[@content-desc="{label}"]]//android.widget.TextView[@resource-id=""]'
 
+    # The bubbles of the Compose thread, without the partner's card at the top of it: in 447 the
+    # card's lines (name, handle, « 92 followers · 0 publications », « Vous suit », « Vous suivez ... »)
+    # are bare TextViews of `message_list` like a bubble, in their own row, the one that holds the
+    # « Voir le profil » button (`igds_button`, a bare Compose id). They were read as messages, in
+    # `dm_read` and in the context of an AI reply (Pixel 6a, French, 2026-10-25:
+    # ig447_fr_dm_conversation_composer, ig447_fr_dm_new_professional_conversation, ig447_fr_dm_thread).
+    # A str field. `descendant-or-self` keeps a bare TextView that is itself a row of the list.
+    dm.message_list_bare_text:
+      - '//*[@resource-id="com.instagram.android:id/message_list"]/*[not(.//*[@resource-id="igds_button"])]/descendant-or-self::android.widget.TextView[@resource-id=""]'
+
     detection._business_account_indicators_base:
       - '//*[contains(@resource-id, "profile_header_business_category")]'
       - '//*[contains(@resource-id, "profile_user_info_compose_view")]/android.view.View/android.widget.TextView'
