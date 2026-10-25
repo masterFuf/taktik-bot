@@ -81,13 +81,10 @@ def detect_problematic_pages(device) -> int:
         from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
 
         detector = ProblematicPageDetector(device, debug_mode=True)
+        # A dict, or `SnapshotUnavailable` when the screen cannot be read: the bridge's error then.
         result_data = detector.detect_and_handle_problematic_pages()
-        if isinstance(result_data, dict):
-            detected = result_data.get("detected", False)
-            handled = result_data.get("closed", False)
-        else:
-            detected = bool(result_data)
-            handled = detected
+        detected = result_data["detected"]
+        handled = result_data["closed"]
 
     result = {
         "success": True,

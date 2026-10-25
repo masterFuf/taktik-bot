@@ -184,7 +184,6 @@
   "taktik/core/social_media/instagram/services/profile/extraction.py": 17,
   "taktik/core/social_media/instagram/services/profile/persistence.py": 1,
   "taktik/core/social_media/instagram/services/story.py": 1,
-  "taktik/core/social_media/instagram/ui/detectors/problematic_page.py": 1,
   "taktik/core/social_media/instagram/ui/detectors/scroll_end.py": 1,
   "taktik/core/social_media/instagram/ui/extractors.py": 5,
   "taktik/core/social_media/instagram/ui/language.py": 2,

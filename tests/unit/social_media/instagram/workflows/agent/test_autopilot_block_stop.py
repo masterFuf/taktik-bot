@@ -88,10 +88,16 @@ def test_an_ordinary_screen_lets_it_go_on():
     assert run_halt.arret_demande() is None
 
 
+class _UnreadablePhone:
+    def dump_hierarchy(self, *a, **k):
+        raise RuntimeError("uiautomator2 server gone")
+
+
 def test_a_check_that_cannot_read_the_screen_is_not_a_block():
-    agent = _agent(phone=None)
+    agent = _agent(_UnreadablePhone())
 
     assert agent._block_seen("follow") is False
+    assert run_halt.arret_demande() is None
 
 
 class _FakeAI:
