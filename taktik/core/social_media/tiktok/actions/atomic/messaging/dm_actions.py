@@ -28,6 +28,10 @@ from taktik.core.social_media.tiktok.ui.selectors.shell.navigation import NAVIGA
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.conversation import CONVERSATION_SELECTORS
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.inbox import INBOX_SELECTORS
 
+#: How long the new-followers page may take to render its rows after the tap that opens it: a slow
+#: phone takes seconds to dump its screen and to load the list.
+NEW_FOLLOWERS_PAGE_TIMEOUT_S = 10.0
+
 
 class _XPathCollection:
     """A uiautomator2 UiObject collection, backed by xpath matches.
@@ -317,12 +321,10 @@ class DMActions(BaseAction):
 
         # The section and its see-all entry lead to the same dedicated page
         if self._find_and_click(self.inbox_selectors.new_followers_section, timeout=3):
-            time.sleep(1)
-            return self._is_on_new_followers_page()
+            return self._wait_for_new_followers_page()
 
         if self._find_and_click(self.inbox_selectors.see_all_button, timeout=2):
-            time.sleep(1)
-            return self._is_on_new_followers_page()
+            return self._wait_for_new_followers_page()
 
         self.logger.warning("Section « Nouveaux followers » introuvable")
         return False
@@ -330,6 +332,13 @@ class DMActions(BaseAction):
     def _is_on_new_followers_page(self) -> bool:
         """Heuristic: the dedicated page is up when follower items are rendered."""
         return self._element_exists(self.inbox_selectors.new_followers_page_item, timeout=2)
+
+    def _wait_for_new_followers_page(self) -> bool:
+        """After the tap: the page is open once its rows are rendered, looked for until
+        `NEW_FOLLOWERS_PAGE_TIMEOUT_S`. A miss is logged and reported (`selector_miss`)."""
+        return self._wait_for_element(
+            self.inbox_selectors.new_followers_page_item, timeout=NEW_FOLLOWERS_PAGE_TIMEOUT_S
+        )
 
     def get_new_followers(self, max_items: int = 50) -> List[Dict[str, Any]]:
         """Scrape the new-followers list from its dedicated page, WITHOUT acting.
