@@ -179,16 +179,24 @@ class PopupHandlingMixin:
             self.logger.debug(f"Error closing comments view: {e}")
             return False
 
-    def _close_likers_popup(self):
+    def _close_likers_popup(self) -> bool:
+        """Close the likers popup, dragging it down five times at most. False, with a warning, when
+        it is still open after them or a drag raised."""
         try:
             for _ in range(5):
                 if not self._is_likers_popup_open():
-                    break
+                    self._human_like_delay('popup_close')
+                    return True
                 self._close_popup_by_swipe_down()
                 time.sleep(1.2)
-            self._human_like_delay('popup_close')
-        except Exception:
-            pass
+            if not self._is_likers_popup_open():
+                self._human_like_delay('popup_close')
+                return True
+            self.logger.warning("⚠️ The likers popup is still open after 5 drags down")
+            return False
+        except Exception as exc:
+            self.logger.warning(f"⚠️ Closing the likers popup failed: {exc}")
+            return False
     
     def _close_popup_by_swipe_down(self) -> bool:
         try:
