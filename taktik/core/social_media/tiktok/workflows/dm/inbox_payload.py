@@ -63,11 +63,11 @@ def only_unreplied_from_payload(payload: Mapping[str, Any]) -> bool:
 
 
 def follow_back_usernames_from_payload(payload: Mapping[str, Any]) -> list[str]:
-    """The names to follow back, without "@".
+    """The names to follow back, as the new-followers page shows them, a leading "@" dropped.
 
-    The row is matched by CONTAINMENT on the displayed name, which carries no "@". The page takes
-    its names off that same screen, but a plan or a CLI operator writes "@name", and the
-    containment would then never match.
+    The row is the one whose shown name IS the name asked for (`same_shown_name`), and a shown
+    name carries no "@". The page takes its names off that same screen, but a plan or a CLI
+    operator writes "@name", which would then match no row.
     """
     raw = first_given(payload.get("usernames"), payload.get("targetUsernames"), payload.get("target_usernames"))
     if isinstance(raw, str):
