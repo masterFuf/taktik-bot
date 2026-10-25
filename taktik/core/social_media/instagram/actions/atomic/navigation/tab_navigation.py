@@ -3,6 +3,7 @@
 import time
 from loguru import logger
 
+from taktik.core.shared.device.snapshot import SnapshotUnavailable
 from taktik.core.social_media.instagram.actions.base.base_action import BaseAction
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import (
     NAVIGATION_SELECTORS,
@@ -98,7 +99,7 @@ class TabNavigationMixin(BaseAction):
         Never out of Instagram: the facade refuses a Back on a root screen (home feed, a main tab),
         where it would leave the app or switch tab. Never on Instagram's account check either: no
         Back takes the run past it, and the run stops there."""
-        if self._account_check_on_screen():
+        if self._gesture_ruled_out():
             return False
         if self._is_element_present(NAVIGATION_SELECTORS.keyboard_window):
             self._back_one_screen()
@@ -110,11 +111,19 @@ class TabNavigationMixin(BaseAction):
                 return True
         return False
 
-    def _account_check_on_screen(self) -> bool:
-        """Is the tab bar gone because Instagram is checking the account? Then the run stops
-        (the detector sets its latch) and no gesture is made on that screen."""
+    def _gesture_ruled_out(self) -> bool:
+        """Must no gesture be made on this screen? Yes when the tab bar is gone because Instagram
+        is checking the account (the run stops: the detector sets its latch), and yes on a screen
+        that could not be read, which may be that check: no Back is pressed blindly."""
         detector = getattr(self, 'problematic_page_detector', None)
-        return bool(detector is not None and detector.is_account_challenged())
+        if detector is None:
+            return False
+        try:
+            return bool(detector.is_account_challenged())
+        except SnapshotUnavailable as exc:
+            self.logger.warning(f"Screen unreadable ({exc}): Instagram's account check cannot be "
+                                "ruled out, no Back pressed on it")
+            return True
 
     def _is_search_bar_shown(self) -> bool:
         """The search screen's own bar is on screen (Explore, or the results of a query)."""
@@ -163,7 +172,7 @@ class TabNavigationMixin(BaseAction):
                 return True
 
             self.logger.debug(f"❌ Profile tab not reached (attempt {attempt + 1})")
-            if self._account_check_on_screen():
+            if self._gesture_ruled_out():
                 return False
             # A full-screen surface hides the bottom bar: the followers / following lists since
             # Instagram 410 (Pixel 3, 2026-09-24), a DM conversation and its keyboard (Pixel 6 Pro,
@@ -240,5 +249,7 @@ class TabNavigationMixin(BaseAction):
                     self.logger.info(f"✅ Popup {result.get('page_type')} fermée automatiquement")
                 else:
                     self.logger.warning(f"⚠️ Popup {result.get('page_type')} détectée mais non fermée")
+        except SnapshotUnavailable as exc:
+            self.logger.warning(f"Popups not checked after the navigation: screen unreadable ({exc})")
         except Exception as e:
             self.logger.debug(f"Erreur lors de la vérification des popups: {e}")

@@ -13,6 +13,7 @@ from typing import Any
 
 from loguru import logger
 
+from taktik.core.shared.device.snapshot import SnapshotUnavailable
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.telemetry.sink import emit_step
 
@@ -20,8 +21,9 @@ from taktik.core.shared.telemetry.sink import emit_step
 def look_for_action_block(detector: Any, *, after: str, target: str = '') -> bool:
     """After a write: must the run stop acting now? True on a block, or on any halt already set.
 
-    One screen read, none when the latch is already set. Never raises: a screen that cannot be
-    read is not a block.
+    One screen read, none when the latch is already set. Never raises. A screen the detector
+    could not read (`SnapshotUnavailable`) proves nothing: the run is not stopped, and the log
+    says the block could not be ruled out, instead of passing for a "no".
     """
     if run_halt.arret_demande():
         return True
@@ -29,8 +31,12 @@ def look_for_action_block(detector: Any, *, after: str, target: str = '') -> boo
         return False
     try:
         blocked = bool(detector.is_action_blocked())
+    except SnapshotUnavailable as exc:
+        logger.warning(f"Block check after {after}: screen unreadable ({exc}), a block cannot be "
+                       "ruled out")
+        return False
     except Exception as exc:  # noqa: BLE001
-        logger.debug(f"Block check after {after} failed: {exc}")
+        logger.error(f"Block check after {after} failed: {exc}")
         return False
     if blocked:
         # The detector's own code: a refusal of the gesture, or the platform checking the account.

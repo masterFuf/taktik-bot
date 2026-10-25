@@ -487,9 +487,9 @@ def _feed_cards(monkeypatch):
 
 def test_the_feed_stops_on_the_first_refused_like_before_commenting(_feed_cards):
     gestures = []
-    feed = _feed(_Phone(), gestures)
-    feed.nav_actions.problematic_page_detector.device._screen = (
-        lambda: _screen(BLOCK_FR) if gestures else _screen())
+    phone = _Phone()
+    feed = _feed(phone, gestures)
+    phone._screen = lambda: _screen(BLOCK_FR) if gestures else _screen()
 
     feed.interact_with_feed(dict(_FEED_RUN))
 

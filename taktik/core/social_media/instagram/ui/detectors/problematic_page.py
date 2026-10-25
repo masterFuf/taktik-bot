@@ -9,7 +9,10 @@ from loguru import logger
 from taktik.core.shared.diagnostics.ui_dump_files import dump_ui_hierarchy, capture_screenshot
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.device.app_inspection import foreground_activity
+from taktik.core.shared.device.facade import as_device_facade
 from taktik.core.shared.device.screen import screen_size_of
+from taktik.core.shared.device.snapshot import SnapshotUnavailable
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.selectors import POPUP_SELECTORS, PROBLEMATIC_PAGE_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.locales import L_all, active_locale, available_locales
 
@@ -58,12 +61,15 @@ class ProblematicPageDetector:
     def __init__(self, device, debug_mode: bool = False):
         """
         Initialise the detector.
-        
+
         Args:
-            device: Instance de DeviceFacade
-                debug_mode: when True, save dumps and screenshots for debugging
+            device: whatever the caller holds: a device facade, the bare uiautomator2 device, the
+                clone proxy, or the `DeviceManager` around them. The detector reads and acts through
+                a facade (`as_device_facade`), so every caller gets the same reading and the same
+                gestures.
+            debug_mode: when True, save dumps and screenshots for debugging
         """
-        self.device = device
+        self.device = as_device_facade(device, DeviceFacade)
         self.debug_mode = debug_mode
         
         # Detection statistics for the rate-limiting popups
@@ -78,33 +84,30 @@ class ProblematicPageDetector:
         self.detection_patterns = PROBLEMATIC_PAGE_SELECTORS.detection_patterns
     
     def _swipe(self, x1: int, y1: int, x2: int, y2: int, duration: float = 0.3):
-        """Swipe compatible with both DeviceFacade and raw u2 Device."""
-        if hasattr(self.device, 'swipe_coordinates'):
-            self.device.swipe_coordinates(x1, y1, x2, y2, duration)
-        else:
-            self.device.swipe(x1, y1, x2, y2, duration=duration)
-    
-    def _get_ui_content(self, context: str = "detection") -> Optional[str]:
-        """Get UI content based on debug mode."""
+        self.device.swipe_coordinates(x1, y1, x2, y2, duration)
+
+    def _get_ui_content(self, context: str = "detection") -> str:
+        """The screen's XML. Raises `SnapshotUnavailable` when it cannot be read: an unread
+        screen is never "no account check, no block", whoever asked."""
         if self.debug_mode:
             dump_path = dump_ui_hierarchy(self.device, "debug_ui/problematic_pages")
             if not dump_path:
-                logger.warning(f"Impossible de dumper l'UI pour {context}")
-                return None
+                raise SnapshotUnavailable(f"no UI dump for {context}")
             with open(dump_path, 'r', encoding='utf-8') as f:
-                return f.read()
+                xml = f.read()
         else:
             try:
                 xml = self.device.dump_hierarchy()
-                try:
-                    from taktik.core.shared.diagnostics.screen_ring import noter as _noter_ecran
-                    _noter_ecran(xml, platform='instagram', note=context)
-                except Exception:  # noqa: BLE001
-                    pass
-                return xml
-            except Exception as e:
-                logger.error(f"Erreur lors du dump UI pour {context}: {e}")
-                return None
+            except Exception as exc:  # noqa: BLE001 -- passed on, as what it is
+                raise SnapshotUnavailable(f"UI dump for {context} failed: {exc}") from exc
+            try:
+                from taktik.core.shared.diagnostics.screen_ring import noter as _noter_ecran
+                _noter_ecran(xml, platform='instagram', note=context)
+            except Exception:  # noqa: BLE001
+                pass
+        if not xml:
+            raise SnapshotUnavailable(f"empty UI dump for {context}")
+        return xml
     
     def _click_button_from_selectors(self, selectors: list, button_name: str) -> bool:
         """Try to click a button from a list of selectors."""
@@ -133,15 +136,13 @@ class ProblematicPageDetector:
                     'soft_ban': bool,  # True when the restriction requires stopping the session
                 'page_type': str   # Type de page détectée (si applicable)
             }
-        """
-        try:
-            logger.info("🔍 Vérification des pages problématiques...")
-            logger.debug(f"Mode debug activé: {self.debug_mode}")
-            
-            ui_content = self._get_ui_content("detection")
-            if not ui_content:
-                return False
 
+        Raises `SnapshotUnavailable` when the screen cannot be read (never "nothing detected").
+        """
+        logger.info("🔍 Vérification des pages problématiques...")
+        logger.debug(f"Mode debug activé: {self.debug_mode}")
+        ui_content = self._get_ui_content("detection")
+        try:
             # Instagram checking the account is never a page to close: its button is the check
             # itself. The run stops, the screen stays as it is, for the operator.
             if self._stop_on_account_challenge(ui_content):
@@ -308,7 +309,7 @@ class ProblematicPageDetector:
     def _close_via_not_now(self) -> bool:
         for selector in POPUP_SELECTORS.not_now_selectors:
             elements = self.device.xpath(selector)
-            if elements.exists:
+            if elements is not None and elements.exists:
                 elements.click()
                 logger.info(f"✅ Bouton 'Not Now' cliqué avec: {selector}")
                 break
@@ -336,7 +337,7 @@ class ProblematicPageDetector:
         if point is None:
             logger.debug("tap_outside: sheet covers the screen, nothing outside to tap")
             return False
-        self.device.click(point[0], point[1])
+        self.device.click_coordinates(point[0], point[1])
         return True
 
     def _swipe_handle_down(self, selectors, etiquette: str) -> bool:
@@ -476,9 +477,6 @@ class ProblematicPageDetector:
         """
         try:
             ui_content = self._get_ui_content("vérification")
-            if not ui_content:
-                return False
-            
             # Verify the markers are gone
             config = self.detection_patterns[page_type]
             return not self._matches(ui_content, config)
@@ -500,7 +498,7 @@ class ProblematicPageDetector:
             free_option_selectors = POPUP_SELECTORS.ad_consent_free_option
             for sel in free_option_selectors:
                 el = self.device.xpath(sel)
-                if el.exists:
+                if el is not None and el.exists:
                     el.click()
                     logger.info("✅ Selected 'Use free of charge with ads'")
                     time.sleep(1)
@@ -511,7 +509,7 @@ class ProblematicPageDetector:
             clicked_continue = False
             for sel in continue_selectors:
                 el = self.device.xpath(sel)
-                if el.exists:
+                if el is not None and el.exists:
                     el.click()
                     logger.info("✅ Clicked Continue on ad consent page 1")
                     clicked_continue = True
@@ -526,7 +524,7 @@ class ProblematicPageDetector:
             agree_selectors = POPUP_SELECTORS.ad_consent_agree_button
             for sel in agree_selectors:
                 el = self.device.xpath(sel)
-                if el.exists:
+                if el is not None and el.exists:
                     el.click()
                     logger.info("✅ Ad consent popup dismissed (clicked Agree)")
                     time.sleep(1.5)
@@ -536,7 +534,7 @@ class ProblematicPageDetector:
             time.sleep(1)
             for sel in agree_selectors:
                 el = self.device.xpath(sel)
-                if el.exists:
+                if el is not None and el.exists:
                     el.click()
                     logger.info("✅ Ad consent popup dismissed (clicked Agree, retry)")
                     time.sleep(1.5)
@@ -546,12 +544,13 @@ class ProblematicPageDetector:
             time.sleep(1)
             page3_selectors = POPUP_SELECTORS.ad_consent_page3_indicators
             for sel in page3_selectors:
-                if self.device.xpath(sel).exists:
+                indicator = self.device.xpath(sel)
+                if indicator is not None and indicator.exists:
                     logger.info("🪟 Meta ad consent page 3 (ad experience) detected")
                     ok_selectors = POPUP_SELECTORS.ad_consent_ok_button
                     for ok_sel in ok_selectors:
                         el = self.device.xpath(ok_sel)
-                        if el.exists:
+                        if el is not None and el.exists:
                             el.click()
                             logger.info("✅ Ad experience page dismissed (clicked OK)")
                             time.sleep(1.5)
@@ -731,7 +730,8 @@ class ProblematicPageDetector:
         return True
 
     def is_account_challenged(self) -> bool:
-        """Is Instagram checking this account right now? Seeing it sets the run's latch."""
+        """Is Instagram checking this account right now? Seeing it sets the run's latch.
+        Raises `SnapshotUnavailable` when the screen cannot be read: that is no answer."""
         return self._stop_on_account_challenge(self._get_ui_content(context="account_challenge"))
 
     def is_action_blocked(self) -> bool:
@@ -745,11 +745,12 @@ class ProblematicPageDetector:
         the surest way to turn a temporary limit into a lasting one. A caller that needs to
         decide whether to keep going has to be able to ask without touching the screen.
         Seeing it also sets the run's stop lock (`run_halt.ACTION_BLOCKED`), whoever asked.
+        Raises `SnapshotUnavailable` when the screen cannot be read: that is no answer.
         """
         content = self._get_ui_content(context="action_blocked")
         if self._stop_on_account_challenge(content):
             return True
-        evidence = self._rate_limit_evidence(content) if content else None
+        evidence = self._rate_limit_evidence(content)
         if evidence is None:
             return False
         # Whoever asked, the run stops: every loop that decides to continue reads this lock

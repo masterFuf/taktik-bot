@@ -25,6 +25,7 @@ from loguru import logger
 
 from taktik.core.shared.behavior.gesture_primitives import human_drag_between_raw
 from taktik.core.shared.device.screen import screen_size_of
+from taktik.core.shared.device.snapshot import SnapshotUnavailable
 
 from taktik.core.social_media.instagram.ui.selectors.support.watchdog import WATCHDOG_SELECTORS
 
@@ -149,13 +150,16 @@ class WorkflowWatchdog:
 
     def _block_on_screen(self) -> bool:
         """Is Instagram refusing actions ("Try again later") or checking the account? Reads only,
-        never raises."""
+        never raises; a screen it could not read is said, never taken for a "no"."""
         try:
             from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
 
             blocked = bool(ProblematicPageDetector(self.device).is_action_blocked())
+        except SnapshotUnavailable as exc:
+            log.warning(f"🐕 Block check: screen unreadable ({exc}), a block cannot be ruled out")
+            return False
         except Exception as exc:  # noqa: BLE001
-            log.debug(f"🐕 Block check failed: {exc}")
+            log.error(f"🐕 Block check failed: {exc}")
             return False
         if blocked:
             from taktik.core.shared.diagnostics import run_halt
