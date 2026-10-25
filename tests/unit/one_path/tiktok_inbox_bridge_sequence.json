@@ -804,7 +804,7 @@
       "screenshot",
       "ai_classify fan_two",
       "open_follower_profile Emile B",
-      "follow_back ['fan_one', 'fan_two']",
+      "follow_back ['fan_one', 'Fan Two']",
       "outreach_built emulator-5554",
       "outreach_connect",
       "outreach_run ['fan_one'] ['Bienvenue !'] max=5 delays=30-70 account=42 session=emulator-5554",
@@ -1064,7 +1064,7 @@
         {
           "result": {
             "success": true,
-            "username": "fan_two"
+            "username": "Fan Two"
           }
         }
       ],
@@ -1145,7 +1145,7 @@
       "screenshot",
       "ai_classify fan_two",
       "open_follower_profile Emile B",
-      "follow_back ['fan_one', 'fan_two']",
+      "follow_back ['fan_one', 'Fan Two']",
       "force_stop tiktok"
     ],
     "configs": [
@@ -1339,7 +1339,7 @@
         {
           "result": {
             "success": true,
-            "username": "fan_two"
+            "username": "Fan Two"
           }
         }
       ],
@@ -1385,7 +1385,7 @@
       "screenshot",
       "ai_classify fan_two",
       "open_follower_profile Emile B",
-      "follow_back ['fan_one', 'fan_two']",
+      "follow_back ['fan_one', 'Fan Two']",
       "force_stop tiktok"
     ],
     "configs": [
@@ -1615,7 +1615,7 @@
         {
           "result": {
             "success": true,
-            "username": "fan_two"
+            "username": "Fan Two"
           }
         }
       ],
@@ -1654,7 +1654,7 @@
       "screenshot",
       "ai_classify fan_two",
       "open_follower_profile Emile B",
-      "follow_back ['fan_one', 'fan_two']",
+      "follow_back ['fan_one', 'Fan Two']",
       "force_stop tiktok"
     ],
     "configs": [
@@ -1887,7 +1887,7 @@
         {
           "result": {
             "success": true,
-            "username": "fan_two"
+            "username": "Fan Two"
           }
         }
       ],
@@ -2085,7 +2085,7 @@
       "screenshot",
       "ai_classify fan_two",
       "open_follower_profile Emile B",
-      "follow_back ['fan_one', 'fan_two']",
+      "follow_back ['fan_one', 'Fan Two']",
       "force_stop tiktok"
     ],
     "configs": [
@@ -2315,7 +2315,7 @@
         {
           "result": {
             "success": true,
-            "username": "fan_two"
+            "username": "Fan Two"
           }
         }
       ],
@@ -2354,7 +2354,7 @@
       "screenshot",
       "ai_classify fan_two",
       "open_follower_profile Emile B",
-      "follow_back ['fan_one', 'fan_two']",
+      "follow_back ['fan_one', 'Fan Two']",
       "outreach_connect",
       "stop tiktok",
       "sleep 1",
@@ -2631,7 +2631,7 @@
         {
           "result": {
             "success": true,
-            "username": "fan_two"
+            "username": "Fan Two"
           }
         }
       ],
@@ -2765,7 +2765,7 @@
       "screenshot",
       "ai_classify fan_two",
       "open_follower_profile Emile B",
-      "follow_back ['fan_one', 'fan_two']",
+      "follow_back ['fan_one', 'Fan Two']",
       "outreach_built emulator-5554",
       "outreach_connect",
       "outreach_run ['fan_one', 'fan_two'] ['Bienvenue !'] max=5 delays=30-70 account=42 session=emulator-5554",
@@ -3026,7 +3026,7 @@
         {
           "result": {
             "success": true,
-            "username": "fan_two"
+            "username": "Fan Two"
           }
         }
       ],
@@ -3098,7 +3098,7 @@
       "screenshot",
       "ai_classify fan_two",
       "open_follower_profile Emile B",
-      "follow_back ['fan_one', 'fan_two']",
+      "follow_back ['fan_one', 'Fan Two']",
       "outreach_built emulator-5554",
       "outreach_connect",
       "outreach_run ['fan_two'] ['Bienvenue !'] max=5 delays=30-70 account=42 session=emulator-5554",
@@ -3358,7 +3358,7 @@
         {
           "result": {
             "success": true,
-            "username": "fan_two"
+            "username": "Fan Two"
           }
         }
       ],
