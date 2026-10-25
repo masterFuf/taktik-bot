@@ -180,23 +180,34 @@ class WorkflowHelpers:
         
         self.logger.info(stats_output)
     
-    def _handle_post_restart_popups(self):
-        """Detect and dismiss popups that may appear after app restart (ad consent, etc.)."""
-        try:
-            from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
-            detector = ProblematicPageDetector(self.automation.actions.device, debug_mode=False)
-            result = detector.detect_and_handle_problematic_pages()
-            if result.get('detected'):
-                self.logger.info(f"📋 Post-restart popup detected: {result.get('page_type', 'unknown')}, closed={result.get('closed')}")
-                if result.get('closed'):
-                    time.sleep(2)
-                    # Check again in case there's a multi-page flow
-                    result2 = detector.detect_and_handle_problematic_pages()
-                    if result2.get('detected') and result2.get('closed'):
-                        self.logger.info(f"📋 Follow-up popup handled: {result2.get('page_type', 'unknown')}")
-                        time.sleep(2)
-        except Exception as e:
-            self.logger.warning(f"Post-restart popup check failed: {e}")
+    def _handle_post_restart_popups(self) -> None:
+        """Detect and dismiss popups that may appear after app restart (ad consent, etc.).
+
+        A page detected and left open is said as such: the account detection that follows runs
+        under it. A check that proves nothing (the screen could not be read, the check failed) is
+        said too, never passed for a clear screen."""
+        from taktik.core.shared.device.snapshot import SnapshotUnavailable
+        from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
+
+        detector = ProblematicPageDetector(self.automation.actions.device, debug_mode=False)
+        # A multi-page flow (ad consent) shows its next page once one is closed: one more look.
+        for look in ("Post-restart popup", "Follow-up popup"):
+            try:
+                result = detector.detect_and_handle_problematic_pages()
+            except SnapshotUnavailable as exc:
+                self.logger.warning(f"{look} check: screen unreadable ({exc}), nothing proven")
+                return
+            except Exception as exc:  # noqa: BLE001 -- said; the session start goes on
+                self.logger.error(f"{look} check failed: {exc}")
+                return
+            if not result['detected']:
+                return
+            if not result['closed']:
+                self.logger.warning(f"📋 {look} {result['page_type']} detected and left open: the "
+                                    "account detection that follows runs under it")
+                return
+            self.logger.info(f"📋 {look} {result['page_type']} detected and closed")
+            time.sleep(2)
 
     def initialize_session(self) -> Optional[int]:
         session_settings = self.automation.config.get('session_settings', {})

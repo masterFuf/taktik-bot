@@ -64,10 +64,12 @@ def check_problematic_page_detector(device_id=None):
         
         logger.info("🔍 Detecting problematic pages...")
         
-        detected = detector.detect_and_handle_problematic_pages()
-        
+        result = detector.detect_and_handle_problematic_pages()
+        detected = result['detected']
+
         if detected:
-            logger.success("✅ Problematic page detected and handled!")
+            logger.success(f"✅ Problematic page detected: {result['page_type']}, "
+                           f"{'closed' if result['closed'] else 'LEFT OPEN'}")
             
             time.sleep(2)
             screenshot_after = capture_screenshot(device, "debug_ui/test_detector")
