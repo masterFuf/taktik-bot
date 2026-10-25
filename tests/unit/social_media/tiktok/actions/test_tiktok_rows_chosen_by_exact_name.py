@@ -14,7 +14,9 @@ wave. On 43.1.4 a new follower's row has one button whose label is its state («
 The screens are real dumps, anonymized (`scripts/lab/anonymize_dump.py`, the same word gets the same
 placeholder, so « demo_fan » reads `name_33`name_34` in both rows): the English inbox of that
 phone and the conversation one of its rows opens, the French new-followers page of a Pixel 3a
-(43.1.4), and the English new-followers page of the C57S before and after one follow-back. The phone answers `xpath` through uiautomator2's own engine and `d(resourceIdMatches=...)`
+(43.1.4), the English new-followers page of the C57S before and after one follow-back, and the
+French new-followers page of a Pixel 6a on 47.0.3, where the button's id is another and only its
+label is left to read. The phone answers `xpath` through uiautomator2's own engine and `d(resourceIdMatches=...)`
 from the same dump; what a tap opens is written in `doors`, per test.
 """
 
@@ -42,6 +44,7 @@ FILES = {
     "new_followers": "tt4314_fr_new_followers.xml",
     "new_followers_en": "tt4314_en_new_followers.xml",
     "followed_back_en": "tt4314_en_new_followers_followed_back.xml",
+    "new_followers_47": "tt4703_fr_new_followers.xml",
 }
 SCREENS = {name: (FIXTURES / file).read_text(encoding="utf-8") for name, file in FILES.items()}
 
@@ -325,3 +328,26 @@ def test_a_follower_already_followed_back_is_not_tapped_again(english):
 
     assert DMActions(phone).follow_back("name_8") is False
     assert phone.taps == []
+
+
+@pytest.mark.parametrize("name", [
+    "user_3",  # « Message »
+    "user_2",  # « Envoyer un » and a waving hand
+])
+def test_on_47_the_label_alone_keeps_other_buttons_untapped(name, french):
+    """47.0.3: no `o0v`, no `rdh`; the row is found from its name button and the follow-back by its
+    label alone."""
+    phone = _Phone("new_followers_47", {})
+
+    assert DMActions(phone).follow_back(name) is False
+    assert phone.taps == []
+
+
+def test_on_47_the_follow_back_of_the_row_is_found_by_its_label(french):
+    phone = _Phone("new_followers_47", {})
+
+    DMActions(phone).follow_back("name_8")
+
+    (tap,) = phone.taps
+    assert _inside(tap, "new_followers_47", '//node[@text="‎⁨name_8⁩"]'
+                                            '/ancestor::node[@clickable="true"][1]//node[@text="Suivre en retour"]')
