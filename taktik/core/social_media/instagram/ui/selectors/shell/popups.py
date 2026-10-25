@@ -117,8 +117,7 @@ class PopupSelectors:
     def follow_suggestions_close_methods(self) -> List[str]:
         return self._follow_suggestions_close_methods_base + L("popup.follow_suggestions_close_methods")
 
-    # === Sélecteurs hashtag_business.py ===
-    username_list_selector: str = '//*[@resource-id="com.instagram.android:id/follow_list_username"]'
+    # === Likers sheet: its grab bar ===
     drag_handle_selector: str = '//*[@resource-id="com.instagram.android:id/bottom_sheet_drag_handle_prism"]'
 
     # === Comment popup close ===

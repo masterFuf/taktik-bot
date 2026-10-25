@@ -62,3 +62,28 @@ def test_reworking_the_same_visible_page_must_not_end_the_list():
     ):
         d.notify_new_page(page)
     assert d.is_the_end() is False
+
+
+def test_the_caller_says_how_many_still_pages_make_the_end():
+    """A likers sheet read at a glance ends on 2 pages identical to the one before them (two
+    scrolls that changed nothing), where a followers list worked row by row waits for 5."""
+    sheet = ScrollEndDetector(identical_pages_to_end=2, empty_pages_to_end=3)
+    followers = ScrollEndDetector(repeats_to_end=5)
+    for page in (["a", "b"], ["a", "b"]):
+        sheet.notify_new_page(page)
+        followers.notify_new_page(page)
+    assert sheet.is_the_end() is False
+    sheet.notify_new_page(["a", "b"])
+    followers.notify_new_page(["a", "b"])
+    assert sheet.is_the_end() is True
+    assert "no longer moves" in sheet.end_reason()
+    assert followers.is_the_end() is False
+
+
+def test_empty_pages_end_a_likers_sheet_after_its_first_reading_and_two_scrolls():
+    sheet = ScrollEndDetector(identical_pages_to_end=2, empty_pages_to_end=3)
+    for _ in range(2):
+        sheet.notify_new_page([])
+    assert sheet.end_reason() is None
+    sheet.notify_new_page([])
+    assert "without any username" in sheet.end_reason()

@@ -1,15 +1,43 @@
 import random
 import re
 import time
-from typing import Optional, List, Any, Dict
+from typing import Callable, Optional, List, Any, Dict, Tuple
 from loguru import logger
 from taktik.core.shared.device.screen import screen_size_of
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.shared.actions.utils import ActionUtils, normalise_number_spaces
 from taktik.core.shared.behavior.gesture_primitives import human_drag_between_raw
 from taktik.core.social_media.instagram.ui.labels import is_ui_label
+from taktik.core.social_media.instagram.ui.detectors.scroll_end import likers_list_end_detector
 
 log = logger.bind(module="instagram-ui-extractors")
+
+#: A drag of the likers sheet starts this far under its first liker row...
+LIKERS_DRAG_BELOW_FIRST_ROW_PX = 100
+#: ...and goes up this far, but never above this fraction of the screen height.
+LIKERS_DRAG_UP_PX = 400
+LIKERS_DRAG_HIGHEST = 0.35
+#: The shortest drag of the sheet, as a fraction of the screen height: a shorter one hardly moves
+#: the list, and two of them would read as its end.
+LIKERS_DRAG_MIN_TRAVEL = 0.15
+#: The drag without a usable first row: from 70 % to 45 % of the screen height.
+LIKERS_DRAG_PROPORTIONAL = (0.70, 0.45)
+
+
+def likers_drag_path(first_row_y: Optional[int], screen_height: int) -> Tuple[int, int]:
+    """(start Y, end Y) of the drag that scrolls the likers sheet up.
+
+    From under the first liker row (`first_row_y`, its centre) when that drag goes up far enough;
+    otherwise, or without a row, the proportional drag. A first row high on the screen (a sheet
+    pulled up to full height) would give a short drag, or one going down."""
+    proportional = (int(screen_height * LIKERS_DRAG_PROPORTIONAL[0]), int(screen_height * LIKERS_DRAG_PROPORTIONAL[1]))
+    if first_row_y is None:
+        return proportional
+    start_y = first_row_y + LIKERS_DRAG_BELOW_FIRST_ROW_PX
+    end_y = max(first_row_y - LIKERS_DRAG_UP_PX, int(screen_height * LIKERS_DRAG_HIGHEST))
+    if start_y - end_y < int(screen_height * LIKERS_DRAG_MIN_TRAVEL):
+        return proportional
+    return start_y, end_y
 
 
 class InstagramUIExtractors:
@@ -366,8 +394,19 @@ class InstagramUIExtractors:
         automation=None,
         logger_instance=None,
         add_initial_sleep: bool = False,
-        current_max_interactions_attr: Any = None
+        current_max_interactions_attr: Any = None,
+        keep_going: Optional[Callable[[], bool]] = None,
     ) -> List[str]:
+        """The eligible likers of the open likers sheet, read screen after screen until the target,
+        the end of the list or `max_scrolls`.
+
+        The end of the list is the one `likers_list_end_detector` tells from the likers SHOWN on
+        each screen, eligible or not: two scrolls in a row that change nothing. Every reading here
+        follows a scroll but the first. A list whose first likers were all handled before still
+        moves, and the reading goes on.
+
+        Without `automation`, every liker shown is kept (the scraping's reading). `keep_going`, when
+        given, is asked before each screen: the scraping's session clock stops the reading too."""
 
         logger_to_use = logger_instance if logger_instance else log
         
@@ -382,8 +421,7 @@ class InstagramUIExtractors:
         
         max_scrolls = min(200, target_count * 2)
         scroll_count = 0
-        consecutive_no_new = 0
-        max_consecutive = 20
+        list_end = likers_list_end_detector()
         
         logger_to_use.info(f"🔄 Optimized extraction for {target_count} users")
         
@@ -393,9 +431,17 @@ class InstagramUIExtractors:
         
         try:
             while scroll_count < max_scrolls and len(usernames) < target_count:
+                if keep_going is not None and not keep_going():
+                    logger_to_use.info(f"⏹️ Stop: the session ends, after {scroll_count} scroll(s)")
+                    break
                 users_before = len(usernames)
                 
                 new_users = self.extract_visible_usernames(logger_instance=logger_to_use)
+                list_end.notify_new_page(new_users)
+                end_reason = list_end.end_reason()
+                if end_reason is not None:
+                    logger_to_use.info(f"🏁 Stop: end of the likers list after {scroll_count} scroll(s), {end_reason}")
+                    break
                 
                 for username in new_users:
                     if username not in usernames and len(usernames) < target_count:
@@ -416,14 +462,8 @@ class InstagramUIExtractors:
                     break
                 
                 if len(usernames) == users_before:
-                    consecutive_no_new += 1
-                    logger_to_use.debug(f"⚠️ No new eligible user found (attempt {consecutive_no_new}/{max_consecutive})")
-                    
-                    if consecutive_no_new >= max_consecutive:
-                        logger_to_use.info(f"🛑 Stop: {consecutive_no_new} consecutive attempts without new eligible users")
-                        break
+                    logger_to_use.debug(f"⚠️ No new eligible user on this screen ({len(new_users)} shown)")
                 else:
-                    consecutive_no_new = 0
                     gained = len(usernames) - users_before
                     logger_to_use.info(f"📈 Scroll #{scroll_count + 1}: +{gained} eligible users (total: {len(usernames)}/{target_count})")
                 
@@ -435,6 +475,8 @@ class InstagramUIExtractors:
                 scroll_count += 1
                 time.sleep(0.6)
             
+            if scroll_count >= max_scrolls and len(usernames) < target_count:
+                logger_to_use.info(f"🛑 Stop: {max_scrolls} scrolls, the most a reading of {target_count} users makes")
             logger_to_use.info(f"🎯 Extraction completed: {len(usernames)} users in {scroll_count} scrolls")
             return usernames
             
@@ -524,39 +566,16 @@ class InstagramUIExtractors:
             
             # Reduced wait time for faster extraction (was 0.8s)
             time.sleep(0.3)
-            
-            username_elements = self.device.xpath(self.popup_selectors.username_list_selector).all()
-            
-            if username_elements and len(username_elements) >= 1:
-                first_username = username_elements[0]
-                bounds = first_username.info.get('bounds', {})
-                
-                if bounds:
-                    username_y = (bounds.get('top', 0) + bounds.get('bottom', 0)) // 2
-                    start_y = username_y + 100
-                    end_y = max(username_y - 400, int(screen_height * 0.35))
-                    
-                    if verbose_logs:
-                        logger_to_use.debug(f"✅ First username detected at Y={username_y}, bounds={bounds}")
-                        logger_to_use.debug(f"🎯 Swipe from username: start={start_y}, end={end_y}")
-                    else:
-                        logger_to_use.debug(f"✅ First username detected at Y={username_y}")
-                        logger_to_use.debug(f"🎯 Swipe from username: start={start_y}, end={end_y}")
-                else:
-                    start_y = int(screen_height * 0.70)
-                    end_y = int(screen_height * 0.45)
-                    if verbose_logs:
-                        logger_to_use.debug(f"⚠️ Bounds not available, proportional fallback")
-                    else:
-                        logger_to_use.debug(f"⚠️ Bounds not available, fallback")
+
+            first_row_y = self._first_liker_row_y(logger_to_use)
+            start_y, end_y = likers_drag_path(first_row_y, screen_height)
+            if first_row_y is None:
+                logger_to_use.debug("⚠️ No liker row on screen, proportional drag")
+            elif start_y == first_row_y + LIKERS_DRAG_BELOW_FIRST_ROW_PX:
+                logger_to_use.debug(f"✅ First liker at Y={first_row_y}: drag {start_y} → {end_y}")
             else:
-                start_y = int(screen_height * 0.70)
-                end_y = int(screen_height * 0.45)
-                if verbose_logs:
-                    logger_to_use.debug(f"⚠️ No username detected ({len(username_elements) if username_elements else 0}), proportional fallback")
-                else:
-                    logger_to_use.debug(f"⚠️ No username detected, fallback")
-            
+                logger_to_use.debug(f"⚠️ First liker at Y={first_row_y}, too high for a drag from it: proportional drag")
+
             # start_y/end_y are ADAPTIVE (from the first username's Y, so the next page resumes
             # where extraction left off): the gesture must travel exactly that far, which a
             # sampled scroll does not. The shared drag between two given points does, lifting at
@@ -577,9 +596,22 @@ class InstagramUIExtractors:
             return True
             
         except Exception as e:
-            if verbose_logs:
-                logger_to_use.error(f"❌ Error scrolling popup: {e}")
+            logger_to_use.error(f"❌ Error scrolling popup: {e}")
             return False
+
+    def _first_liker_row_y(self, logger_to_use) -> Optional[int]:
+        """The centre Y of the highest liker row of the sheet, found as the reading finds its rows
+        (`username_in_popup_selectors`); None when no row shows."""
+        for selector in self.popup_selectors.username_in_popup_selectors:
+            tops = []
+            for element in self.device.xpath(selector).all():
+                bounds = element.info.get('bounds') or {}
+                if bounds:
+                    tops.append((bounds.get('top', 0) + bounds.get('bottom', 0)) // 2)
+            if tops:
+                return min(tops)
+        logger_to_use.debug("No liker row found by any likers selector")
+        return None
     
     def is_reel_post(self, logger_instance=None) -> bool:
         logger_to_use = logger_instance if logger_instance else log

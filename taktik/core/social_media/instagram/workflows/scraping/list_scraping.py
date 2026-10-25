@@ -9,7 +9,6 @@ from typing import Dict, Any, List, Optional
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 
-from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
 from taktik.core.social_media.instagram.actions.base.ipc import IPCEmitter
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.shared.device.network_probe import measure_network_baseline
@@ -20,6 +19,7 @@ from taktik.core.social_media.instagram.workflows.scraping.list_strategy import 
     ListScrapingStrategy,
     make_followers_strategy,
     make_commenters_strategy,
+    make_likers_strategy,
 )
 from taktik.core.social_media.instagram.workflows.scraping.deep_qualify import DeepQualifyMixin
 from taktik.core.social_media.instagram.workflows.scraping.persistence import SCRAPED_PROFILE_FIELDS, post_session_type
@@ -407,17 +407,23 @@ class ScrapingListMixin(DeepQualifyMixin):
                              (used for likers/commenters from hashtag posts — enables dedup on next run).
             strategy: ListScrapingStrategy implementing the UI-specific extraction.
                       Defaults to ``make_followers_strategy(self)`` for backward compat
-                      (followers / following / post likers).
+                      (followers / following).
 
         Returns:
             List of scraped profile data
+
+        The list ends where the strategy's `end_detector` says: it hears the usernames SHOWN by the
+        first reading and by each reading that follows a scroll, kept or skipped. The readings of a
+        screen nothing scrolled (after a profile, after "See more") say nothing about the end
+        (journal IG-FEED-031).
         """
         if strategy is None:
             strategy = make_followers_strategy(self)
         scraped = []
-        scroll_detector = ScrollEndDetector(repeats_to_end=5, device=self.device)
+        list_end = strategy.end_detector()
+        reading_follows_scroll = True  # the first reading: the page the next scroll is measured on
+        scrolls_made = 0
         seen_usernames = set()
-        no_new_users_count = 0
 
         # Dedup: skip profiles already known in DB — checked directly per username.
         # - rescrape_after_days = None (default)  → skip ALL known profiles (pure existence check)
@@ -441,8 +447,7 @@ class ScrapingListMixin(DeepQualifyMixin):
                     )
             except Exception as _e:
                 self.logger.warning(f"Could not initialize dedup DB: {_e}")
-        max_no_new_users = 5  # Stop after 5 consecutive scrolls with no new users
-        consecutive_empty_visible = 0  # Count consecutive scans returning 0 elements
+        consecutive_empty_visible = 0# Count consecutive scans returning 0 elements
         max_consecutive_empty = 3  # After this many, check if still on followers list
 
         # Deep qualify: open following list per profile + DB cross-reference
@@ -495,7 +500,15 @@ class ScrapingListMixin(DeepQualifyMixin):
                 
                 # Get visible usernames
                 visible = strategy.get_visible()
-                
+
+                if reading_follows_scroll:
+                    reading_follows_scroll = False
+                    list_end.notify_new_page([f.get('username') for f in visible if f.get('username')])
+                    end_reason = list_end.end_reason()
+                    if end_reason is not None:
+                        self.logger.info(f"🏁 End of the list after {scrolls_made} scroll(s), {end_reason}")
+                        break
+
                 if not visible:
                     consecutive_empty_visible += 1
 
@@ -521,16 +534,15 @@ class ScrapingListMixin(DeepQualifyMixin):
                                 self.logger.error("❌ Could not recover to target list — stopping scraping")
                                 break
                         else:
-                            # We ARE on the list but it's empty — treat as end of list
+                            # We ARE on the list but it shows no row: the end detector counts
+                            # those readings and ends the list.
                             consecutive_empty_visible = 0
 
                     # Try scrolling - wait for Instagram to load
                     strategy.scroll_down()
+                    scrolls_made += 1
+                    reading_follows_scroll = True
                     time.sleep(1.5)
-
-                    if scroll_detector.is_the_end():
-                        self.logger.info("Reached end of list")
-                        break
                     continue
 
                 # Successful scan — reset the empty-visible counter
@@ -657,9 +669,6 @@ class ScrapingListMixin(DeepQualifyMixin):
                     for f in visible
                 )
                 
-                # Notify scroll detector
-                scroll_detector.notify_new_page(list(seen_usernames))
-                
                 if new_visible_count == 0:
                     # Check if there's a "See more" / "Load more" button before giving up
                     if strategy.check_load_more():
@@ -667,8 +676,7 @@ class ScrapingListMixin(DeepQualifyMixin):
                         time.sleep(2.0)
                         continue  # Re-process without counting as a failed scroll
 
-                    no_new_users_count += 1
-                    self.logger.debug(f"No new users found ({no_new_users_count}/{max_no_new_users})")
+                    self.logger.debug("No new user on this screen")
                     
                     # Check suggestions only after collecting enough profiles
                     if strategy.enable_suggestions_check and len(scraped) >= min_profiles_before_suggestions_check:
@@ -680,15 +688,13 @@ class ScrapingListMixin(DeepQualifyMixin):
                         else:
                             suggestions_check_count = 0
                     
-                    if no_new_users_count >= max_no_new_users:
-                        self.logger.info(f"🏁 No new users after {max_no_new_users} scrolls - assuming end of list")
-                        break
-                    
                     # Get current visible usernames before scroll
                     current_usernames = set(f.get('username') for f in visible if f.get('username'))
-                    
+
                     # Scroll to find more
                     strategy.scroll_down()
+                    scrolls_made += 1
+                    reading_follows_scroll = True
                     
                     # Wait for content to actually change (not just a fixed delay)
                     max_wait_attempts = 5
@@ -705,11 +711,7 @@ class ScrapingListMixin(DeepQualifyMixin):
                         if wait_attempt == max_wait_attempts - 1:
                             self.logger.debug(f"⏳ Content unchanged after {max_wait_attempts}s")
                     
-                    if scroll_detector.is_the_end():
-                        self.logger.info("Reached end of list")
-                        break
-                    
-                    # Check for "And X others" indicator (limited list end)
+                    # Check for "And X others"indicator (limited list end)
                     if strategy.is_end_reached():
                         self.logger.info("📋 Reached 'And X others' - end of accessible profiles")
                         break
@@ -719,14 +721,14 @@ class ScrapingListMixin(DeepQualifyMixin):
                         self.logger.info("📋 Reached suggestions section - end of real profiles")
                         break
                 else:
-                    # Reset counter when we find new users
-                    no_new_users_count = 0
-                    # Only scroll when all currently visible profiles have been processed.
+                    # Only scrollwhen all currently visible profiles have been processed.
                     # In enrich_on_the_fly mode we break after each profile and re-fetch,
                     # so visible may still contain unprocessed profiles — don't scroll yet.
                     if not has_unprocessed_visible:
                         # Scroll down to reveal more profiles
                         strategy.scroll_down()
+                        scrolls_made += 1
+                        reading_follows_scroll = True
                         
                         # Wait for Instagram to finish loading (detect spinner)
                         max_loading_wait = 10  # Max 10 seconds waiting for loading
@@ -980,6 +982,7 @@ class ScrapingListMixin(DeepQualifyMixin):
                             source_name=hashtag,
                             enrich_on_the_fly=enrich_profiles,
                             source_post_url=post_url,
+                            strategy=make_likers_strategy(self),
                         )
                         total_scraped += len(likers)
                         # Close the likers popup. When the user has scrolled to the

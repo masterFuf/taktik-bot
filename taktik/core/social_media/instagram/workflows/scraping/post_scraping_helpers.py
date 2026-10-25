@@ -4,7 +4,6 @@ import time
 from datetime import datetime
 from typing import TYPE_CHECKING, Dict, Any, List, Optional
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import BUTTON_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
@@ -13,11 +12,10 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
     POST_LIKERS_SELECTORS,
     POST_REELS_SELECTORS,
 )
-from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.social_media.instagram.workflows.common.detection import is_reel_post, is_in_post_view
 from taktik.core.social_media.instagram.workflows.common.post_navigation import open_first_post_of_profile, get_post_url_from_share
-from taktik.core.social_media.instagram.workflows.scraping.list_strategy import make_commenters_strategy
+from taktik.core.social_media.instagram.workflows.scraping.list_strategy import make_commenters_strategy, make_likers_strategy
 
 if TYPE_CHECKING:
     from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
@@ -169,7 +167,8 @@ class ScrapingPostHelpersMixin:
                 source_type='POST_LIKERS',
                 source_name=source_name,
                 total_available=max_count,
-                enrich_on_the_fly=enrich_on_the_fly
+                enrich_on_the_fly=enrich_on_the_fly,
+                strategy=make_likers_strategy(self),
             )
             
             # Go back from likers list
@@ -313,86 +312,28 @@ class ScrapingPostHelpersMixin:
             return []
 
     def _extract_usernames_from_likers_list(self, max_count: int) -> List[str]:
-        """Extract usernames from the likers popup/list."""
-        likers = []
-        seen_usernames = set()
-        scroll_detector = ScrollEndDetector(repeats_to_end=3, device=self.device)
-        no_new_count = 0
-        
-        # Wait for popup to load and show usernames
+        """Every liker of the open likers sheet, up to `max_count`, once its first rows show.
+
+        Read by the reading of the likers of the runs and the Lab
+        (`extract_usernames_from_likers_popup`), which ends at the end of the list; without an
+        account it keeps every liker shown, and the session's clock stops it too."""
         self.logger.debug("⏳ Waiting for likers popup to load...")
-        popup_loaded = False
         for attempt in range(5):
             time.sleep(1)
             visible = self.detection_actions.get_visible_followers_with_elements()
             if visible:
                 self.logger.info(f"✅ Likers popup loaded with {len(visible)} visible users")
-                popup_loaded = True
                 break
             self.logger.debug(f"Waiting for popup... attempt {attempt + 1}/5")
-        
-        if not popup_loaded:
+        else:
             self.logger.warning("⚠️ Likers popup did not load properly")
             return []
-        
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            console=console
-        ) as progress:
-            task = progress.add_task(f"[cyan]Extracting likers (0/{max_count:,})...", total=max_count)
-            
-            while len(likers) < max_count and self._should_continue():
-                # Get visible usernames
-                visible = self.detection_actions.get_visible_followers_with_elements()
-                
-                if not visible:
-                    no_new_count += 1
-                    if no_new_count >= 3:
-                        self.logger.info("No more likers found")
-                        break
-                    # Wait a bit before scrolling
-                    time.sleep(0.5)
-                    self.scroll_actions.scroll_followers_list_down()
-                    time.sleep(1)
-                    continue
-                
-                new_count = 0
-                for follower in visible:
-                    username = follower.get('username')
-                    if not username or username in seen_usernames:
-                        continue
-                    
-                    seen_usernames.add(username)
-                    likers.append(username)
-                    new_count += 1
-                    
-                    progress.update(
-                        task,
-                        advance=1,
-                        description=f"[cyan]Extracting likers ({len(likers):,}/{max_count:,})..."
-                    )
-                    
-                    if len(likers) >= max_count:
-                        break
-                
-                scroll_detector.notify_new_page(list(seen_usernames))
-                
-                if new_count == 0:
-                    no_new_count += 1
-                    if no_new_count >= 3:
-                        self.logger.info("No more new likers after scrolling")
-                        break
-                    time.sleep(0.5)
-                    self.scroll_actions.scroll_followers_list_down()
-                    time.sleep(1)
-                else:
-                    no_new_count = 0
-                    time.sleep(0.3)
-        
-        return likers
+
+        return self.ui_extractors.extract_usernames_from_likers_popup(
+            max_interactions=max_count,
+            logger_instance=self.logger,
+            keep_going=self._should_continue,
+        )
 
     def _click_next_post(self, seen_positions: set = None) -> bool:
         """Click on the next unseen post in the hashtag/explore grid.

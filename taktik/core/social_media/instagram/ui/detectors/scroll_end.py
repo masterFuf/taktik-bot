@@ -2,21 +2,45 @@ from typing import List, Set, Optional
 from loguru import logger
 from taktik.core.social_media.instagram.ui.selectors import SCROLL_SELECTORS
 
+#: Scrolls in a row that change nothing on a post's likers sheet before the list is taken for
+#: finished. The second one is the margin for a list still loading its next rows.
+LIKERS_STILL_SCROLLS_TO_END = 2
+
+
+def likers_list_end_detector() -> "ScrollEndDetector":
+    """The end of a post's likers sheet, for whoever walks it: the reading of the likers and the
+    interaction loop of the runs (which walks the comments thread the same way).
+
+    Feed it the usernames SHOWN by the first reading and by each reading that follows a scroll,
+    never a second reading of a screen nothing scrolled (journal IG-FEED-031). The first reading
+    comes before any scroll: an identical page is one scroll that changed nothing, while an empty
+    page counts from that first reading on, hence one more of them."""
+    return ScrollEndDetector(
+        identical_pages_to_end=LIKERS_STILL_SCROLLS_TO_END,
+        empty_pages_to_end=LIKERS_STILL_SCROLLS_TO_END + 1,
+    )
+
+
 class ScrollEndDetector:
     """
     Detects the end of a list scroll by watching the repetition of the same
     usernames and the presence of a "load more" button.
     
     """
-    def __init__(self, repeats_to_end=5, device=None):
+    def __init__(self, repeats_to_end=5, device=None, identical_pages_to_end=5, empty_pages_to_end=8):
         """
         Initialise the end-of-scroll detector.
         
         Args:
-                repeats_to_end: repetitions before the end is considered reached
+                repeats_to_end: pages without a new username, logged only (not an end, see `is_the_end`)
                 device: device instance, used to detect the "load more" button
+                identical_pages_to_end: pages in a row identical to the one before them (the list
+                    did not move under the scroll) that make the end of the list
+                empty_pages_to_end: pages in a row without any username that make the end of the list
         """
         self.repeats_to_end = repeats_to_end
+        self.identical_pages_to_end = identical_pages_to_end
+        self.empty_pages_to_end = empty_pages_to_end
         self.device = device
         self._repeat_count = 0
         self._last_seen = set()
@@ -139,7 +163,9 @@ class ScrollEndDetector:
 
         End-of-list is detected ONLY by signals that mean the list genuinely cannot advance any
         further: an empty screen several times, or the EXACT same page rendered identically several
-        times in a row (the scroll no longer reveals anything = stuck at the bottom).
+        times in a row (the scroll no longer reveals anything = stuck at the bottom). How many of
+        each is the caller's (`identical_pages_to_end`, `empty_pages_to_end`): a followers list
+        worked one row at a time waits longer than a likers sheet read at a glance.
 
         We deliberately do NOT stop on "no NEW username for N scrolls" anymore (the former
         `_repeat_count`/`_pages_without_new_users` conditions): a small scroll, an overlap, or the
@@ -150,20 +176,20 @@ class ScrollEndDetector:
         while we still discover followers; stop only on a long run of already-interacted ones), with
         the loop's `max_scroll_attempts` as a hard backstop.
         """
-        conditions = [
-            self._consecutive_empty_pages >= 8,   # empty screen repeatedly -> nothing left to load
-            self._duplicate_page_count >= 5,       # exact same page repeated -> scroll is stuck
-        ]
+        reason = self.end_reason()
+        if reason is None:
+            return False
+        self.logger.info(f"End of the list: {reason}")
+        return True
 
-        if any(conditions):
-            if self._consecutive_empty_pages >= 8:
-                reason = f"pages vides consécutives ({self._consecutive_empty_pages})"
-            else:
-                reason = f"pages identiques consécutives ({self._duplicate_page_count})"
-            self.logger.info(f"Fin de liste réelle détectée par: {reason}")
-            return True
-
-        return False
+    def end_reason(self) -> Optional[str]:
+        """Why the list is at its end, in words for a log; None while it is not (`is_the_end`)."""
+        if self._consecutive_empty_pages >= self.empty_pages_to_end:
+            return f"{self._consecutive_empty_pages} page(s) in a row without any username"
+        if self._duplicate_page_count >= self.identical_pages_to_end:
+            return (f"{self._duplicate_page_count} page(s) in a row identical to the one before "
+                    f"(the list no longer moves)")
+        return None
 
     def get_stats(self) -> dict:
         """
@@ -179,12 +205,3 @@ class ScrollEndDetector:
             'consecutive_empty_pages': self._consecutive_empty_pages,
             'is_end': self.is_the_end()
         }
-
-    def reset(self):
-        """Reset every counter and history."""
-        self.pages.clear()
-        self._last_seen.clear()
-        self._repeat_count = 0
-        self._consecutive_empty_pages = 0
-        self._total_unique_users = 0
-        self.logger.debug("ScrollEndDetector réinitialisé")

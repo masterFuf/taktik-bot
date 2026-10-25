@@ -1,11 +1,12 @@
 """Popup handling — likers popup, comments view, close popup, follow suggestions."""
 
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable
 from taktik.core.shared.device.screen import screen_size_of
 
 if TYPE_CHECKING:
     from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
+    from taktik.core.social_media.instagram.ui.selectors.shell.popups import PopupSelectors
 
 #: What opening a post's comments thread found (`_open_comments_thread`): the thread is open, or why not.
 COMMENTS_OPENED = "opened"
@@ -23,6 +24,11 @@ class PopupHandlingMixin:
     #: The host's extractors, built with the reader of the framed post (`BaseBusinessAction`):
     #: declared here as an interface would be, set by the host.
     ui_extractors: "InstagramUIExtractors"
+    #: What else the host (`BaseBusinessAction`) gives, declared the same way.
+    device: Any
+    logger: Any
+    popup_selectors: "PopupSelectors"
+    _human_like_delay: Callable[..., None]
 
     #: Back presses a comments sheet may take: an empty thread gives its composer the focus and the
     #: keyboard, and the first Back only hides the keyboard (Pixel 3a, Instagram 410, 2026-09-28).
@@ -179,16 +185,24 @@ class PopupHandlingMixin:
             self.logger.debug(f"Error closing comments view: {e}")
             return False
 
-    def _close_likers_popup(self):
+    def _close_likers_popup(self) -> bool:
+        """Close the likers popup, dragging it down five times at most. False, with a warning, when
+        it is still open after them or a drag raised."""
         try:
             for _ in range(5):
                 if not self._is_likers_popup_open():
-                    break
+                    self._human_like_delay('popup_close')
+                    return True
                 self._close_popup_by_swipe_down()
                 time.sleep(1.2)
-            self._human_like_delay('popup_close')
-        except Exception:
-            pass
+            if not self._is_likers_popup_open():
+                self._human_like_delay('popup_close')
+                return True
+            self.logger.warning("⚠️ The likers popup is still open after 5 drags down")
+            return False
+        except Exception as exc:
+            self.logger.warning(f"⚠️ Closing the likers popup failed: {exc}")
+            return False
     
     def _close_popup_by_swipe_down(self) -> bool:
         try:
