@@ -684,7 +684,8 @@ def test_the_notifications_bridge_follows_its_contract(monkeypatch, lines, no_ip
     def scanned(device, account_username, max_resolutions):
         if fail:
             raise RuntimeError("the new-followers page did not open")
-        return {"listed": 2, "resolved": 1, "skipped_over_budget": 0}
+        return {"opened": True, "listed": 2, "resolved": 1, "skipped_over_budget": 0,
+                "left_unread": 0, "stop_reason": None}
 
     monkeypatch.setattr(scan, "scan_new_followers", scanned)
     code, data, log = _engagement_run(monkeypatch, "inbox.notifications", TIKTOK_NOTIFICATIONS, _Scripted,

@@ -38,8 +38,9 @@ def scan_new_followers(
 ) -> Dict[str, Any]:
     """Read the new-followers page, resolve handles, and persist one notification each.
 
-    Returns what happened, in enough detail to tell the three different kinds of nothing apart:
-    the page would not open, the page was empty, or the page was full and the budget ran out.
+    Returns what happened, in enough detail to tell the kinds of nothing apart: the page would not
+    open, the page was empty, the page was full and the budget ran out, or the page was lost on the
+    way (`stop_reason`, with the rows `left_unread`).
     """
     from taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions import DMActions
 
@@ -50,6 +51,8 @@ def scan_new_followers(
         "resolved": 0,
         "unresolved": 0,
         "skipped_over_budget": 0,
+        "left_unread": 0,
+        "stop_reason": None,
         "new": 0,
         "items": [],
     }
@@ -66,7 +69,7 @@ def scan_new_followers(
         return result
 
     items: List[Dict[str, Any]] = []
-    for row in rows:
+    for index, row in enumerate(rows):
         shown = (row.get("username") or "").strip()
         if not shown:
             continue
@@ -94,9 +97,17 @@ def scan_new_followers(
         })
 
         # Opening a profile leaves the phone on it. Without coming back, the next row is looked
-        # for on a screen that has no list.
-        if not looks_like_handle(shown):
-            dm.open_new_followers_page()
+        # for on a screen that has no list: the loop stops, and says so, rather than go on there.
+        if not looks_like_handle(shown) and not dm.open_new_followers_page():
+            left = len(rows) - index - 1
+            if left:
+                result["stop_reason"] = "list_unreachable"
+                result["left_unread"] = left
+                logger.warning(
+                    f"[NOTIF] La page « Nouveaux followers » n'a pas pu être rouverte après le profil de "
+                    f"{shown!r} : {left} ligne(s) non lue(s), arrêt de la lecture"
+                )
+            break
 
     if result["skipped_over_budget"]:
         logger.warning(

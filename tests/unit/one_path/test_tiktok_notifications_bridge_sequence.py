@@ -15,6 +15,10 @@ and `suggested_followed` events are gone (no reader; their totals are in `notifi
 each wave is followed by a read of its thread's handle, each suggestion is preceded by a read of
 its profile's handle and is not followed without one, the acting account is resolved when a gesture
 asks for it, and `notifications_gestures_recorded` shows the rows filed under those handles.
+
+Re-recorded on purpose when the pass started saying that the new-followers page did not open
+(`notifications_page_closed`): one `log` warning after « Reading new followers », where the pass
+went on in silence and the run read like a week without new followers.
 """
 import json
 from pathlib import Path
