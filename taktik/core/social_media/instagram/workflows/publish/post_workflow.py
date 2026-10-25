@@ -7,7 +7,8 @@ The flow reproduces, step by step, the sequence validated through the diagnostic
 (selector-only, with NO hardcoded coordinate):
 
   1. push the file and index it in the media store
-  2. launch the app, clone-aware, and come back to the feed, where the app language is detected
+  2. launch the app, clone-aware, match the selectors to it (its package, the app language), and
+     come back to the feed
   3. open the creation screen; when it opens the camera (story), answer Android's camera and
      microphone prompts "Only this time", never a lasting grant
   4. close the draft modal when present, optional
@@ -171,9 +172,8 @@ class InstagramPostWorkflow:
         if not self._push_all(media_paths):
             return self._error("push_failed", "Failed to push media to device")
 
-        # 2. Launch Instagram + return to feed
+        # 2. Launch Instagram, match the selectors to it, return to the feed
         self._launch_and_home()
-        self._detect_app_language()
 
         # Story has a distinct tail (no Next/caption screen).
         if self.post_type == "story":
@@ -224,6 +224,7 @@ class InstagramPostWorkflow:
     def _launch_and_home(self) -> None:
         self._status("navigating", "Opening Instagram...")
         self._launch_app()
+        self._match_selectors_to_the_app()
         try:
             if not self._a["nav"].navigate_to_home():
                 self._log("warning", "navigate_to_home returned False (continuing)")
@@ -231,12 +232,16 @@ class InstagramPostWorkflow:
             self._log("warning", f"navigate_to_home raised (non-fatal): {e}")
         time.sleep(1.0)
 
-    def _detect_app_language(self) -> None:
-        """The app language, on the feed, before the first localized selector (Create, Next,
-        Share): the setup every Instagram launcher shares."""
+    def _match_selectors_to_the_app(self) -> None:
+        """The start step the automation and the scraping take after their restart: the launched
+        Instagram made the active package, then the selectors matched to its package (a clone) and
+        to the app language. Before the first selector: the way home looks for the tab bar by its ids
+        and reopens Instagram by the active package; Create, Next and Share are localized."""
         from taktik.core.social_media.instagram.workflows.common import runtime_setup
 
-        runtime_setup.prepare_instagram_selectors(device=self.device, log=self._log)
+        runtime_setup.activate_instagram_package(self.package_name)
+        runtime_setup.prepare_instagram_selectors(
+            device=self.device, package_name=self.package_name, log=self._log)
 
     def _open_creation_and_gallery(self) -> Optional[dict]:
         """Open creation, dismiss the draft modal, select the destination tab for the

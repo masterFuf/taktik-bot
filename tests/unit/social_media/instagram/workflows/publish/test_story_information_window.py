@@ -161,9 +161,6 @@ class StoryRun(InstagramPostWorkflow):
     def _launch_and_home(self) -> None:
         pass
 
-    def _detect_app_language(self) -> None:
-        pass
-
 
 @pytest.fixture(autouse=True)
 def no_waiting(monkeypatch):
