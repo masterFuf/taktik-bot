@@ -5,6 +5,8 @@ import time
 from loguru import logger
 
 from bridges.tools.lab.actions.instagram import action, detection_action
+from bridges.tools.lab.action_test.detection_answer import app_screen_readable
+from taktik.core.shared.device.snapshot import SnapshotUnavailable
 
 
 @detection_action("popups.is_comment_open")
@@ -45,6 +47,40 @@ def close_follow_suggestions(a, p):
         ),
         "details": {"detected": bool(detected), "scrolled": False},
     }
+
+
+@action("popups.check_problematic_pages")
+def check_problematic_pages(a, p):
+    """The check of pages the navigation makes once a profile is opened (production
+    `detect_and_handle_problematic_pages`, on the navigation's own detector): it reads the screen,
+    closes the page it knows (a sheet by the tap above it, an alert by its cancel button) and
+    leaves Instagram's account check and its block dialog as they are. Says what it saw and did:
+    the page, closed or left open, or a screen it could not read (never "nothing detected")."""
+    detector = getattr(a.nav, "problematic_page_detector", None)
+    if detector is None:
+        return {"success": False, "message": "no detector on the navigation: nothing checked",
+                "details": {"unreadable": None, "detected": None, "closed": None,
+                            "pageType": None, "softBan": None}}
+    try:
+        result = detector.detect_and_handle_problematic_pages()
+    except SnapshotUnavailable as exc:
+        logger.warning(f"popups.check_problematic_pages: screen unreadable ({exc})")
+        return {"success": False, "message": f"screen unreadable ({exc}): nothing checked",
+                "details": {"unreadable": True, "detected": None, "closed": None,
+                            "pageType": None, "softBan": None}}
+    details = {"unreadable": False, "detected": result["detected"], "closed": result["closed"],
+               "pageType": result["page_type"], "softBan": result["soft_ban"]}
+    if not result["detected"] and not app_screen_readable(a.device, "instagram"):
+        # Nothing of Instagram's on screen: "nothing detected" would be true of another app.
+        return {"success": False, "message": "the screen is not Instagram's: no answer",
+                "details": {**details, "detected": None}}
+    if not result["detected"]:
+        message = "no problematic page"
+    else:
+        message = (f"{result['page_type']}: {'closed' if result['closed'] else 'left open'}"
+                   + (" (the run would stop)" if result["soft_ban"] else ""))
+    logger.info(f"popups.check_problematic_pages: {message}")
+    return {"success": True, "message": message, "details": details}
 
 
 @action("popups.press_back")
