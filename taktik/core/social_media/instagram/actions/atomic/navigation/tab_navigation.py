@@ -17,7 +17,8 @@ class TabNavigationMixin(BaseAction):
     # Set by `NavigationActions.__init__`, the class that composes this mixin.
     selectors: NavigationSelectors
 
-    def _navigate_to_tab(self, tab_selectors, tab_name: str, emoji: str, verify_func) -> bool:
+    def _navigate_to_tab(self, tab_selectors, tab_name: str, emoji: str, verify_func,
+                         probe: bool = False) -> bool:
         """
         Generic method to navigate to a tab.
         
@@ -26,20 +27,31 @@ class TabNavigationMixin(BaseAction):
             tab_name: Name for logging
             emoji: Emoji for logging
             verify_func: Function to verify navigation success
+            probe: the screen may well not show the tab bar (a conversation, a profile opened
+                from a search): its absence is no warning and keeps no screen; the caller
+                reports it once if its way ends without the tab (`_report_selector_miss`)
             
         Returns:
             True if navigation successful, False otherwise
         """
         self.logger.debug(f"{emoji} Navigating to {tab_name}")
         
-        if self._find_and_click(tab_selectors, timeout=3):
+        if self._find_and_click(tab_selectors, timeout=3, report_miss=not probe):
             self._human_like_delay('navigation')
             return verify_func()
         
         return False
     
     def navigate_to_home(self) -> bool:
-        if self._navigate_to_tab(self.selectors.home_tab, "home screen", "🏠", self._is_home_screen):
+        """The home feed, by its tab, or Back after Back until the tab shows (`_back_out_until`).
+
+        Every look for the tab on the way is a probe: a screen without the tab bar is the normal
+        start (a conversation, a profile opened from a search) and each screen a Back leaves may
+        hide it too. Only the way that ends without home says so, once, with its screen kept
+        (2026-10-25, Pixel 6a: a warning and a capture at each of the four Backs of every DM)."""
+        started = time.time()
+        if self._navigate_to_tab(self.selectors.home_tab, "home screen", "🏠", self._is_home_screen,
+                                 probe=True):
             return True
 
         # Back never leaves the Android launcher or another app: bring Instagram back first.
@@ -48,7 +60,8 @@ class TabNavigationMixin(BaseAction):
             self._open_instagram()
             if self._is_home_screen():
                 return True
-            if self._navigate_to_tab(self.selectors.home_tab, "home screen", "🏠", self._is_home_screen):
+            if self._navigate_to_tab(self.selectors.home_tab, "home screen", "🏠", self._is_home_screen,
+                                     probe=True):
                 return True
 
         # Incremental fallback: press Back ONE at a time and stop the instant we reach the
@@ -57,8 +70,14 @@ class TabNavigationMixin(BaseAction):
         # Early-return as soon as we're home avoids backing out of the app.
         self.logger.debug("Fallback: using back button (incremental, stop at home)")
         # A Back that brings the tab bar back (a search, a profile) leaves home one tap away.
-        return self._back_out_until(lambda: self._is_home_screen() or self._navigate_to_tab(
-            self.selectors.home_tab, "home screen", "🏠", self._is_home_screen)) or self._is_home_screen()
+        if self._back_out_until(lambda: self._is_home_screen() or self._navigate_to_tab(
+                self.selectors.home_tab, "home screen", "🏠", self._is_home_screen, probe=True)):
+            return True
+        if self._is_home_screen():
+            return True
+        self._report_selector_miss(self.selectors.home_tab, timeout=3,
+                                   elapsed_ms=round((time.time() - started) * 1000))
+        return False
 
     def navigate_to_search(self) -> bool:
         # The search screen may already be up: the results of an earlier search, which Instagram
