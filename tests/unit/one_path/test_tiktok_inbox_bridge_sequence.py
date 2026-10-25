@@ -29,16 +29,25 @@ record, filed by the DM read under the display name, is left out.
 Every welcome scenario but one sends through a stand-in of the cold-DM workflow.
 `new_followers_welcome_no_message_entry` runs the production one: a follower whose profile offers
 no message entry is skipped, and the bridge prints what the cold DM prints for it.
+
+Eight welcome scenarios were re-recorded on 2026-10-25: the welcome pass follows back by the name the
+new-followers page shows, the only name that page has, instead of the handle read on the profile
+(`follow_back ['fan_one', 'Fan Two']`, and the `follow_back_result` lines name `Fan Two`); nothing
+else changed (the old records are in the history of this file).
+
+Set TAKTIK_RECORD_SNAPSHOT=1 to record a scenario again, on purpose only: the observed values replace
+the recorded ones, and an old-code value kept beside them (`calls_old_code`...) stays.
 """
 import dataclasses
 import json
+import os
 from pathlib import Path
 
 import pytest
 
-SNAPSHOT = json.loads(
-    (Path(__file__).parent / "tiktok_inbox_bridge_sequence.json").read_text(encoding="utf-8")
-)
+SNAPSHOT_PATH = Path(__file__).parent / "tiktok_inbox_bridge_sequence.json"
+RECORD = os.environ.get("TAKTIK_RECORD_SNAPSHOT") == "1"
+SNAPSHOT = json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
 
 
 def _without(payload, *keys):
@@ -170,8 +179,15 @@ def observe(rig, name, inbox_payload, welcome_ai):
 
 @pytest.mark.parametrize("name", SCENARIOS)
 def test_the_bridge_runs_exactly_as_recorded(rig, inbox_payload, welcome_ai, name):
-    assert name in SNAPSHOT, f"no recording for {name}"
     observed = observe(rig, name, inbox_payload, welcome_ai)
+    if RECORD:
+        snapshot = json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
+        snapshot[name] = {**snapshot.get(name, {}), **observed}
+        # Bytes: `write_text` would write Windows line endings into a file kept with "\n".
+        SNAPSHOT_PATH.write_bytes(
+            (json.dumps(snapshot, indent=2, ensure_ascii=False, sort_keys=True) + "\n").encode("utf-8"))
+        return
+    assert name in SNAPSHOT, f"no recording for {name}"
     expected = SNAPSHOT[name]
 
     assert observed["calls"] == expected["calls"]

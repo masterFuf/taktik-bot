@@ -77,8 +77,9 @@ def test_the_cli_runs_the_welcome_pass_up_to_the_dm(rig, inbox_payload, welcome_
                             "tiktok.automation.new_followers")
 
     assert cli["exit"] == 0, cli["output"]
-    # Same profiles opened, same AI questions, same follow-backs; the DM stays on the desktop.
-    assert "follow_back ['fan_one', 'fan_two']" in cli["calls"]
+    # Same profiles opened, same AI questions, same follow-backs (by the names the page shows); the
+    # DM stays on the desktop.
+    assert "follow_back ['fan_one', 'Fan Two']" in cli["calls"]
     assert cli["calls"] == [call for call in bridge["calls"] if not call.startswith(_WELCOME_DM_CALLS)]
     assert "welcome_dm fan_one" in bridge["calls"]
 
