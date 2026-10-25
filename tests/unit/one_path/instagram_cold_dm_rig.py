@@ -357,7 +357,9 @@ class InstagramColdDmRig:
                 return INVITE_ALREADY_SENT
             rig.typed.append(message)
             rig.sent.append(rig.phone.user)
-            return True
+            from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome
+
+            return ReplyOutcome.SENT
 
         mp.setattr(MessagingBusiness, "open_conversation_from_profile", fake_open_conversation)
         mp.setattr(MessagingBusiness, "send_in_open_conversation", fake_send_in_open_conversation)

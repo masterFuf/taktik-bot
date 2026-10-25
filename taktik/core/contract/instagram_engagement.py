@@ -92,6 +92,9 @@ INSTAGRAM_COLD_DM = WorkflowContract(
             Field("dmsSent", "int", "Messages sent.", optional=True),
             Field("dmsSuccess", "int", "Messages the conversation shows.", optional=True),
             Field("dmsFailed", "int", "Recipients that failed.", optional=True),
+            Field("dmsPending", "int", "Messages the conversation shows waiting to be sent (no network): Instagram "
+                  "sends them by itself. Not counted as sent, never sent again (`DM_SEND_PENDING`).",
+                  optional=True),
             Field("error", "string", "What went wrong, for a person.", optional=True, nullable=True),
             Field("stopReason", RUN_HALT_CODE, "Why the run stopped early (`action_blocked`...).", optional=True),
             Field("textsRefused", "int", "Texts the AI mode wrote and the rule refused: not sent.", optional=True),

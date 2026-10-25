@@ -283,25 +283,19 @@ class DirectMessageSelectors:
         '//android.widget.EditText[@clickable="true"]'
     ])
     
-    _send_button_base: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.instagram.android:id/row_thread_composer_button_send"]',
-    ])
-
-    @property
-    def send_button(self) -> List[str]:
-        return self._send_button_base + L("direct_message.send_button")
+    # The composer's Send button, asked in this order (`dm_composer.find_send_button`): its ids, then
+    # its exact description, then the generic id. Exact, never `contains`: in English the icon of a
+    # bubble waiting to be sent says « Sending… » (410, 2026-10-24).
     send_button_resource_ids: List[str] = field(default_factory=lambda: [
         "com.instagram.android:id/row_thread_composer_send_button_container",
         "com.instagram.android:id/row_thread_composer_send_button",
-        "com.instagram.android:id/send_button",
+        "com.instagram.android:id/row_thread_composer_button_send",
     ])
+    send_button_generic_resource_id: str = "com.instagram.android:id/send_button"
+
     @property
     def send_button_descriptions(self) -> List[str]:
         return L("direct_message.send_button_descriptions")
-
-    @property
-    def send_button_content_descriptions(self) -> List[str]:
-        return L("direct_message.send_button_content_descriptions")
     
     # Message list inside a conversation
     message_list: str = '//*[@resource-id="com.instagram.android:id/message_list"]'

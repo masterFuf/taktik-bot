@@ -9,7 +9,8 @@ with no matching message in the real conversation).
 
 from types import SimpleNamespace
 
-from taktik.core.social_media.instagram.workflows.dm.sender import DMSenderMixin, ReplyOutcome
+from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome, normalize_message
+from taktik.core.social_media.instagram.workflows.dm.sender import DMSenderMixin
 
 
 class _Verifier(DMSenderMixin):
@@ -18,7 +19,7 @@ class _Verifier(DMSenderMixin):
     def __init__(self, bubbles):
         self._bubbles = bubbles
         # No screen behind these bubbles: none shows the icon of a reply waiting to be sent
-        # (`test_dm_reply_waiting_to_be_sent.py` reads the real ones).
+        # (`test_dm_send_waiting_to_be_sent.py` reads the real ones).
         self.device = SimpleNamespace(dump_hierarchy=lambda: None)
 
     def _collect_text_messages(self):
@@ -30,8 +31,8 @@ def _bubble(text, is_sent, top):
 
 
 def test_normalize_collapses_whitespace_and_case():
-    assert DMSenderMixin._normalize_message("  Merci   BEAUCOUP\n!  ") == "merci beaucoup !"
-    assert DMSenderMixin._normalize_message(None) == ""
+    assert normalize_message("  Merci   BEAUCOUP\n!  ") == "merci beaucoup !"
+    assert normalize_message(None) == ""
 
 
 def test_confirmed_when_our_message_is_last_outgoing_bubble():
@@ -39,17 +40,17 @@ def test_confirmed_when_our_message_is_last_outgoing_bubble():
         _bubble("Merci de t'être abonnée !", is_sent=False, top=100),
         _bubble("Merci beaucoup pour ton accueil !", is_sent=True, top=300),
     ]
-    assert _Verifier(bubbles)._message_appears_as_last_sent("Merci beaucoup pour ton accueil !") is True
+    assert _Verifier(bubbles)._verify_message_sent("Merci beaucoup pour ton accueil !", attempts=1) is ReplyOutcome.SENT
 
 
 def test_not_confirmed_when_last_bubble_is_incoming():
     # Composer never submitted: the newest bubble is still THEIRS.
     bubbles = [_bubble("Merci de t'être abonnée !", is_sent=False, top=100)]
-    assert _Verifier(bubbles)._message_appears_as_last_sent("Merci beaucoup pour ton accueil !") is False
+    assert _Verifier(bubbles)._verify_message_sent("Merci beaucoup pour ton accueil !", attempts=1) is ReplyOutcome.NOT_SENT
 
 
 def test_not_confirmed_on_empty_thread():
-    assert _Verifier([])._message_appears_as_last_sent("anything") is False
+    assert _Verifier([])._verify_message_sent("anything", attempts=1) is ReplyOutcome.NOT_SENT
 
 
 def test_no_false_positive_from_an_identical_earlier_outgoing():
@@ -58,22 +59,22 @@ def test_no_false_positive_from_an_identical_earlier_outgoing():
         _bubble("Coucou !", is_sent=True, top=100),
         _bubble("ça va ?", is_sent=False, top=300),
     ]
-    assert _Verifier(bubbles)._message_appears_as_last_sent("Coucou !") is False
+    assert _Verifier(bubbles)._verify_message_sent("Coucou !", attempts=1) is ReplyOutcome.NOT_SENT
 
 
 def test_long_message_prefix_match_when_ig_elides():
     sent = "Merci beaucoup pour ton accueil ! Pour l'instant je m'intéresse au breathwork."
     shown = "Merci beaucoup pour ton accueil ! Pour l'instant je m'intéresse"  # elided
     bubbles = [_bubble(shown, is_sent=True, top=200)]
-    assert _Verifier(bubbles)._message_appears_as_last_sent(sent) is True
+    assert _Verifier(bubbles)._verify_message_sent(sent, attempts=1) is ReplyOutcome.SENT
 
 
 def test_short_message_requires_exact_match():
     bubbles = [_bubble("ok", is_sent=True, top=200)]
-    assert _Verifier(bubbles)._message_appears_as_last_sent("ok") is True
+    assert _Verifier(bubbles)._verify_message_sent("ok", attempts=1) is ReplyOutcome.SENT
     # A short prefix must NOT loosely match a different short bubble.
     bubbles = [_bubble("oui", is_sent=True, top=200)]
-    assert _Verifier(bubbles)._message_appears_as_last_sent("ok") is False
+    assert _Verifier(bubbles)._verify_message_sent("ok", attempts=1) is ReplyOutcome.NOT_SENT
 
 
 def test_verify_returns_false_without_retrying_forever():

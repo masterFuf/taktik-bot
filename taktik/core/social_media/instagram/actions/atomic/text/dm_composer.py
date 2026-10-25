@@ -13,7 +13,8 @@ This module is their union, and the only place that knows how to talk to a DM co
   keyboard is the phone's keyboard (a switch after the tap can cost the field its focus);
 - **typing** goes through the Taktik keyboard only, and counts only when the composer then reads
   exactly the message; a keyboard that fails is a failure, nothing is pasted;
-- **sending** tries the xpath catalogue, then the resource-ids, then the content-descriptions.
+- **sending** asks the Send button by its ids, then its exact description, then the generic id:
+  the inbox reply, the welcome DM and the cold DM press the same button found the same way.
 
 `device_id` is REQUIRED. The three call sites that resolved it as
 `getattr(self.device_manager, 'device_id', None) or 'emulator-5554'` would, on a missing id,
@@ -21,7 +22,7 @@ type the message into a device that is not the one running the session — silen
 """
 
 import time
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from loguru import logger as _default_logger
 
@@ -68,35 +69,29 @@ def find_message_input(device, *, logger=None) -> Optional[Any]:
     log = logger or _default_logger
     return _first_selector(
         device,
-        xpaths=DM_SELECTORS.message_input,
-        ui_selectors=(
-            [{"resourceId": rid} for rid in DM_SELECTORS.message_input_resource_ids]
-            + [{"className": DM_SELECTORS.edit_text_class_name}]
-            + [{"textContains": hint} for hint in DM_SELECTORS.message_input_text_contains]
-        ),
+        [*DM_SELECTORS.message_input,
+         *({"resourceId": rid} for rid in DM_SELECTORS.message_input_resource_ids),
+         {"className": DM_SELECTORS.edit_text_class_name},
+         *({"textContains": hint} for hint in DM_SELECTORS.message_input_text_contains)],
         what="DM composer",
         log=log,
     )
 
 
-def _first_selector(device, *, xpaths, ui_selectors, what: str, log) -> Optional[Any]:
-    """The first of `xpaths`, then of `ui_selectors` (keyword sets for `d(...)`), that shows on
-    screen, as the selector itself; None when none does. A query that raises is logged and the
-    next one asked."""
-    for xpath in xpaths:
+#: One way of asking for an element: an xpath (`d.xpath(...)`) or a keyword set (`d(...)`).
+Query = Union[str, Dict[str, str]]
+
+
+def _first_selector(device, queries: List[Query], *, what: str, log) -> Optional[Any]:
+    """The first of `queries`, in their order, that shows on screen, as the selector itself; None
+    when none does. A query that raises is logged and the next one asked."""
+    for query in queries:
         try:
-            found = device.xpath(xpath)
-            if found.exists:
-                return found
-        except Exception as exc:
-            log.warning(f"{what}: {xpath} could not be asked ({exc})")
-    for selector in ui_selectors:
-        try:
-            candidate = device(**selector)
+            candidate = device.xpath(query) if isinstance(query, str) else device(**query)
             if candidate.exists:
                 return candidate
         except Exception as exc:
-            log.warning(f"{what}: {selector} could not be asked ({exc})")
+            log.warning(f"{what}: {query} could not be asked ({exc})")
     log.warning(f"{what} not found with any known signature")
     return None
 
@@ -160,15 +155,18 @@ def type_message(
 
 
 def find_send_button(device, *, logger=None) -> Optional[Any]:
-    """Locate the send button: xpath catalogue, then resource-ids, then content-descriptions.
-    The same kind of answer as `find_message_input`: a selector, or None."""
+    """Locate the composer's Send button: its ids, then its exact description (« Envoyer »,
+    « Send »), then the generic id. The same kind of answer as `find_message_input`: a selector,
+    or None.
+
+    The description is matched whole: a `contains` match took, in English, the icon of a bubble
+    waiting to be sent (« Sending… », Instagram 410, 2026-10-24) for the button.
+    """
     return _first_selector(
         device,
-        xpaths=DM_SELECTORS.send_button,
-        ui_selectors=(
-            [{"resourceId": rid} for rid in DM_SELECTORS.send_button_resource_ids]
-            + [{"description": desc} for desc in DM_SELECTORS.send_button_content_descriptions]
-        ),
+        [*({"resourceId": rid} for rid in DM_SELECTORS.send_button_resource_ids),
+         *({"description": desc} for desc in DM_SELECTORS.send_button_descriptions),
+         {"resourceId": DM_SELECTORS.send_button_generic_resource_id}],
         what="DM send button",
         log=logger or _default_logger,
     )

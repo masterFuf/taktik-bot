@@ -231,7 +231,7 @@ def dm_thread_writer(account_id: int, recipient: str) -> Optional[str]:
         return None
 
 
-def record_welcome_dm(account_id: int, recipient: str, message: str) -> None:
+def record_welcome_dm(account_id: Optional[int], recipient: str, message: str) -> None:
     """Record a SENT welcome DM: the shared duplicate marker + the conversation itself.
 
     Only successes are recorded. `sent_dms` has no success filter on read
@@ -256,6 +256,20 @@ def record_welcome_dm(account_id: int, recipient: str, message: str) -> None:
         logger.warning(f"[NOTIF] Could not record the DM conversation for @{handle}: {exc}")
 
 
+def record_pending_welcome_dm(account_id: Optional[int], recipient: str, message: str) -> None:
+    """Record a welcome DM Instagram showed waiting to be sent: the duplicate marker alone
+    (`SentDMService.record_pending`), so it is never sent again, and no conversation message, since
+    nothing proves it left. SECURITY (AGENTS): the message body goes to the DB, never to the logs.
+    """
+    if not account_id or not recipient:
+        return
+    handle = recipient.strip().lower()
+    try:
+        SentDMService.record_pending(account_id, handle, message, platform=_PLATFORM)
+    except Exception as exc:
+        logger.error(f"[NOTIF] Could not record the pending-DM marker for @{handle}: {exc}")
+
+
 __all__ = [
     "batch_identity_hash",
     "build_known_checker",
@@ -264,6 +278,7 @@ __all__ = [
     "dm_thread_writer",
     "load_actioned_hashes",
     "record_notification_action",
+    "record_pending_welcome_dm",
     "record_scan_notifications",
     "record_welcome_dm",
     "resolve_account_id",

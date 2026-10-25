@@ -741,6 +741,7 @@
     "done": 7,
     "failed": 1,
     "skipped": 4,
+    "pending": 0,
     "results": [
      {
       "action": "like",
@@ -878,6 +879,7 @@
     "done": 2,
     "failed": 0,
     "skipped": 0,
+    "pending": 0,
     "results": [
      {
       "action": "like",
@@ -955,6 +957,7 @@
     "done": 0,
     "failed": 1,
     "skipped": 2,
+    "pending": 0,
     "results": [
      {
       "action": "like",

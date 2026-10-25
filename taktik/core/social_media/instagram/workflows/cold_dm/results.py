@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from taktik.core.shared.diagnostics import run_halt
-from taktik.core.social_media.instagram.workflows.cold_dm.persistence import record_sent_dm
+from taktik.core.social_media.instagram.workflows.cold_dm.persistence import record_pending_dm, record_sent_dm
 from taktik.core.social_media.instagram.workflows.dm.messaging import INVITE_ALREADY_SENT
+from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome
 from loguru import logger
 
 
@@ -41,6 +42,7 @@ def build_cold_dm_summary(workflow) -> dict:
         "dms_sent": workflow.dms_sent,
         "dms_success": workflow.dms_success,
         "dms_failed": workflow.dms_failed,
+        "dms_pending": workflow.dms_pending,
         "private_profiles": workflow.private_profiles,
         "verified_profiles": getattr(workflow, "verified_profiles", 0),
         "texts_refused": workflow.texts_refused,
@@ -64,11 +66,17 @@ def apply_cold_dm_send_result(
         logger.info(f"Invite already sent to {recipient} - marking as done")
         record_sent_dm(account_id, recipient, "", True, "Invite already sent", session_id)
         workflow.dms_sent += 1
-    elif send_result:
+    elif send_result is ReplyOutcome.SENT:
         workflow.dms_success += 1
         logger.info(f"Successfully sent DM to {recipient}")
         record_sent_dm(account_id, recipient, message, True, None, session_id)
         workflow.dms_sent += 1
+    elif send_result is ReplyOutcome.PENDING:
+        # In the conversation, waiting for the network: it leaves by itself. Not counted as sent,
+        # and its marker keeps it from being sent again (`SentDMService.record_pending`).
+        workflow.dms_pending += 1
+        logger.warning(f"DM to {recipient} waiting to be sent: not counted, not sent again")
+        record_pending_dm(account_id, recipient, message, session_id)
     else:
         workflow.dms_failed += 1
         logger.warning(f"Failed to send DM to {recipient}")

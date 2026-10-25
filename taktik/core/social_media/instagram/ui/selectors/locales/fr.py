@@ -362,13 +362,6 @@ STRINGS: Dict[str, List[str]] = {
         "Envoi…",
     ],
     "direct_message.outgoing_digest_prefixes": [],
-    "direct_message.send_button": [
-        "//*[contains(@content-desc, \"Envoyer\")]",
-        "//android.widget.ImageButton[contains(@content-desc, \"Envoyer\")]",
-    ],
-    "direct_message.send_button_content_descriptions": [
-        "Envoyer",
-    ],
     "direct_message.send_button_descriptions": [
         "Envoyer",
     ],

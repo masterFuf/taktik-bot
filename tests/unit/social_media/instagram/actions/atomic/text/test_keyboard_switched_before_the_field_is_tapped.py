@@ -321,7 +321,7 @@ def _dm_bridge(phone):
         device_id = phone.device_id
 
         def _verify_message_sent(self, message, attempts=4, delay=0.8):
-            from taktik.core.social_media.instagram.workflows.dm.sender import ReplyOutcome
+            from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome
 
             return ReplyOutcome.SENT
 
@@ -341,12 +341,14 @@ def _cold_dm_bridge(phone):
 
 
 @pytest.mark.parametrize("bridge", [_dm_bridge, _cold_dm_bridge], ids=["dm", "cold_dm"])
-def test_the_dm_bridges_tap_the_composer_after_the_keyboard_switch(phone, bridge):
+def test_the_dm_bridges_tap_the_composer_after_the_keyboard_switch(phone, bridge, monkeypatch):
     """Their own tap came first, the switch after it: the composer folded before the atomic."""
-    from taktik.core.social_media.instagram.workflows.dm.sender import ReplyOutcome
+    import taktik.core.social_media.instagram.workflows.dm.messaging as messaging_module
+    from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome
 
-    # The DM reply says what it came to (`ReplyOutcome`), the cold DM's sending True or False.
-    assert bridge(phone).send_message(TEXT) in (True, ReplyOutcome.SENT)
+    # This phone draws no bubble: the conversation's reading after Send is not what is tested here.
+    monkeypatch.setattr(messaging_module, "reply_outcome", lambda *_a, **_k: ReplyOutcome.SENT)
+    assert bridge(phone).send_message(TEXT) is ReplyOutcome.SENT
 
     assert phone.steps[0] == "switch" and phone.steps.count("switch") == 1
     assert _typed_by_the_keyboard(phone, TEXT)
