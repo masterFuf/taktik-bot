@@ -8,9 +8,11 @@ most thorough field lookup and the workflow that had the humanised tap; none had
 
 This module is their union, and the only place that knows how to talk to a DM composer:
 
-- **finding the field** tries every signature the four used, richest first;
+- **finding the field** asks the composer's id, nothing looser (a looser form took a search field
+  or a bubble for it);
 - **focusing it** uses the sampled human tap, with a centre click as fallback, once the Taktik
-  keyboard is the phone's keyboard (a switch after the tap can cost the field its focus);
+  keyboard is the phone's keyboard (a switch after the tap can cost the field its focus), then
+  reads that the caret is in it: nothing is typed when the tap opened something else;
 - **typing** goes through the Taktik keyboard only, and counts only when the composer then reads
   exactly the message; a keyboard that fails is a failure, nothing is pasted;
 - **sending** asks the Send button by its ids, then its exact description, then the generic id:
@@ -27,6 +29,8 @@ from typing import Any, Dict, List, Optional, Union
 from loguru import logger as _default_logger
 
 from taktik.core.shared.behavior.tap import tap_element_human
+from taktik.core.shared.device.wait import wait_for_any
+from taktik.core.shared.diagnostics.foreground_guard import paquet_etranger
 from taktik.core.shared.input.taktik_keyboard import (
     ensure_taktik_keyboard,
     field_holds_text,
@@ -54,29 +58,22 @@ def resolve_device_id(device, explicit: Optional[str] = None) -> str:
 
 
 def find_message_input(device, *, logger=None) -> Optional[Any]:
-    """Locate the conversation composer, trying every known signature.
+    """The composer of the open conversation, by its id (`DM_SELECTORS.message_input`), or None.
 
-    Order matters: the xpath catalogue carries the composer resource-id first and only then
-    falls back to looser shapes (an EditText hinted "Message", any clickable EditText), so a
-    precise match always wins over a generic one.
+    Its id and nothing else: every conversation of 410 and 447 has it. The looser forms once tried
+    after it (any EditText, a text holding « Message », the id of a bubble) each matched something
+    else on a screen that was no conversation, and the typing that followed went there.
 
-    One kind of answer whatever signature matched: a uiautomator2 SELECTOR (`d.xpath(...)` or
-    `d(...)`), which has `.exists`, `.info` and `.click()`, or None. The xpath branch used to
-    hand back the resolved `XMLElement` instead, which has no `.exists`: the DM reply, which
-    checks it, crashed on every conversation found that way (Pixel 6 Pro, Instagram 410,
-    2026-10-24: "'XMLElement' object has no attribute 'exists'").
+    A uiautomator2 SELECTOR (`d.xpath(...)`), which has `.exists`, `.info` and `.click()`, or None.
     """
     log = logger or _default_logger
-    return _first_selector(
-        device,
-        [*DM_SELECTORS.message_input,
-         *({"resourceId": rid} for rid in DM_SELECTORS.message_input_resource_ids),
-         {"className": DM_SELECTORS.edit_text_class_name},
-         *({"textContains": hint} for hint in DM_SELECTORS.message_input_text_contains)],
-        what="DM composer",
-        log=log,
-    )
+    return _first_selector(device, [DM_SELECTORS.message_input], what="DM composer", log=log)
 
+
+#: How long the caret may take to show in the composer after the tap: the keyboard rises.
+COMPOSER_FOCUS_TIMEOUT_S = 2.0
+#: Pause after the tap before the caret is read (it replaces the 0.3 s the typing waited).
+COMPOSER_SETTLE_S = 0.5
 
 #: One way of asking for an element: an xpath (`d.xpath(...)`) or a keyword set (`d(...)`).
 Query = Union[str, Dict[str, str]]
@@ -97,18 +94,34 @@ def _first_selector(device, queries: List[Query], *, what: str, log) -> Optional
 
 
 def focus_message_input(device, element, *, logger=None) -> bool:
-    """Put the caret in the composer with a sampled human tap, centre click as fallback."""
+    """Tap the composer (a sampled human tap, centre click as fallback), then make sure the caret
+    is in it: False when it is not, and nothing must be typed.
+
+    A tap aimed at the composer can land on something else that the screen shows there at that
+    moment. In a new conversation with a professional account, Instagram 447 opened its help page
+    (`help.instagram.com/...?ref=learn_more`) in Chrome 0.1 s after the tap, and the message was
+    typed into nothing, twice (Pixel 6a, 2026-10-25, logcat of the phone). The caret is read in
+    the dump (`message_input_focused`) for up to `COMPOSER_FOCUS_TIMEOUT_S`, the keyboard's rise.
+    """
     log = logger or _default_logger
     if element is None:
         return False
-    if tap_element_human(device, element, logger=log):
+    if not tap_element_human(device, element, logger=log):
+        try:
+            element.click()
+        except Exception as exc:
+            log.warning(f"Could not tap the DM composer: {exc}")
+            return False
+    # A composer that held the caret before the tap still shows it for the instant another app
+    # takes 0.1 s to come up: the caret is read once that instant is over.
+    time.sleep(COMPOSER_SETTLE_S)
+    if wait_for_any(device, [DM_SELECTORS.message_input_focused], timeout=COMPOSER_FOCUS_TIMEOUT_S,
+                    label="dm-composer-focus") is not None:
         return True
-    try:
-        element.click()
-        return True
-    except Exception as exc:
-        log.warning(f"Could not focus the DM composer: {exc}")
-        return False
+    foreign = paquet_etranger(device, "instagram", force=True)
+    where = f"{foreign} is on screen" if foreign else "the composer does not hold the caret"
+    log.error(f"The tap on the DM composer did not put the caret in it ({where}): nothing typed")
+    return False
 
 
 def type_message(
@@ -143,8 +156,8 @@ def type_message(
 
     # Before the tap: a keyboard switched after it can cost the field its focus.
     ensure_taktik_keyboard(device_id)
-    focus_message_input(device, element, logger=log)
-    time.sleep(0.3)
+    if not focus_message_input(device, element, logger=log):
+        return False
 
     # The typing counts only if the composer then reads exactly the message. Nothing is pasted
     # when it does not: `set_text` or `send_keys` would write the whole message at once.

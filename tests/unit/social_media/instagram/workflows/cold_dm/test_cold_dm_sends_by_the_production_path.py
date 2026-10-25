@@ -9,8 +9,9 @@ typos, after the time a human takes to type), and goes home by the production `n
 
 The profile is a real screen (`ig410_en_profile_with_message_button.xml`, Instagram 410 in English,
 anonymized): the tap on its header's Message button is the production opener's, read through
-uiautomator2's engine behind the clone proxy and the facade. The conversation has no capture with a
-message typed (the send button appears only then): the sending is recorded at its seam; its
+uiautomator2's engine behind the clone proxy and the facade; it opens a new conversation
+(`ig410_en_dm_thread_new_conversation.xml`), which the opener waits for. The conversation has no
+capture with a message typed (the send button appears only then): the sending is recorded at its seam; its
 composer and send button are the shared composer's (`actions/atomic/text/dm_composer.py`), tested
 there.
 """
@@ -29,7 +30,7 @@ from taktik.core.social_media.instagram.workflows.dm import messaging
 from taktik.core.social_media.instagram.workflows.dm.messaging import INVITE_ALREADY_SENT, MessagingBusiness
 from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome
 
-from test_cold_dm_reads_only_a_profile import MESSAGE_BUTTON, PROFILE_EN, _Phone, _workflow
+from test_cold_dm_reads_only_a_profile import CONVERSATION_EN, MESSAGE_BUTTON, PROFILE_EN, _Phone, _workflow
 
 
 @pytest.fixture
@@ -59,7 +60,7 @@ def sending(monkeypatch):
 
 
 def test_the_cold_dm_opens_the_conversation_and_sends_by_the_production_sending(monkeypatch, sending):
-    phone = _Phone(PROFILE_EN)
+    phone = _Phone(PROFILE_EN, message_button_opens=CONVERSATION_EN)
     monkeypatch.setattr(ColdDMWorkflow, "open_recipient_profile", lambda self, username: True)
     monkeypatch.setattr(workflow_module, "look_for_action_block", lambda *a, **k: False)
 
@@ -81,7 +82,7 @@ def test_a_request_already_sent_reaches_the_cold_dm_as_such(sending):
 
 
 def test_the_welcome_dm_sends_by_the_same_function_with_its_typos(monkeypatch, sending):
-    phone = _Phone(PROFILE_EN)
+    phone = _Phone(PROFILE_EN, message_button_opens=CONVERSATION_EN)
     monkeypatch.setattr(messaging, "look_for_action_block", lambda *a, **k: False)
 
     assert messaging.send_dm(SimpleNamespace(device=phone), "demo_recipient", "Welcome!",

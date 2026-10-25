@@ -271,22 +271,22 @@ class DirectMessageSelectors:
     ])
     
     # === Inside a conversation ===
+    # The screen of an open conversation: its header bar. In every conversation dump of 410 and 447
+    # (15 test fixtures, 9 dumps of the Lab, a new conversation with a professional account
+    # included), in no other screen; the story viewer, whose reply field carries the composer's id,
+    # does not have it.
+    conversation_screen_marker: str = '//*[@resource-id="com.instagram.android:id/direct_thread_header"]'
     edit_text_class_name: str = "android.widget.EditText"
     composer_edittext_resource_id: str = "com.instagram.android:id/row_thread_composer_edittext"
-    message_input_resource_ids: List[str] = field(default_factory=lambda: [
-        "com.instagram.android:id/row_thread_composer_edittext",
-        "com.instagram.android:id/message_content",
-    ])
-    message_input_text_contains: List[str] = field(default_factory=lambda: [
-        "Message",
-    ])
-    message_input: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.instagram.android:id/row_thread_composer_edittext"]',
-        '//android.widget.EditText[contains(@hint, "Message")]',
-        '//android.widget.EditText[contains(@text, "Message")]',
-        '//android.widget.EditText[@clickable="true"]'
-    ])
-    
+    # The conversation's composer, by its id and nothing else: every conversation dump of 410 and
+    # 447 has it. The looser forms this list once held each took something else for it: the id of a
+    # bubble (`message_content`), any EditText (a search field), a text holding « Message ».
+    message_input: str = '//*[@resource-id="com.instagram.android:id/row_thread_composer_edittext"]'
+    # The composer once the caret is in it (`focused`, read in the dump as `d.xpath()` reads it).
+    message_input_focused: str = (
+        '//*[@resource-id="com.instagram.android:id/row_thread_composer_edittext"][@focused="true"]'
+    )
+
     # The composer's Send button, asked in this order (`dm_composer.find_send_button`): its ids, then
     # its exact description, then the generic id. Exact, never `contains`: in English the icon of a
     # bubble waiting to be sent says « Sending… » (410, 2026-10-24).
