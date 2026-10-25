@@ -8,17 +8,22 @@ between followers/following/likers (rows in a vertical list) and post commenters
   * which detector confirms we're on the right list (used for back-retry recovery)
   * how to scroll the list down
   * a few optional end-of-list hints (Instagram suggestions, "And X others" footer…)
+  * how many scrolls that change nothing end the list (`end_detector`)
 
 `ListScrapingStrategy` captures these as callables, and the factories below produce
-the two concrete strategies used today.
+the concrete strategies used today.
 """
 
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Dict, List
 
+from taktik.core.social_media.instagram.ui.detectors.scroll_end import (
+    ScrollEndDetector,
+    likers_list_end_detector,
+)
 from taktik.core.social_media.instagram.workflows.common.detection import (
     is_likers_popup_open,
     is_comments_view_open,
@@ -63,6 +68,10 @@ class ListScrapingStrategy:
     # (commenters popup has no such section).
     enable_suggestions_check: bool = True
 
+    # The end of the list: a new `ScrollEndDetector` for each scrape, with the thresholds of
+    # this kind of list (the followers loop's by default).
+    end_detector: Callable[[], ScrollEndDetector] = field(default=ScrollEndDetector)
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Followers / Following / Likers strategy
@@ -99,6 +108,12 @@ def make_followers_strategy(workflow) -> ListScrapingStrategy:
         is_suggestions_visible=det.is_suggestions_section_visible,
         enable_suggestions_check=True,
     )
+
+
+def make_likers_strategy(workflow) -> ListScrapingStrategy:
+    """The likers sheet of a post: the followers-style list, ending as the reading of the
+    likers of the runs ends it (`likers_list_end_detector`)."""
+    return replace(make_followers_strategy(workflow), end_detector=likers_list_end_detector)
 
 
 # ──────────────────────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 import random
 import re
 import time
-from typing import Optional, List, Any, Dict
+from typing import Callable, Optional, List, Any, Dict
 from loguru import logger
 from taktik.core.shared.device.screen import screen_size_of
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
@@ -367,7 +367,8 @@ class InstagramUIExtractors:
         automation=None,
         logger_instance=None,
         add_initial_sleep: bool = False,
-        current_max_interactions_attr: Any = None
+        current_max_interactions_attr: Any = None,
+        keep_going: Optional[Callable[[], bool]] = None,
     ) -> List[str]:
         """The eligible likers of the open likers sheet, read screen after screen until the target,
         the end of the list or `max_scrolls`.
@@ -375,7 +376,10 @@ class InstagramUIExtractors:
         The end of the list is the one `likers_list_end_detector` tells from the likers SHOWN on
         each screen, eligible or not: two scrolls in a row that change nothing. Every reading here
         follows a scroll but the first. A list whose first likers were all handled before still
-        moves, and the reading goes on."""
+        moves, and the reading goes on.
+
+        Without `automation`, every liker shown is kept (the scraping's reading). `keep_going`, when
+        given, is asked before each screen: the scraping's session clock stops the reading too."""
 
         logger_to_use = logger_instance if logger_instance else log
         
@@ -400,6 +404,9 @@ class InstagramUIExtractors:
         
         try:
             while scroll_count < max_scrolls and len(usernames) < target_count:
+                if keep_going is not None and not keep_going():
+                    logger_to_use.info(f"⏹️ Stop: the session ends, after {scroll_count} scroll(s)")
+                    break
                 users_before = len(usernames)
                 
                 new_users = self.extract_visible_usernames(logger_instance=logger_to_use)
