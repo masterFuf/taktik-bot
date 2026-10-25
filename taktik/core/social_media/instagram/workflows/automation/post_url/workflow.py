@@ -232,7 +232,7 @@ class PostUrlBusiness(
         return {
             'post_url': stats.get('post_url', ''),
             'users_found': stats.get('users_found', 0),
-            'users_interacted': done('profiles_visited'),
+            'users_interacted': done('profiles_interacted'),
             'likes_made': done('likes'),
             'follows_made': done('follows'),
             'comments_made': done('comments'),
@@ -241,8 +241,9 @@ class PostUrlBusiness(
             'comment_replies': replies,
             'skipped': stats.get('skipped', 0),
             'errors': done('errors'),
-            # An in-thread-only run visits nobody, so profiles alone cannot define success.
-            'success': (done('profiles_visited') + comment_likes + replies) > 0,
+            # An in-thread-only run visits nobody, so profiles alone cannot define success. A
+            # profile visited and left by the plan's draw is a visit, not an interaction.
+            'success': (done('profiles_interacted') + comment_likes + replies) > 0,
             # Session-level stop, surfaced for the multi-URL driver (see finalize above).
             'stop_reason': stats.get('stop_reason', ''),
             # Did the link open on its post, and if this post failed, why (`_link_failed`).

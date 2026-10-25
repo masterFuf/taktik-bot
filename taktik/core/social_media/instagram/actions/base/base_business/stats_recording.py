@@ -67,32 +67,6 @@ class StatsRecordingMixin:
             self.logger.error(f"Failed to record {action_type} for @{username}: {e}")
             return False
 
-    def _update_stats_from_interaction_result(
-        self,
-        username: str,
-        interaction_result: Dict[str, Any],
-        account_id: int = None,
-        session_id: int = None
-    ) -> None:
-        """
-        Update stats_manager and record DB actions from a unified interaction result.
-        Used by workflows that call _perform_interactions_on_profile (hashtag, post_url).
-        
-        Args:
-            username: Target username
-            interaction_result: Dict with keys: likes, follows, comments, stories, stories_liked, actually_interacted
-            account_id: Account ID for DB recording
-            session_id: Session ID for DB recording
-        """
-        # Only the per-profile counters are set here. The ACTION counters (likes, follows,
-        # comments, stories, story likes) are moved by the interaction engine at the moment
-        # of each gesture, so the desktop live panel ticks action by action instead of
-        # jumping by the profile's total once it is done — re-adding the totals here would
-        # double-count. Same reason the FOLLOW is not re-recorded in DB: _do_follow already
-        # did it when the button was tapped.
-        self.stats_manager.increment('profiles_visited')
-        self.stats_manager.increment('profiles_interacted')
-
     def _validate_resource_limits(self, available: int, requested: int, resource_name: str = "resources") -> Dict[str, Any]:
         """
         Generic validation of interaction limits vs available resources.

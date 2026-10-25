@@ -6,8 +6,9 @@ stamped datetime('now') at write time). 2230 of 3022 production interactions sha
 their second with another row, so per-action timing stats were meaningless. The chain
 now threads an optional interaction_time from the capture site down to the INSERT.
 
-Also locks the sibling fix: the likers workflows double-recorded every FOLLOW (once at
-the gesture in _do_follow, once again in _update_stats_from_interaction_result).
+The sibling fix (the likers workflows recorded every FOLLOW twice, at the gesture in _do_follow
+and again after the profile) is locked on the likers loop itself:
+`tests/unit/social_media/instagram/workflows/common/test_likers_loop_counts_its_visits.py`.
 """
 
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
@@ -114,39 +115,3 @@ def test_service_record_interaction_threads_interaction_time(db):
     rows = db.get_interactions(account_id, limit=1)
     assert rows and rows[0]['interaction_time'] == '2026-07-01 09:30:00'
 
-
-def test_update_stats_from_interaction_result_records_neither_db_nor_action_counters(monkeypatch):
-    """The likers path only sets the per-PROFILE counters.
-
-    Two things it must NOT do: re-record the FOLLOW in DB (_do_follow already did it at the
-    gesture), and re-add the profile's action totals to the stats manager. The interaction
-    engine moves likes/follows/comments/stories as each gesture lands so the desktop live
-    panel ticks in real time; adding the totals back here would double every counter.
-    """
-    from taktik.core.social_media.instagram.actions.base.base_business.stats_recording import StatsRecordingMixin
-
-    calls = []
-    monkeypatch.setattr(
-        InstagramWorkflowStateService, "record_individual_actions",
-        staticmethod(lambda *a, **k: calls.append((a, k)) or True),
-    )
-
-    class _Stats:
-        def __init__(self):
-            self.increments = []
-
-        def increment(self, key, value=1):
-            self.increments.append((key, value))
-
-    class _Host(StatsRecordingMixin):
-        def __init__(self):
-            self.stats_manager = _Stats()
-
-    host = _Host()
-    host._update_stats_from_interaction_result(
-        'target', {'likes': 2, 'follows': 1, 'stories': 1, 'stories_liked': 0},
-        account_id=7, session_id=12,
-    )
-
-    assert calls == []  # no direct DB write anymore — the engine already recorded it
-    assert host.stats_manager.increments == [('profiles_visited', 1), ('profiles_interacted', 1)]

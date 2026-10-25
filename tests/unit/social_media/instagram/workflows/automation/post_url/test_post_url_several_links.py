@@ -60,7 +60,7 @@ class _StatsManager:
     """Counts the whole run, like the real one: nothing resets it between two links."""
 
     def __init__(self):
-        self.counts = {'profiles_visited': 0, 'likes': 0, 'follows': 0, 'comments': 0,
+        self.counts = {'profiles_visited': 0, 'profiles_interacted': 0, 'likes': 0, 'follows': 0, 'comments': 0,
                        'stories_watched': 0, 'errors': 0}
 
     def display_final_stats(self, **_k):
@@ -110,10 +110,13 @@ class _PostUrl(PostUrlBusiness):
     def _interact_with_likers_list(self, stats, effective_config, max_interactions,
                                    source_type, source_name, list_source=None):
         self.lists_walked.append(source_name)
-        visits = min(self.visits_per_post, max_interactions)
-        self.stats_manager.counts['profiles_visited'] += visits
-        self.stats_manager.counts['likes'] += visits
-        stats['users_interacted'] = visits
+        # As the loop counts: each profile acted on is a visit, and one more profile was visited
+        # and left by the plan's draw.
+        interacted = min(self.visits_per_post, max_interactions)
+        self.stats_manager.counts['profiles_interacted'] += interacted
+        self.stats_manager.counts['profiles_visited'] += interacted + 1
+        self.stats_manager.counts['likes'] += interacted
+        stats['users_interacted'] = interacted
 
 
 # ─────────────────────────────────────────────────────── one post, its own motive

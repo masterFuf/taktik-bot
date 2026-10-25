@@ -281,6 +281,12 @@ class LikersWorkflowBase(BaseBusinessAction):
                         break
                     continue
 
+                # Through the filters: a visit, acted on or left by the plan's draw (the base marks
+                # it processed either way), as the followers loop counts it. Counted once, here, in
+                # the run's figures and in the session's (the live panel's « Profiles visited »).
+                stats['profiles_visited'] += 1
+                self.stats_manager.increment('profiles_visited')
+
                 if result.actually_interacted:
                     stats['users_interacted'] += 1
                     # Feed the SESSION profile counter too. This loop walks PEOPLE -- the likers
@@ -297,9 +303,9 @@ class LikersWorkflowBase(BaseBusinessAction):
                     stats['stories_watched'] += result.stories
                     stats['stories_liked'] += result.stories_liked
 
-                    self._update_stats_from_interaction_result(
-                        username, result.interaction_result, account_id, session_id
-                    )
+                    # The profile only: the action counters (likes, follows, comments, stories)
+                    # move at each gesture, in the interaction engine, which also records them.
+                    self.stats_manager.increment('profiles_interacted')
                     self.stats_manager.display_stats(current_profile=username)
                     _ledger(username, "interacted", None,
                             likes=result.likes, follows=result.follows,
