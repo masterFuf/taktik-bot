@@ -4,7 +4,9 @@ The one check of every Instagram DM send (the reply of the inbox, the welcome DM
 the conversation after Send was tapped. A bubble Instagram shows waiting to be sent (its « Envoi… » /
 « Sending… » icon, no network) leaves by itself when the network is back: it is neither a send proven
 (nothing counted as sent) nor a failure to try again (a second one would go). Measured on a Pixel 6 Pro
-(Instagram 410, French and English, 2026-10-24).
+(Instagram 410, French and English, 2026-10-24) and a Pixel 6a (Instagram 447, its Compose thread,
+French, 2026-10-25): the form of the bubble and its icon is a version override
+(`DM_SELECTORS.pending_send_bubble_texts`).
 """
 
 from __future__ import annotations

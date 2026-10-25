@@ -87,13 +87,23 @@ class TabNavigationMixin(BaseAction):
             self.selectors.search_tab, "search screen", "🔍", self._is_search_screen))
 
     def _back_out_until(self, arrived, max_backs: int = 3) -> bool:
-        """One real Back at a time, at most `max_backs`, until `arrived()` answers True after one.
+        """One real Back at a time, at most `max_backs` screens left, until `arrived()` answers True
+        after one.
+
+        A keyboard on screen takes the first Back for itself and leaves no screen: that Back is not
+        one of the `max_backs`. After a DM, the keyboard is still up over the conversation; it took
+        the first of the three Backs of the way home, which then ended on the results of the search
+        that opened the profile (cold DM, 447, Pixel 6a, 2026-10-25).
 
         Never out of Instagram: the facade refuses a Back on a root screen (home feed, a main tab),
         where it would leave the app or switch tab. Never on Instagram's account check either: no
         Back takes the run past it, and the run stops there."""
         if self._account_check_on_screen():
             return False
+        if self._is_element_present(NAVIGATION_SELECTORS.keyboard_window):
+            self._back_one_screen()
+            if arrived():
+                return True
         for _ in range(max_backs):
             self._back_one_screen()
             if arrived():
