@@ -225,7 +225,6 @@
   "taktik/core/social_media/instagram/workflows/common/private_streak_policy.py": 2,
   "taktik/core/social_media/instagram/workflows/common/workflow_helpers.py": 1,
   "taktik/core/social_media/instagram/workflows/dm/agent_handler.py": 2,
-  "taktik/core/social_media/instagram/workflows/dm/conversation_navigation.py": 7,
   "taktik/core/social_media/instagram/workflows/dm/inbox_reset.py": 5,
   "taktik/core/social_media/instagram/workflows/dm/message_extraction.py": 14,
   "taktik/core/social_media/instagram/workflows/dm/messaging.py": 1,

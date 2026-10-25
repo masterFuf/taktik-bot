@@ -396,9 +396,6 @@ class DirectMessageSelectors:
     def text_view_class_selector(self) -> Dict[str, str]:
         return {"className": self.text_view_class_name}
 
-    def thread_selector_for_username(self, username: str) -> Dict[str, str]:
-        return {"textContains": username}
-
     def send_button_selector_for_description(self, description: str) -> Dict[str, str]:
         return {"contentDescription": description}
 

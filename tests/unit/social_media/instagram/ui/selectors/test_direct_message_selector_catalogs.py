@@ -10,9 +10,6 @@ def test_dm_uiautomator_fallbacks_are_catalog_owned():
 
 
 def test_dm_dynamic_selectors_are_built_by_catalog():
-    assert DM_SELECTORS.thread_selector_for_username("target_user") == {
-        "textContains": "target_user"
-    }
     assert DM_SELECTORS.send_button_selector_for_description("Send") == {
         "contentDescription": "Send"
     }
