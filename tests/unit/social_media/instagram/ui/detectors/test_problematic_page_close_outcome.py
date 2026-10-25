@@ -22,6 +22,12 @@ The screens are real dumps, anonymized: the options sheet of another profile (In
 English) over that profile, the contacts request (447, French), an Instagram alert, and two sheets
 expanded to the top of the screen (410, English): the comments of a post, its grab bar named, and
 the share sheet of a sponsored post, its grab bar anonymous.
+
+Then measured on a C57 S (Instagram 410, English, 576x1280, 2026-10-25), with its two captures: the
+comments sheet expanded against the status bar (grab bar at y=53, status bar down to y=43, keyboard
+up), and the screen the first drag left. Started on the grab bar, the drag pulled Android's
+notification shade down instead of the sheet; the check read the shade, found no sheet on it and
+said the page closed, while the sheet was still open under the shade.
 """
 
 import pytest
@@ -34,8 +40,8 @@ from taktik.core.social_media.instagram.ui.detectors import problematic_page
 from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
 from taktik.core.social_media.instagram.ui.selectors import locales
 from unit.social_media.instagram.actions.atomic.interaction.sheet_phone import (
-    SheetPhone as _Phone, assert_accompanied_drag, bounds_of, capture, centre_of, drags_journaled,
-    node_with_id)
+    SheetPhone as _Phone, assert_accompanied_drag, assert_starts_at_the_grab_bar, bounds_of, capture,
+    centre_of, drags_journaled, node_with_id)
 
 OPTIONS_SHEET = capture("ig410_en_profile_options_sheet.xml")
 PROFILE_BEHIND = capture("ig410_en_profile_following.xml")
@@ -43,6 +49,8 @@ CONTACTS_PROMPT = capture("ig447_fr_discover_people_contacts_prompt.xml")
 COMMENT_SHEET_EXPANDED = capture("ig410_en_comment_sheet.xml")
 SHARE_SHEET_EXPANDED = capture("ig410_en_share_sheet_over_sponsored_post.xml")
 FEED_BEHIND = capture("ig410_en_feed_post_hours_ago.xml")
+COMMENT_SHEET_C57S = capture("ig410_en_comment_sheet_expanded_keyboard_c57s.xml")
+NOTIFICATION_SHADE_C57S = capture("ig410_en_notification_shade_over_comment_sheet_c57s.xml")
 
 
 def _sheet_top(xml):
@@ -134,7 +142,8 @@ def test_an_expanded_sheet_is_dragged_off_from_its_grab_bar_never_flung(journal)
     assert [g[0] for g in phone.gestures] == ["drag"], phone.gestures
     (_kind, points), ((start, end, ms),) = phone.gestures[0], drags_journaled(journal)
     grab_bar = centre_of(node_with_id(COMMENT_SHEET_EXPANDED, "bottom_sheet_drag_handle_prism"))
-    assert points[0] == grab_bar and start == grab_bar
+    assert points[0] == start
+    assert_starts_at_the_grab_bar(start, grab_bar, phone.height)
     assert end == points[-1]
     assert_accompanied_drag(points, ms, phone.height, gesture_primitives._CONTROLLED_VEL_RANGE)
 
@@ -160,5 +169,32 @@ def test_a_sheet_still_on_the_next_screen_is_never_said_closed():
                       "page_type": "follow_options_bottom_sheet"}
     # One drag: the grab bar did not move, a second one would change nothing. Then the next
     # close of the pattern, Back, which does not close it either.
+    assert [g[0] for g in phone.gestures] == ["drag", "press"], phone.gestures
+
+
+def test_a_sheet_against_the_status_bar_is_dragged_from_below_the_shade_zone(journal):
+    phone = _Phone(COMMENT_SHEET_C57S, after=FEED_BEHIND)
+
+    result = ProblematicPageDetector(phone).detect_and_handle_problematic_pages()
+
+    assert result["closed"] is True
+    assert [g[0] for g in phone.gestures] == ["drag"], phone.gestures
+    (_kind, points), ((start, _end, ms),) = phone.gestures[0], drags_journaled(journal)
+    bar_x, bar_y = centre_of(node_with_id(COMMENT_SHEET_C57S, "bottom_sheet_drag_handle_prism"))
+    # The finger goes down straight under the grab bar, past the strip where it pulled the shade.
+    assert start == points[0] and start[0] == bar_x
+    assert start[1] > bar_y and start[1] >= 0.10 * phone.height, start
+    assert_accompanied_drag(points, ms, phone.height, gesture_primitives._CONTROLLED_VEL_RANGE)
+
+
+def test_a_sheet_is_never_said_closed_on_a_screen_that_is_not_instagrams():
+    phone = _Phone(COMMENT_SHEET_C57S, after=NOTIFICATION_SHADE_C57S)
+
+    result = ProblematicPageDetector(phone).detect_and_handle_problematic_pages()
+
+    assert result == {"detected": True, "closed": False, "soft_ban": False,
+                      "page_type": "follow_options_bottom_sheet"}
+    # Its grab bar gone from a screen that still does not prove the sheet closed, the drag does
+    # not drag again on whatever is there; the next close of the pattern, Back, is tried.
     assert [g[0] for g in phone.gestures] == ["drag", "press"], phone.gestures
 

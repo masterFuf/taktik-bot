@@ -177,3 +177,12 @@ def assert_accompanied_drag(points, ms, screen_height, speed_band):
     assert 400 <= ms <= 850, ms
     low, high = speed_band
     assert low <= (points[-1][1] - points[0][1]) / (ms / 1000) <= high, ms
+
+
+def assert_starts_at_the_grab_bar(start, grab_bar, screen_height):
+    """The finger goes down on the grab bar, or straight under it when the bar sits in the strip
+    where a finger pulls Android's notification shade (a sheet expanded against the status bar);
+    never in the middle of the sheet."""
+    assert start[0] == grab_bar[0], (start, grab_bar)
+    assert start[1] >= grab_bar[1] and start[1] >= 0.10 * screen_height, (start, grab_bar)
+    assert start[1] <= max(grab_bar[1], 0.15 * screen_height), (start, grab_bar)

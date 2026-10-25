@@ -6,6 +6,7 @@ import re
 import time
 from typing import Optional, Dict, Any
 from loguru import logger
+from taktik.core.clone.packages.package_map import belongs_to_platform
 from taktik.core.shared.diagnostics.ui_dump_files import dump_ui_hierarchy, capture_screenshot
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.device.app_inspection import foreground_activity
@@ -17,6 +18,14 @@ from taktik.core.social_media.instagram.ui.selectors.locales import L_all, activ
 _NODE_TAG = re.compile(r'<node\b[^>]*>')
 _ATTRIBUTE = r'\b{}="([^"]*)"'
 _RESOURCE_ID = re.compile(r'\bresource-id="([^"]*)"')
+_PACKAGE = re.compile(r'\bpackage="([^"]*)"')
+
+
+def _shows_instagram(xml: str) -> bool:
+    """Does the screen hold a widget of Instagram (official package, variant or clone)? A page
+    missing from a screen that is not Instagram's (the notification shade pulled over it, another
+    app) is not a page closed."""
+    return any(belongs_to_platform(package, 'instagram') for package in set(_PACKAGE.findall(xml or '')))
 
 
 def _has_surface(xml: str, surface_ids) -> bool:
@@ -420,6 +429,10 @@ class ProblematicPageDetector:
         """
         try:
             ui_content = self._get_ui_content("vérification")
+            if not _shows_instagram(ui_content):
+                logger.warning(f"{page_type}: the screen after the close is not Instagram's "
+                               f"(the notification shade?), the page is not proven closed")
+                return False
             # Verify the markers are gone
             config = self.detection_patterns[page_type]
             return not self._matches(ui_content, config)

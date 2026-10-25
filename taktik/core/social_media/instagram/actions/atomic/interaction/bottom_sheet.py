@@ -50,11 +50,11 @@ _HANDLE_MAX_HEIGHT_RATIO = 0.012      # 28px on 2340, 38px on 3200 — the bar i
 _HANDLE_MIN_WIDTH_RATIO = 0.03        # 32px on 1080, 43px on 1440 — the bar is ~88px / ~117px
 _HANDLE_MAX_WIDTH_RATIO = 0.45
 _HANDLE_CENTER_TOLERANCE_RATIO = 0.08
-# Margin below the app window's top edge before a drag may start: touching down INSIDE the status
-# bar pulls the notification shade instead of the sheet. Expressed as a fraction, like the rest.
-_SHADE_SAFETY_MARGIN_RATIO = 0.005
-# Highest a "tap outside the sheet" may land: below the status bar and the shade pull-down zone.
-_OUTSIDE_TAP_MIN_RATIO = 0.12
+# The status bar and the strip under it where a finger going down pulls Android's notification
+# shade: no tap lands and no drag starts above it. Not the status bar alone: on a C57 S (576x1280,
+# status bar down to y=43) a drag that started at y=53, on the grab bar of a sheet expanded to the
+# top, pulled the shade down instead of the sheet (2026-10-25).
+_SHADE_ZONE_RATIO = 0.12
 # A sheet steps EXPANDED -> COLLAPSED -> HIDDEN; two drags suffice, the third is a safety net.
 _MAX_DRAG_STEPS = 3
 
@@ -241,8 +241,7 @@ def drag_sheet_off_screen(device, is_open: Callable[[], bool], log=None) -> bool
     # costs two selector probes plus a subtree scan, and doing it twice per pass was most of the
     # nine seconds this took on the Lab run.
     handle = find_drag_handle(device, log)
-    # The app window's top edge does not move while the sheet slides, so read it once.
-    shade_floor = _sheet_top(device) + int(screen_height * _SHADE_SAFETY_MARGIN_RATIO)
+    shade_floor = int(screen_height * _SHADE_ZONE_RATIO)
 
     for step in range(_MAX_DRAG_STEPS):
         handle_y_before = handle['y'] if handle else None
@@ -259,16 +258,16 @@ def drag_sheet_off_screen(device, is_open: Callable[[], bool], log=None) -> bool
         # it settled back to collapsed however cleanly the finger tracked. Two passes for one
         # gesture's worth of work.
         #
-        # The only reason not to start on the bar is the notification shade, and that risk is a
-        # touch-down inside the status bar — which is exactly the strip above the app window, so
-        # the window's own top edge is the honest floor rather than a fraction of the screen.
-        if handle and handle['y'] >= shade_floor:
-            start_x, start_y = handle['x'], handle['y']
+        # The only reason not to start on the bar is the notification shade: a bar inside its
+        # pull-down zone (a sheet expanded against the status bar) is reached from just below the
+        # zone, straight under the bar. The finger then lands on the sheet's top rows, which the
+        # sheet carries along as it does its bar, and loses only the few pixels between the two.
+        if handle:
+            start_x, start_y = handle['x'], max(handle['y'], shade_floor)
             how = f"handle drag ({handle['source']})"
+            if handle['y'] < shade_floor:
+                how = f"drag under the grab bar ({handle['source']}), below the shade zone"
         else:
-            if handle:
-                log.debug(f"Grab bar at y={handle['y']} is inside the status bar (floor {shade_floor}) "
-                          f"— dragging from the content instead")
             start_x = center_x
             start_y = int(screen_height * 0.40)
             how = "content drag"
@@ -289,6 +288,11 @@ def drag_sheet_off_screen(device, is_open: Callable[[], bool], log=None) -> bool
 
         handle = find_drag_handle(device, log)
         handle_y_after = handle['y'] if handle else None
+        if handle_y_before is not None and handle_y_after is None:
+            # The bar is gone and `is_open()` does not say the sheet is: the screen is something
+            # else (the notification shade, another app). Dragging again would drag that.
+            log.warning("Grab bar gone after the drag, the sheet not proven closed — stopping")
+            break
         if handle_y_before is not None and handle_y_after is not None:
             if handle_y_after <= handle_y_before:
                 log.debug(f"Sheet did not move (grab bar {handle_y_before} -> {handle_y_after}) — stopping")
@@ -315,7 +319,7 @@ def sheet_outside_tap_point(device):
         return None
 
     # Leave a margin below the status bar so the tap cannot land on it or pull the shade.
-    lowest_safe = int(screen_height * _OUTSIDE_TAP_MIN_RATIO)
+    lowest_safe = int(screen_height * _SHADE_ZONE_RATIO)
     if top <= lowest_safe:
         return None
     return screen_width // 2, (lowest_safe + top) // 2

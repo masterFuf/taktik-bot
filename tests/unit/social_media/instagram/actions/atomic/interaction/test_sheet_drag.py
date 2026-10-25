@@ -28,7 +28,8 @@ from taktik.core.social_media.instagram.services.comment.action import CommentAc
 from taktik.core.social_media.instagram.ui.selectors.shell.popups import POPUP_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 from unit.social_media.instagram.actions.atomic.interaction.sheet_phone import (
-    SheetPhone, assert_accompanied_drag, capture, centre_of, drags_journaled, node_with_id)
+    SheetPhone, assert_accompanied_drag, assert_starts_at_the_grab_bar, capture, centre_of, drags_journaled,
+    node_with_id)
 
 COMMENT_SHEET_EXPANDED = capture("ig410_en_comment_sheet.xml")
 LIKERS_SHEET_C57S = capture("ig410_en_likers_sheet_two_likers_c57s.xml")
@@ -75,8 +76,20 @@ def test_the_shared_dismiss_drags_at_a_hands_speed_whatever_the_screen(journal):
     assert closed is True
     assert [g[0] for g in phone.gestures] == ["press", "press", "press", "drag"], phone.gestures
     (_kind, points), ((start, _end, ms),) = phone.gestures[-1], drags_journaled(journal)
-    assert points[0] == start == _grab_bar(COMMENT_SHEET_EXPANDED)
+    assert points[0] == start
+    assert_starts_at_the_grab_bar(start, _grab_bar(COMMENT_SHEET_EXPANDED), phone.height)
     assert_accompanied_drag(points, ms, phone.height, HAND)
+
+
+def test_the_duration_of_the_sheet_drag_is_drawn_never_fixed(journal):
+    """A fixed duration is a different speed on every screen height and the same gesture every
+    time: the drag draws its own, for the distance."""
+    for _ in range(8):
+        phone = SheetPhone(COMMENT_SHEET_EXPANDED, after=FEED_BEHIND)
+        assert bottom_sheet.drag_sheet_off_screen(phone, lambda: phone.screen is COMMENT_SHEET_EXPANDED)
+
+    durations = [ms for _start, _end, ms in drags_journaled(journal)]
+    assert len(durations) == 8 and len(set(durations)) > 1, durations
 
 
 def test_the_likers_popup_is_dragged_from_its_grab_bar_not_flung(journal):
@@ -88,7 +101,8 @@ def test_the_likers_popup_is_dragged_from_its_grab_bar_not_flung(journal):
 
     assert [g[0] for g in phone.gestures] == ["drag"], phone.gestures
     (_kind, points), ((start, _end, ms),) = phone.gestures[0], drags_journaled(journal)
-    assert points[0] == start == _grab_bar(LIKERS_SHEET_C57S)
+    assert points[0] == start
+    assert_starts_at_the_grab_bar(start, _grab_bar(LIKERS_SHEET_C57S), phone.height)
     assert_accompanied_drag(points, ms, phone.height, HAND)
 
 
@@ -109,7 +123,8 @@ def test_an_expanded_comments_sheet_is_dragged_from_its_grab_bar(journal):
     assert len(drags) == 1 and phone.gestures[-1] is drags[0], phone.gestures
     assert "swipe" not in [g[0] for g in phone.gestures]
     ((_kind, points),), ((start, _end, ms),) = drags, drags_journaled(journal)
-    assert points[0] == start == _grab_bar(COMMENT_SHEET_EXPANDED)
+    assert points[0] == start
+    assert_starts_at_the_grab_bar(start, _grab_bar(COMMENT_SHEET_EXPANDED), phone.height)
     assert_accompanied_drag(points, ms, phone.height, HAND)
 
 
