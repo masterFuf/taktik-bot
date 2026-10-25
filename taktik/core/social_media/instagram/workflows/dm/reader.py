@@ -11,10 +11,9 @@ from taktik.core.social_media.instagram.workflows.dm.conversation_payload import
     extract_inbox_username,
     has_unseen_incoming,
     inbox_preview_matches_known,
-    is_already_processed,
     is_outgoing_last_message,
     masked_preview,
-    normalize_inbox_username,
+    same_inbox_name,
     sort_threads_by_top,
 )
 from taktik.core.social_media.instagram.workflows.dm.conversation_state import DMConversationStateMixin
@@ -78,7 +77,9 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
             logger.error("The DM inbox is not on screen: no conversation read")
             return None
         conversations = []
-        processed_usernames = set()
+        # The names of the rows read in this pass, as shown: a row is left when its name is one of
+        # them (`same_inbox_name`), never when its name only starts like one.
+        processed_usernames: list[str] = []
         processed_real_usernames = set()
         conversations_read = 0
         scroll_count = 0
@@ -115,8 +116,7 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                     username = extract_inbox_username(content_desc)
                     username = self._resolve_thread_username(thread_info, username)
 
-                    username_lower, username_base = normalize_inbox_username(username)
-                    if is_already_processed(username_base, processed_usernames):
+                    if any(same_inbox_name(username, seen) for seen in processed_usernames):
                         logger.debug(f"Skipping already processed: {username}")
                         continue
 
@@ -124,7 +124,7 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                     # don't reopen the thread — emit a lightweight "answered" conv (the front
                     # restores the full history from the DB). Faster re-reads + accurate triage.
                     if is_outgoing_last_message(content_desc, username, DM_SELECTORS.outgoing_digest_prefixes):
-                        processed_usernames.add(username_lower)
+                        processed_usernames.append(username)
                         conv = build_answered_conversation(real_username=username, inbox_username=username)
                         conversations.append(conv)
                         conversations_read += 1
@@ -150,11 +150,11 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                     )
                     # Safe diagnostic (masked = no DM content): why does the early-exit skip or not?
                     logger.info(
-                        f"[DM] pre-open {username_lower}: in_db={answer_state['last_direction'] is not None} "
+                        f"[DM] pre-open {username}: in_db={answer_state['last_direction'] is not None} "
                         f"skip={matched} shape='{masked_preview(content_desc)}'"
                     )
                     if matched:
-                        processed_usernames.add(username_lower)
+                        processed_usernames.append(username)
                         # No new activity. Classify answered/replyable from the RELIABLE message order
                         # (the thread's last_message_is_ours flag can be clobbered by an ephemeral
                         # re-read); if WE answered, re-assert it in the DB so the front doesn't
@@ -203,7 +203,7 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                         self._go_back_from_conversation()
                         continue
 
-                    processed_usernames.add(username_lower)
+                    processed_usernames.append(username)
                     processed_real_usernames.add(real_username_lower)
 
                     is_group, can_reply = self._detect_conversation_reply_state(real_username)

@@ -329,6 +329,8 @@ class DirectMessageSelectors:
     # so the bubble text is a BARE TextView inside `message_list`. Everything that is NOT a
     # message in that list keeps an id (the context header `thread_context_item_*`, the
     # partner name, the CTA buttons), which makes "no id" the usable signature of content.
+    # Not in 447: the partner's card at the top of the thread is made of bare TextViews too; its
+    # row, the one with the « Voir le profil » button, is left out by the 447 override.
     #
     # `@resource-id=""` and not `not(@resource-id)`: uiautomator2 always emits the attribute,
     # empty when absent — the `not()` form matches nothing (verified live: 0 vs 3).
@@ -395,9 +397,6 @@ class DirectMessageSelectors:
     @property
     def text_view_class_selector(self) -> Dict[str, str]:
         return {"className": self.text_view_class_name}
-
-    def thread_selector_for_username(self, username: str) -> Dict[str, str]:
-        return {"textContains": username}
 
     def send_button_selector_for_description(self, description: str) -> Dict[str, str]:
         return {"contentDescription": description}

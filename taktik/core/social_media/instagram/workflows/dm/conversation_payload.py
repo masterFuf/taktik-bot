@@ -73,21 +73,14 @@ def extract_inbox_username(content_desc: str) -> str:
     return "Unknown"
 
 
-def normalize_inbox_username(username: str) -> tuple[str, str]:
-    username_lower = username.lower().strip()
-    return username_lower, username_lower.rstrip(".").strip()
-
-
-def is_already_processed(username_base: str, processed_usernames: set[str]) -> bool:
-    for processed in processed_usernames:
-        processed_base = processed.rstrip(".").strip()
-        if (
-            username_base == processed_base
-            or username_base.startswith(processed_base)
-            or processed_base.startswith(username_base)
-        ):
-            return True
-    return False
+def same_inbox_name(shown: Optional[str], wanted: Optional[str]) -> bool:
+    """Is `shown`, the name an inbox row shows, the name `wanted`? Equal once case and the spaces
+    around are put aside, and nothing else: a name that holds another, or starts like it, is another
+    account (« bob » is not « bobby »). The one comparison of the DM code that picks an inbox row,
+    to open its conversation (`open_conversation`, the reply's way in) or to leave it as already
+    read in this pass (`read_conversations`). An empty name is no one's."""
+    shown_key = (shown or "").lower().strip()
+    return bool(shown_key) and shown_key == (wanted or "").lower().strip()
 
 
 def is_outgoing_last_message(content_desc: str, username: str, outgoing_prefixes) -> bool:
@@ -253,12 +246,11 @@ __all__ = [
     "build_up_to_date_conversation",
     "conversation_partner",
     "pending_send_texts",
+    "same_inbox_name",
     "extract_inbox_username",
     "has_unseen_incoming",
     "inbox_preview_matches_known",
-    "is_already_processed",
     "is_outgoing_last_message",
     "masked_preview",
-    "normalize_inbox_username",
     "sort_threads_by_top",
 ]

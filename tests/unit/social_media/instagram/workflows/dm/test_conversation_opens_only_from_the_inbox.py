@@ -1,12 +1,18 @@
-"""A conversation is opened from the DM inbox's rows only, and is open only once it is on screen.
+"""A conversation is opened from the DM inbox's rows only, from the row of exactly the name asked
+for, and is open only once it is on screen.
 
 Measured on a Pixel 6a (Instagram 447, French), 2026-10-25, with the Lab's `dm.open_thread` (the
 production `open_conversation`) run while the search results of the handle were on screen: no
 inbox row matched, the last strategy looked for the handle as `textContains` anywhere on screen,
 tapped the search field that held it, and answered "open=True" without looking at what came up.
 
-The screens are real dumps, anonymized: those search results (447), and an inbox of 410 in French
-with a conversation of the same phone. The phone answers `xpath` through uiautomator2's own
+The row was also chosen by inclusion: a name asked for opened the first row whose name held it, or
+was held by it (« bob » opened « bobby », and the reply that followed went into bobby's conversation).
+A row is now the one whose name is the name asked for, case and spaces aside (`same_inbox_name`).
+
+The screens are real dumps, anonymized: those search results (447), an inbox of 410 in French with a
+conversation of the same phone, and an inbox of 447 in French (Compose rows, their name in their
+digest) with a conversation of 447. The phone answers `xpath` through uiautomator2's own
 engine and `d(resourceId=...)`, `d(textContains=...)` from the same dump; what a tap opens is
 written in `doors`, per test.
 """
@@ -32,12 +38,16 @@ FILES = {
     "search_results": "ig447_fr_search_results_account.xml",
     "inbox": "ig410_fr_dm_inbox_pills.xml",
     "conversation": "ig410_fr_dm_thread.xml",
+    "inbox_447": "ig447_fr_dm_inbox_pills.xml",
+    "conversation_447": "ig447_fr_dm_thread.xml",
 }
 SCREENS = {name: (FIXTURES / file).read_text(encoding="utf-8") for name, file in FILES.items()}
 HANDLE = "user_1"  # the handle the search results show, as the anonymiser named it
 ROW_NAME = "name_41"  # an inbox row's name, as the anonymiser named it
 ROW = ('//*[@resource-id="com.instagram.android:id/row_inbox_username"][@text="name_41"]'
        '/ancestor::*[@resource-id="com.instagram.android:id/row_inbox_container"][1]')
+#: The 447 inbox shows the rows of user_10 and user_11, and none of user_1.
+ROW_447 = '//*[@content-desc="user_10, Envoyé il y a 1 h"]'
 
 
 def _bounds(node):
@@ -133,6 +143,16 @@ class _Runtime(DMConversationNavigationMixin):
         self.device = CloneAwareDeviceProxy(phone, PKG)
 
 
+@pytest.fixture
+def ig_447():
+    """The selectors as a phone on 447 gets them at connect; the baseline put back after."""
+    from taktik.core.compat.selectors.setup import INSTAGRAM_TARGET_VERSION, apply_version_overrides
+
+    apply_version_overrides("instagram", "447.0.0.55.81")
+    yield
+    apply_version_overrides("instagram", INSTAGRAM_TARGET_VERSION)
+
+
 @pytest.fixture(autouse=True)
 def _clock(monkeypatch):
     clock = SimpleNamespace(now=0.0)
@@ -167,3 +187,38 @@ def test_a_row_tap_that_opens_no_conversation_is_no_open_conversation_and_nothin
 
     assert _Runtime(phone).open_conversation(ROW_NAME) is False
     assert len(phone.taps) == 1
+
+
+@pytest.mark.parametrize("asked", [
+    "name_4",     # the beginning of the rows name_41 and name_42 name_43
+    "name_28",    # the first word of the row name_28 name_29
+    "name_410",   # holds the row name_41
+])
+def test_a_name_that_only_holds_or_starts_a_row_name_opens_no_conversation(asked, _clock):
+    """No row of the inbox is the name asked for: nothing is tapped, whatever the rows hold."""
+    phone = _Phone("inbox", {("inbox", ROW): "conversation"})
+
+    assert _Runtime(phone).open_conversation(asked) is False
+    assert phone.taps == []
+
+
+def test_the_name_asked_for_is_compared_case_and_spaces_aside():
+    phone = _Phone("inbox", {("inbox", ROW): "conversation"})
+
+    assert _Runtime(phone).open_conversation(" Name_41 ") is True
+    assert len(phone.taps) == 1
+
+
+def test_on_447_a_handle_that_starts_another_opens_no_conversation(ig_447, _clock):
+    """The 447 rows give their name in their digest only (« user_10, Envoyé il y a 1 h »)."""
+    phone = _Phone("inbox_447", {("inbox_447", ROW_447): "conversation_447"})
+
+    assert _Runtime(phone).open_conversation("user_1") is False
+    assert phone.taps == []
+
+
+def test_on_447_the_row_of_the_handle_opens_its_conversation(ig_447):
+    phone = _Phone("inbox_447", {("inbox_447", ROW_447): "conversation_447"})
+
+    assert _Runtime(phone).open_conversation("user_10") is True
+    assert phone.screen == "conversation_447" and len(phone.taps) == 1

@@ -6,9 +6,32 @@ from taktik.core.social_media.instagram.workflows.dm.conversation_payload import
     has_unseen_incoming,
     inbox_preview_matches_known,
     masked_preview,
+    same_inbox_name,
 )
 from taktik.core.database.repositories.messaging.dm_thread_repository import DmThreadRepository
 from taktik.core.database.repositories.messaging.dm_message_repository import DmMessageRepository
+
+
+class TestSameInboxName:
+    """The one comparison that picks an inbox row: to open its conversation, or to leave it as
+    already read in a pass. The reading kept a row as read when its name started like a row read
+    before it (« bobby » after « bob »): bobby's conversation was never read, never answered."""
+
+    def test_a_name_that_starts_another_is_another_name(self):
+        assert not same_inbox_name("bobby", "bob")
+        assert not same_inbox_name("bob", "bobby")
+
+    def test_a_name_held_by_another_is_another_name(self):
+        assert not same_inbox_name("Jean Dupont", "Jean")
+        assert not same_inbox_name("le_bob_officiel", "bob")
+
+    def test_case_and_the_spaces_around_are_put_aside(self):
+        assert same_inbox_name(" Bob ", "bob")
+        assert same_inbox_name("Jean Dupont", "jean dupont")
+
+    def test_an_empty_name_is_no_one(self):
+        assert not same_inbox_name("", "")
+        assert not same_inbox_name(None, "")
 
 
 class TestInboxPreviewMatchesKnown:
