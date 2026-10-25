@@ -4,7 +4,7 @@ import time
 import random
 from typing import Dict, List, Any, Optional
 from loguru import logger
-from taktik.core.shared.device.screen import screen_size_of
+from taktik.core.social_media.instagram.actions.atomic.interaction.bottom_sheet import drag_sheet_off_screen
 
 from taktik.core.social_media.instagram.actions.base.base_business import BaseBusinessAction
 from taktik.core.database.instagram_posted_comments import InstagramPostedComments
@@ -353,14 +353,13 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
         1. Click the sheet title 'Comments' to remove focus from the edittext
            (defocus → IME hides → back now targets the sheet)
         2. press('back') up to 3x with per-attempt verification
-        3. Swipe drag handle down (only when sheet is NOT full-screen)
-        4. Swipe from screen centre (generic last resort)
-        5. Click nav-bar Back button of the IME window (last resort)
+        3. Drag the sheet down from its grab bar (`drag_sheet_off_screen`, the shared drag)
+        4. Click nav-bar Back button of the IME window (last resort)
+
+        True once the sheet is gone; False when it is still up after all of them.
         """
         try:
             self.logger.debug("Closing comment popup...")
-
-            screen_width, screen_height = screen_size_of(self.device)
 
             # ── Strategy 1: defocus the comment edittext ──────────────────────
             # Click the "Comments" title or the drag handle frame to remove focus
@@ -394,45 +393,16 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
                     self.logger.debug(f"✅ Comment popup closed after {attempt + 1} back press(es)")
                     return True
 
-            # ── Strategy 3: swipe drag handle down (partial sheet only) ──────
-            handle_is_fullscreen = False
-            try:
-                drag_handle = self.device.xpath(self.popup_selectors.comment_popup_drag_handle)
-                if drag_handle.exists:
-                    bounds = drag_handle.info.get('bounds', {})
-                    if bounds:
-                        handle_y = (bounds.get('top', 0) + bounds.get('bottom', 0)) // 2
-                        center_x = (bounds.get('left', screen_width // 2) + bounds.get('right', screen_width // 2)) // 2
-                        if handle_y < int(screen_height * 0.10):
-                            handle_is_fullscreen = True
-                            self.logger.debug(f"Sheet fully expanded (handle_y={handle_y}) — skipping swipe")
-                        else:
-                            end_y = int(screen_height * 0.95)
-                            self.logger.debug(f"Swiping drag handle: ({center_x},{handle_y}) → ({center_x},{end_y})")
-                            self.device.swipe_coordinates(center_x, handle_y, center_x, end_y, 0.3)
-                            time.sleep(0.7)
-                            if not self._is_comments_view_open():
-                                self.logger.debug("✅ Comment popup closed via drag handle swipe")
-                                return True
-                            self.logger.debug("Drag handle swipe did not close popup")
-            except Exception as e:
-                self.logger.debug(f"Drag handle strategy failed (non-fatal): {e}")
-
-            # ── Strategy 4: swipe from screen centre ─────────────────────────
-            # Works whether the sheet is partial OR full-screen:
-            # swiping from the middle of the modal content area downward
-            # dismisses the bottom sheet without risking the notification panel.
-            center_x = screen_width // 2
-            start_y = int(screen_height * 0.40)
-            end_y = int(screen_height * 0.92)
-            self.logger.debug(f"Centre swipe: ({center_x},{start_y}) → ({center_x},{end_y})")
-            self.device.swipe_coordinates(center_x, start_y, center_x, end_y, 0.4)
-            time.sleep(0.7)
-            if not self._is_comments_view_open():
-                self.logger.debug("✅ Comment popup closed via centre swipe")
+            # ── Strategy 3: drag the sheet down and off the screen ───────────
+            # The shared sheet drag (`drag_sheet_off_screen`): from the grab bar, the sheet
+            # expanded or not, an accompanied drag that it verifies. It replaces a 0.3 s swipe
+            # Android read as a fling (the sheet dropped one state and stayed open), skipped
+            # altogether on a full-screen sheet, and a 0.4 s swipe from the centre.
+            if drag_sheet_off_screen(self.device, self._is_comments_view_open, self.logger):
+                self.logger.debug("✅ Comment popup closed by dragging it down")
                 return True
 
-            # ── Strategy 5: click IME nav-bar Back button ─────────────────────
+            # ── Strategy 4: click IME nav-bar Back button ─────────────────────
             # The Taktik IME exposes a clickable nav-back control; the selector
             # lives in the comments catalog with the rest of this close strategy.
             try:
@@ -453,16 +423,16 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
             except Exception as e:
                 self.logger.debug(f"IME back button strategy failed (non-fatal): {e}")
 
-            self.logger.warning("⚠️ All strategies exhausted — could not confirm comment popup closed")
-            return True
+            self.logger.warning("⚠️ All strategies exhausted — the comment popup is still open")
+            return False
 
         except Exception as e:
             self.logger.error(f"Error closing comment popup: {e}")
             try:
                 self.device.press("back")
                 time.sleep(0.5)
-            except Exception:
-                pass
+            except Exception as back_exc:
+                self.logger.error(f"Back after the failed close failed too: {back_exc}")
             return False
     
     # ─── In-thread actions (on the comments of a post, not on the post) ──

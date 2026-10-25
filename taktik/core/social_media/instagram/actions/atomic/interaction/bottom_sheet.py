@@ -179,8 +179,6 @@ def dismiss_bottom_sheet(
     if not is_open():
         return True
 
-    screen_width, screen_height = screen_size_of(device)
-
     # 1. Defocus — a focused text field eats the first back press.
     for selector in (defocus_selectors or []):
         try:
@@ -208,23 +206,38 @@ def dismiss_bottom_sheet(
             return True
 
     # 3. Drag the sheet down and off the screen.
-    #
-    # One accompanied drag is enough — checked by hand on a device: press, hold, and carry the
-    # sheet all the way down and it closes from full screen in a single gesture. An earlier
-    # version used `swipe_coordinates`, whose coarse down/move/up Android reads as a fling; a
-    # flung sheet settles one state down (expanded -> collapsed) no matter how far the gesture
-    # travelled, which is why it kept stopping at two thirds. The loop below is kept as a safety
-    # net for that class of outcome: it drags again while the sheet keeps moving and stops as
-    # soon as a pass changes nothing, since repeating a gesture that achieves nothing only
-    # delays the caller.
-    #
-    # Progress is measured on the GRAB BAR, not on the sheet container: the container is a
-    # full-screen host that reads the same whether the sheet peeks or fills the screen, while the
-    # bar travels with the sheet (y=183 expanded, y=910 collapsed on the device measured).
+    if drag_sheet_off_screen(device, is_open, log):
+        return True
+    log.warning("Sheet still open after every dismiss strategy")
+    return False
+
+
+def drag_sheet_off_screen(device, is_open: Callable[[], bool], log=None) -> bool:
+    """Drag the open sheet down and off the screen, from its grab bar. True once `is_open()` says
+    it is gone; False when it is still up after the drags, or a drag could not be made.
+
+    The one way the project drags a sheet closed: the sheets' own closers, the check of pages
+    (`swipe_down_handle`) and the likers and comments popups all come here.
+
+    One accompanied drag is enough — checked by hand on a device: press, hold, and carry the
+    sheet all the way down and it closes from full screen in a single gesture. An earlier
+    version used `swipe_coordinates`, whose coarse down/move/up Android reads as a fling; a
+    flung sheet settles one state down (expanded -> collapsed) no matter how far the gesture
+    travelled, which is why it kept stopping at two thirds. The loop below is kept as a safety
+    net for that class of outcome: it drags again while the sheet keeps moving and stops as
+    soon as a pass changes nothing, since repeating a gesture that achieves nothing only
+    delays the caller.
+
+    Progress is measured on the GRAB BAR, not on the sheet container: the container is a
+    full-screen host that reads the same whether the sheet peeks or fills the screen, while the
+    bar travels with the sheet (y=183 expanded, y=910 collapsed on the device measured).
+    """
+    log = log or _default_logger
+    screen_width, screen_height = screen_size_of(device)
     end_y = int(screen_height * 0.95)
     center_x = screen_width // 2
 
-    # The post-swipe lookup of one pass is the pre-swipe lookup of the next: locating the bar
+    # The post-drag lookup of one pass is the pre-drag lookup of the next: locating the bar
     # costs two selector probes plus a subtree scan, and doing it twice per pass was most of the
     # nine seconds this took on the Lab run.
     handle = find_drag_handle(device, log)
@@ -252,7 +265,6 @@ def dismiss_bottom_sheet(
         if handle and handle['y'] >= shade_floor:
             start_x, start_y = handle['x'], handle['y']
             how = f"handle drag ({handle['source']})"
-            duration = 0.6
         else:
             if handle:
                 log.debug(f"Grab bar at y={handle['y']} is inside the status bar (floor {shade_floor}) "
@@ -260,14 +272,15 @@ def dismiss_bottom_sheet(
             start_x = center_x
             start_y = int(screen_height * 0.40)
             how = "content drag"
-            duration = 0.7
 
         log.debug(f"{how} #{step + 1}: ({start_x},{start_y}) -> ({start_x},{end_y})")
-        # Accompanied drag, not a swipe. A coarse down/move/up reads as a fling and the sheet
-        # settles one state down however far the gesture went — which is why an expanded sheet
-        # only ever collapsed to two thirds. Keeping the finger down and reporting the whole
-        # path carries the sheet along, and it is already at the bottom when the finger lifts.
-        human_drag_between_raw(device, (start_x, start_y), (start_x, end_y), duration, log)
+        # Accompanied drag, not a swipe: a coarse down/move/up reads as a fling and the sheet
+        # settles one state down however far the gesture went. Its duration is a hand's for the
+        # distance (the drag's own draw), never a fixed one: the same 0.6 s was 1930 px/s on a
+        # 1280 px screen and 3260 px/s on a 2160 px one.
+        if not human_drag_between_raw(device, (start_x, start_y), (start_x, end_y), logger=log):
+            log.warning(f"Sheet drag could not be made ({how}), the sheet is left as it is")
+            return False
         time.sleep(0.7)
 
         if not is_open():
@@ -282,7 +295,6 @@ def dismiss_bottom_sheet(
                 break
             log.debug(f"Sheet collapsed a step (grab bar {handle_y_before} -> {handle_y_after}), dragging again")
 
-    log.warning("Sheet still open after every dismiss strategy")
     return False
 
 

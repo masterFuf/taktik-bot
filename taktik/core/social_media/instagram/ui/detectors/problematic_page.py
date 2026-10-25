@@ -10,7 +10,6 @@ from taktik.core.shared.diagnostics.ui_dump_files import dump_ui_hierarchy, capt
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.device.app_inspection import foreground_activity
 from taktik.core.shared.device.facade import as_device_facade
-from taktik.core.shared.device.screen import screen_size_of
 from taktik.core.shared.device.snapshot import SnapshotUnavailable
 from taktik.core.social_media.instagram.ui.selectors import POPUP_SELECTORS, PROBLEMATIC_PAGE_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.locales import L_all, active_locale, available_locales
@@ -86,9 +85,6 @@ class ProblematicPageDetector:
         # Use the centralized patterns
         self.detection_patterns = PROBLEMATIC_PAGE_SELECTORS.detection_patterns
     
-    def _swipe(self, x1: int, y1: int, x2: int, y2: int, duration: float = 0.3):
-        self.device.swipe_coordinates(x1, y1, x2, y2, duration)
-
     def _get_ui_content(self, context: str = "detection") -> str:
         """The screen's XML. Raises `SnapshotUnavailable` when it cannot be read: an unread
         screen is never "no account check, no block", whoever asked."""
@@ -328,57 +324,21 @@ class ProblematicPageDetector:
         self.device.click_coordinates(point[0], point[1])
         return True
 
-    def _swipe_handle_down(self, selectors, etiquette: str) -> bool:
-        """Faire glisser la poignée d'une feuille vers le bas. Rend False si aucune n'est trouvée.
+    def _close_via_sheet_drag(self, page_type: str) -> bool:
+        """Faire glisser la feuille hors de l'écran par sa poignée, le geste unique des feuilles
+        (`drag_sheet_off_screen`) : un glisser accompagné, jamais un lancer.
 
-        La garde des 10 % du haut n'est pas cosmétique : une poignée tout en haut signifie une
-        feuille déployée à fond, et un glissement partant de là ouvrirait le panneau de
-        notifications d'Android au lieu de fermer la feuille. Dans ce cas on appuie sur retour.
+        Ce geste était un `swipe` brut de 0,3 s, qu'Android lit comme un lancer : la feuille
+        descendait d'un cran et restait ouverte. Une feuille déployée à fond (poignée dans les
+        10 % du haut) recevait un Retour à la place, et sans poignée nommée (la feuille de partage
+        en a une anonyme) le geste partait du milieu de l'écran. La poignée se trouve maintenant
+        comme partout (son id, sinon sa forme), et la feuille n'est dite partie que si l'écran
+        suivant ne la montre plus.
         """
-        _largeur, hauteur = screen_size_of(self.device)
-        for selector in selectors:
-            try:
-                element = self.device(**selector)
-                if not element.exists():
-                    continue
-                bounds = element.info.get('bounds', {})
-                if not bounds:
-                    continue
-                hx = (bounds['left'] + bounds['right']) // 2
-                hy = (bounds['top'] + bounds['bottom']) // 2
-                if hy < int(hauteur * 0.10):
-                    logger.info(f"{etiquette}: poignée dans les 10% du haut (y={hy}) — retour arrière")
-                    self.device.press('back')
-                else:
-                    fin_y = int(hauteur * 0.95)
-                    logger.info(f"{etiquette}: ({hx},{hy}) → ({hx},{fin_y})")
-                    self._swipe(hx, hy, hx, fin_y, 0.3)
-                return True
-            except Exception:
-                continue
-        return False
+        from taktik.core.social_media.instagram.actions.atomic.interaction.bottom_sheet import drag_sheet_off_screen
 
-    def _swipe_from_middle(self, etiquette: str) -> bool:
-        """Repli sans poignée : partir du MILIEU de l'écran, jamais du haut."""
-        largeur, hauteur = screen_size_of(self.device)
-        x = largeur // 2
-        depart_y = int(hauteur * 0.50)
-        fin_y = int(hauteur * 0.92)
-        logger.info(f"{etiquette} (repli): ({x},{depart_y}) → ({x},{fin_y})")
-        self._swipe(x, depart_y, x, fin_y, 0.3)
+        drag_sheet_off_screen(self.device, lambda: not self._verify_page_closed(page_type), logger)
         return True
-
-    def _close_via_swipe_down(self) -> bool:
-        if self._swipe_handle_down([{'resourceIdMatches': '.*bottom_sheet_drag_handle_prism'}],
-                                   "swipe_down handle"):
-            return True
-        return self._swipe_from_middle("swipe_down")
-
-    def _close_via_swipe_down_handle(self) -> bool:
-        if self._swipe_handle_down(PROBLEMATIC_PAGE_SELECTORS.drag_handle_selectors, "swipe handle"):
-            return True
-        logger.warning("Handle non trouvé, utilisation de coordonnées sûres (50% → 92%)")
-        return self._swipe_from_middle("swipe handle approximatif")
 
     def _close_via_terminate(self) -> bool:
         return self._click_button_from_selectors(
@@ -396,19 +356,19 @@ class ProblematicPageDetector:
         """Popup de consentement publicitaire Meta : deux pages (choix, puis accord)."""
         return self._handle_ad_consent_flow()
 
-    def _closers(self) -> dict:
+    def _closers(self, page_type: str) -> dict:
         """La table qui remplace la cascade : un nom de méthode, le geste qui la réalise.
 
         Construite ici plutôt qu'en attribut de classe : les valeurs sont des méthodes liées, et
-        une table de classe les capturerait non liées.
+        une table de classe les capturerait non liées. Le glisser d'une feuille vérifie entre ses
+        passes que la page est partie : il reçoit la page.
         """
         return {
             'back_button': self._close_via_back,
             'not_now_button': self._close_via_not_now,
             'x_button': self._close_via_x,
             'tap_outside': self._close_via_tap_outside,
-            'swipe_down': self._close_via_swipe_down,
-            'swipe_down_handle': self._close_via_swipe_down_handle,
+            'swipe_down_handle': lambda: self._close_via_sheet_drag(page_type),
             'terminate_button': self._close_via_terminate,
             'ok_button': self._close_via_ok,
             'allow_permission_button': self._close_via_allow_permission,
@@ -422,7 +382,7 @@ class ProblematicPageDetector:
         était une cascade de branches imbriquées est devenu des méthodes plates et une table.
         """
         logger.info(f"🔧 Tentative de fermeture de la page {page_type}")
-        closers = self._closers()
+        closers = self._closers(page_type)
 
         for method in close_methods:
             geste = closers.get(method)

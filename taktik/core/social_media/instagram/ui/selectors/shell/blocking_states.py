@@ -40,12 +40,6 @@ class ProblematicPageSelectors:
         {'description': 'Ok'}
     ])
     
-    # === Drag handle (the grey bar of bottom sheets) ===
-    drag_handle_selectors: List[Dict[str, str]] = field(default_factory=lambda: [
-        {'resourceId': 'com.instagram.android:id/bottom_sheet_drag_handle_prism'},
-        {'resourceId': 'com.instagram.android:id/bottom_sheet_drag_handle_frame'}
-    ])
-
     # `com.android.packageinstaller` n'est PAS le paquet qui sert les dialogues de permission sur
     # les appareils du parc : mesure du 2026-09-03 sur Android 12 et Android 16, c'est
     # `com.google.android.permissioncontroller`. L'identifiant complet ne resolvait donc rien.
@@ -116,7 +110,7 @@ class ProblematicPageSelectors:
             # feed two, and neither shows a sheet.
             'surface_ids': ['direct_external_share_container_view',
                             'direct_private_share_container_view', 'bottom_sheet_container'],
-            'close_methods': ['swipe_down_handle', 'swipe_down', 'tap_outside', 'back_button']
+            'close_methods': ['swipe_down_handle', 'tap_outside', 'back_button']
         },
         'try_again_later_page': {
             'indicators': ['Réessayer plus tard', 'Try Again Later', 'Nous limitons la fréquence', 'We limit how often',
@@ -143,7 +137,7 @@ class ProblematicPageSelectors:
         'notifications_popup': {
             'indicators': ['Notifications', 'Get notifications when', 'shares photos, videos or channels', 
                           'Goes live', 'Some', 'Stories', 'Reels'],
-            'close_methods': ['back_button', 'tap_outside', 'swipe_down']
+            'close_methods': ['back_button', 'tap_outside', 'swipe_down_handle']
         },
         'follow_notification_popup': {
             'indicators': ['Turn on notifications?', 'Get notifications when', 'Turn On', 'Not Now', 'posts a photo or video'],
@@ -165,7 +159,7 @@ class ProblematicPageSelectors:
             'indicators': ['Sourdine', 'Publications', 'Stories', "Bulles d'activité sur le contenu", 
                           'Notes', 'Notes sur la carte', 'Mute', 'Posts', 'Activity bubbles about content',
                           'bottom_sheet_start_nav_button_icon'],
-            'close_methods': ['swipe_down_handle', 'swipe_down', 'tap_outside']
+            'close_methods': ['swipe_down_handle', 'tap_outside']
         },
         'android_permission_dialog': {
             'indicators': ['com.android.packageinstaller', 'permission_allow_button', 'permission_deny_button',
