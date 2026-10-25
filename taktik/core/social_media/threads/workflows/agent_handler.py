@@ -15,6 +15,7 @@ from __future__ import annotations
 from typing import Any, Callable, Mapping, Optional
 
 from taktik.core.kernel.contracts import WorkflowInvocation
+from taktik.core.kernel.handler_params import merge_invocation_payload
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.threads.workflows.feed_and_interact import (
     FeedInteractConfig,
@@ -154,8 +155,7 @@ def build_threads_automation_handler(
     """Build Threads handlers with startup supplied by the caller."""
 
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
-        merged = dict(payload)
-        merged.update(invocation.params)
+        merged = merge_invocation_payload(invocation, payload)
         # A provider is an option: without one, the engine starts Threads from the device id.
         startup = None
         if startup_provider is not None:

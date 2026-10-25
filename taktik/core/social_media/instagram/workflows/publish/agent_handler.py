@@ -18,6 +18,7 @@ from typing import Any, Callable, Mapping, Optional
 from loguru import logger
 
 from taktik.core.kernel.contracts import WorkflowInvocation
+from taktik.core.kernel.handler_params import merge_invocation_payload
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.instagram.workflows.publish.payload import (
     publish_request_from_payload,
@@ -80,8 +81,7 @@ def build_instagram_publish_handler(*, device, device_id: str) -> WorkflowHandle
     """Build the publish handler: the same launcher as the desktop bridge, on the host's device."""
 
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
-        merged = dict(payload)
-        merged.update(invocation.params)
+        merged = merge_invocation_payload(invocation, payload)
         return run_instagram_publish(merged, device_id=device_id, connect=lambda: device)
 
     return handler

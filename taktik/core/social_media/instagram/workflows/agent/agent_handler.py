@@ -27,6 +27,7 @@ from typing import Any, Callable, Mapping, Optional
 
 from taktik.core.ai.credential import AICredentialProvider
 from taktik.core.kernel.contracts import WorkflowInvocation
+from taktik.core.kernel.handler_params import merge_invocation_payload
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.shared.device.network_door import open_network_door
 from taktik.core.social_media.instagram.workflows.agent.payload import (
@@ -120,8 +121,7 @@ def build_instagram_agent_handler(
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
         if instagram_agent_runtime is None:
             raise RuntimeError("Taktik Agent needs a connected device")
-        config = dict(payload)
-        config.update(invocation.params)
+        config = merge_invocation_payload(invocation, payload)
         if not file_credential(config).api_key and instagram_ai_key is not None:
             credential = instagram_ai_key()
             if credential:

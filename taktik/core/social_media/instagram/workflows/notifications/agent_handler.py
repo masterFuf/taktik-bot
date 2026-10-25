@@ -21,6 +21,7 @@ from typing import Any, Callable, Mapping, Optional
 from loguru import logger
 
 from taktik.core.kernel.contracts import WorkflowInvocation
+from taktik.core.kernel.handler_params import merge_invocation_payload
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.shared.device.network_door import open_network_door
 from taktik.core.social_media.instagram.workflows.common.startup import package_name_from_payload
@@ -106,8 +107,7 @@ def build_instagram_notifications_handler(
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
         if instagram_notifications_runtime is None:
             raise RuntimeError("Instagram notifications need a connected device")
-        config = dict(payload)
-        config.update(invocation.params)
+        config = merge_invocation_payload(invocation, payload)
         config.setdefault("command", "scan")
         return run_instagram_notifications(
             config,

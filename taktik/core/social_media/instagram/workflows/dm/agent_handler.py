@@ -21,6 +21,7 @@ from typing import Any, Callable, Mapping, Optional
 from loguru import logger
 
 from taktik.core.kernel.contracts import WorkflowInvocation
+from taktik.core.kernel.handler_params import merge_invocation_payload
 from taktik.core.shared.device.network_door import open_network_door
 from taktik.core.shared.diagnostics.action_block import look_for_action_block
 from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
@@ -218,8 +219,7 @@ def build_instagram_dm_handler(
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
         if instagram_dm_runtime is None:
             raise RuntimeError("Instagram DM needs a connected device")
-        config = dict(payload)
-        config.update(invocation.params)
+        config = merge_invocation_payload(invocation, payload)
         if invocation.workflow_id == INSTAGRAM_DM_SEND_WORKFLOW_ID:
             config["command"] = "send"
         elif config.get("command") != "read_requests":
