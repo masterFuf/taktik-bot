@@ -32,7 +32,7 @@ from loguru import logger
 from taktik.core.ai.credential import AICredentialProvider
 from taktik.core.ai.dm_rules import AiDmRules
 from taktik.core.kernel.contracts import WorkflowInvocation
-from taktik.core.kernel.handler_params import merge_invocation_payload
+from taktik.core.kernel.handler_params import merge_invocation_payload, package_name_from_payload
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.shared.device.network_door import open_network_door
 from taktik.core.social_media.instagram.workflows.cold_dm.payload import cold_dm_request_from_payload
@@ -41,7 +41,6 @@ from taktik.core.social_media.instagram.workflows.cold_dm.session import (
     close_cold_dm_session,
     open_cold_dm_session,
 )
-from taktik.core.social_media.instagram.workflows.common.startup import package_name_from_payload
 
 
 INSTAGRAM_COLD_DM_WORKFLOW_ID = "instagram.engagement.coldDm"

@@ -2,7 +2,8 @@
 
 The wire form is what the desktop writes (`TikTokUploadWorkflowService.writeConfig`): a video
 (`localPath`, `caption`, `hashtags`) or a text post (`postType: text`, `text`, `toStory`), with an
-optional `packageName` for a cloned TikTok and the operated account (`botUsername`, the key the
+optional `packageName` for a cloned TikTok (read like every run's clone, `package_name_from_payload`)
+and the operated account (`botUsername`, the key the
 followers and unfollow payloads use). The snake_case names an Agent plan or a CLI call
 writes stay accepted. Every key is read by name, so the app's config contract test can see which
 ones the bot reads.
@@ -12,6 +13,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Optional
+
+from taktik.core.kernel.handler_params import package_name_from_payload, value_param
 
 
 class PublishRequestError(ValueError):
@@ -32,13 +35,6 @@ class PublishRequest:
     bot_username: Optional[str] = None
 
 
-def _first_given(*values: Any) -> Any:
-    for value in values:
-        if value is not None:
-            return value
-    return None
-
-
 def _hashtags(value: Any) -> list[str]:
     if value is None:
         return []
@@ -52,8 +48,8 @@ def _hashtags(value: Any) -> list[str]:
 def publish_request_from_payload(payload: Mapping[str, Any]) -> PublishRequest:
     """The request of one publish run. Refuses a video without a file and a text post without
     text: nothing would be published."""
-    post_type = str(_first_given(payload.get("postType"), payload.get("post_type")) or "video").strip().lower()
-    local_path = _first_given(payload.get("localPath"), payload.get("local_path")) or ""
+    post_type = str(value_param(payload, "postType", "post_type", default=None) or "video").strip().lower()
+    local_path = value_param(payload, "localPath", "local_path", default=None) or ""
     text = payload.get("text") or ""
 
     if post_type == "video" and not local_path:
@@ -67,9 +63,9 @@ def publish_request_from_payload(payload: Mapping[str, Any]) -> PublishRequest:
         caption=str(payload.get("caption") or ""),
         hashtags=_hashtags(payload.get("hashtags")),
         text=str(text),
-        to_story=bool(_first_given(payload.get("toStory"), payload.get("to_story")) or False),
-        package_name=_first_given(payload.get("packageName"), payload.get("package_name")),
-        bot_username=(str(_first_given(payload.get("botUsername"), payload.get("bot_username")) or "")
+        to_story=bool(value_param(payload, "toStory", "to_story", default=None) or False),
+        package_name=package_name_from_payload(payload),
+        bot_username=(str(value_param(payload, "botUsername", "bot_username", default=None) or "")
                       .strip().lstrip("@") or None),
     )
 

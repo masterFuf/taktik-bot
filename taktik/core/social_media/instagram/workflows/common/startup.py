@@ -60,22 +60,6 @@ def _log_to_logger(level: str, message: str) -> None:
     getattr(logger, level if level in ("info", "warning", "error", "debug", "success") else "info")(message)
 
 
-def package_name_from_payload(payload: Mapping[str, Any]) -> Optional[str]:
-    """The Instagram package a run starts (a clone); None: the installed Instagram.
-
-    Every Instagram launcher reads it here and hands it to the host's connection, the bridge's
-    and the CLI's alike.
-    """
-    for name in ("packageName", "package_name"):
-        value = payload.get(name)
-        if value is None:
-            continue
-        text = str(value).strip()
-        if text:
-            return text
-    return None
-
-
 class LoggingSessionNotifier:
     """Fallback notifier: the start's events go to the log."""
 
@@ -143,6 +127,5 @@ __all__ = [
     "InstagramRunPhone",
     "InstagramStartError",
     "LoggingSessionNotifier",
-    "package_name_from_payload",
     "start_instagram_session",
 ]

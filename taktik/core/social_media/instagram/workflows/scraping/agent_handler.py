@@ -29,7 +29,7 @@ from loguru import logger
 
 from taktik.core.ai.credential import AICredentialProvider
 from taktik.core.kernel.contracts import WorkflowInvocation
-from taktik.core.kernel.handler_params import merge_invocation_payload
+from taktik.core.kernel.handler_params import merge_invocation_payload, package_name_from_payload
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.shared.device.network_door import open_network_door
 from taktik.core.social_media.instagram.workflows.common.startup import InstagramConnect
@@ -73,7 +73,6 @@ def run_instagram_scraping(
     from taktik.core.social_media.instagram.workflows.common.startup import (
         InstagramStartError,
         _log_to_logger,
-        package_name_from_payload,
     )
 
     # Read and validated before the host touches the phone: what the reader refuses never reaches it.

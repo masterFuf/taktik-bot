@@ -2,7 +2,7 @@
 
 The bridge read `packageName` by hand (no `package_name`, no trimming): a payload that named the clone
 under its CLI name, or with a space around it, analysed the official app's account, or no app at all.
-It reads through `package_name_from_payload` (`workflows/common/startup.py`), the one reading.
+It reads through `package_name_from_payload` (`taktik/core/kernel/handler_params.py`), the one reading.
 """
 import json
 

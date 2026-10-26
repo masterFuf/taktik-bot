@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import Tuple
 
 from .schema import HOST, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
-from .shared import ERROR_EVENT, LOG_EVENT, STATUS_EVENT, instagram_package_field
+from .shared import ERROR_EVENT, LOG_EVENT, PACKAGE_READER, STATUS_EVENT, instagram_package_field
 
 _INSTAGRAM = "taktik.core.social_media.instagram.workflows.account.agent_handler"
 _TIKTOK = "taktik.core.social_media.tiktok.workflows.account.agent_handler"
@@ -29,9 +29,9 @@ def _flow(value: str) -> Field:
     return Field("workflowType", OneOf((value,)), "Which flow of the account bridge runs.", required=True)
 
 
-def _package(module: str, app: str) -> Field:
+def _package(app: str) -> Field:
     return Field("packageName", "string", f"The {app} package to run on (a clone); absent: the default {app}.",
-                 aliases=("package_name",), reader=f"{module}:package_name_from_payload")
+                 aliases=("package_name",), reader=PACKAGE_READER)
 
 
 def _result(flow: str, doc: str, *fields: Field) -> Event:
@@ -263,7 +263,7 @@ INSTAGRAM_ACCOUNT_LIST_SAVED = _contract(
 
 _TT_BRIDGE = "tiktok_account_bridge"
 _TT_LAUNCHER = f"{_TIKTOK}:run_tiktok_account"
-_TT_PACKAGE = _package(_TIKTOK, "TikTok")
+_TT_PACKAGE = _package("TikTok")
 
 TIKTOK_ACCOUNT_LOGIN = _contract(
     "tiktok.account.login", "TikTokAccountLogin", _TT_BRIDGE, _TT_LAUNCHER,

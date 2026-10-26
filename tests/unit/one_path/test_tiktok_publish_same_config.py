@@ -63,6 +63,16 @@ def test_a_cli_publish_on_a_cloned_tiktok_patches_its_selectors_like_the_bridge(
     assert cli["calls"] == bridge["calls"]
 
 
+def test_a_clone_under_its_cli_name_is_the_one_both_paths_patch(rig, publish_payload):
+    """`package_name`, spaces around it: read by the one reading of the clone, as on Instagram."""
+    bridge, cli = _run_both(rig, publish_payload(package_name=" com.example.tiktokclone "))
+
+    assert cli["exit"] == bridge["exit"] == 0, cli["output"]
+    assert cli["calls"][:2] == ["set_active_package com.example.tiktokclone",
+                                "patch_selectors tiktok com.example.tiktokclone"]
+    assert cli["calls"] == bridge["calls"]
+
+
 def test_a_failed_text_post_fails_on_both_paths(rig, publish_payload):
     def set_phone():
         rig.text_post_outcome = {"success": False, "step": "mode_text", "typed": "", "destination": "feed",

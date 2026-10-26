@@ -1,11 +1,11 @@
 import pytest
 
 from taktik.core.kernel.contracts import WorkflowInvocation
+from taktik.core.kernel.handler_params import package_name_from_payload
 from taktik.core.kernel.registry import WorkflowRegistry
 from taktik.core.social_media.instagram.workflows.common.startup import (
     InstagramRunPhone,
     InstagramStartError,
-    package_name_from_payload,
 )
 from taktik.core.social_media.instagram.workflows.automation.agent_handler import (
     INSTAGRAM_AUTOMATION_WORKFLOW_IDS,
