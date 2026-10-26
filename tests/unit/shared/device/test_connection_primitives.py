@@ -8,6 +8,7 @@ What each one answers is pinned here, on doubles of the phone (no device, no adb
 from types import SimpleNamespace
 
 import pytest
+from loguru import logger
 
 from taktik.core.shared.device import atx_health, connected_device, connection, screen
 
@@ -200,9 +201,16 @@ def test_a_manager_that_fails_to_disconnect_still_ends_the_connection(managers):
         raise OSError("adb gone")
 
     service.device_manager.disconnect = broken
-    service.disconnect()
+    seen = []
+    handler = logger.add(lambda message: seen.append(str(message)), format="{level} {message}", level="WARNING")
+    try:
+        service.disconnect()
+    finally:
+        logger.remove(handler)
 
     assert service.is_connected is False
+    # The failure is said, with the phone and the cause: never swallowed.
+    assert [line for line in seen if line.startswith("WARNING") and "SERIAL" in line and "adb gone" in line], seen
 
 
 def test_the_atx_check_runs_on_the_manager_of_the_connection(monkeypatch, managers):

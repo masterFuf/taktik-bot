@@ -80,8 +80,9 @@ class ConnectionService:
         if self._device_manager:
             try:
                 self._device_manager.disconnect()
-            except Exception:
-                pass
+            except Exception as exc:
+                # The run is over either way: the connection ends, and the failure is said.
+                logger.warning(f"Device {self.device_id}: disconnect failed ({exc}); the connection is ended anyway")
         self._connected = False
         self._device = None
         logger.info(f"Disconnected from {self.device_id}")

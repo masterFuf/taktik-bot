@@ -36,7 +36,5 @@ def scraping_app(connection: ConnectionService, package_name: str | None = None)
 
 
 def disconnect_scraping_connection(connection: ConnectionService) -> None:
-    try:
-        connection.disconnect()
-    except Exception:
-        pass
+    """End the run's connection; a phone that fails to let go is said by `ConnectionService.disconnect`."""
+    connection.disconnect()
