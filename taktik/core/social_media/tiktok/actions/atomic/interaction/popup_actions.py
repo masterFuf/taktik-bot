@@ -278,6 +278,19 @@ class PopupActions(BaseAction):
 
     # === System Popup Actions ===
     
+    def _closed_by_back(self, dialog) -> bool:
+        """Back on an Android dialog, then whether it left the screen. An « isn't responding »
+        dialog ignores Back: answering True there let the For You loop retry its swipe without
+        counting an error (TikTok 43.1.4, official emulator, 2026-10-25)."""
+        self.device.press("back")
+        self._human_like_delay('click')
+        still_there = self._element_presence(dialog)
+        if still_there is False:
+            return True
+        self.logger.warning("⚠️ The system dialog is still on screen after Back"
+                            if still_there else "⚠️ Screen unreadable after Back: the dialog may still be there")
+        return False
+
     def close_system_popup(self) -> bool:
         """Close Android system popups that may block the app.
         
@@ -301,16 +314,12 @@ class PopupActions(BaseAction):
             # Check for input method selection popup (package: android)
             if self._element_exists(self.popup_selectors.system_input_method_popup, timeout=0.5):
                 self.logger.warning("⚠️ System input method popup detected, pressing back")
-                self.device.press("back")
-                self._human_like_delay('click')
-                return True
+                return self._closed_by_back(self.popup_selectors.system_input_method_popup)
             
             # Check for generic Android system dialogs
             if self._element_exists(self.popup_selectors.system_dialog, timeout=0.5):
                 self.logger.warning("⚠️ System dialog detected, pressing back")
-                self.device.press("back")
-                self._human_like_delay('click')
-                return True
+                return self._closed_by_back(self.popup_selectors.system_dialog)
             
             return False
             

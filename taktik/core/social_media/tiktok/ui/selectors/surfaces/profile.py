@@ -5,6 +5,15 @@ from dataclasses import dataclass, field
 
 from taktik.core.social_media.tiktok.ui.selectors.locales import L
 
+#: A profile's handle: the Button whose text starts with « @ » (`qh5` on 43.1.4, `ss2` on 46.6.3,
+#: `t3y` on 47.0.3, on every profile of the capture corpus, in both languages).
+#:
+#: Not the author of a feed video, which TikTok writes « @Name » in a Button of the same kind when
+#: no account is signed in (`title`, 43.1.4 on the official emulator, 2026-10-25): unscoped, that
+#: title made every For You video read as a profile. Signed in, the title carries no « @ » on any
+#: of the 150 feed captures of the corpus.
+PROFILE_HANDLE_BUTTON = '//android.widget.Button[starts-with(@text, "@")][not(contains(@resource-id, ":id/title"))]'
+
 
 @dataclass
 class ProfileSelectors:
@@ -279,8 +288,8 @@ class ProfileSelectors:
         # The handle itself is the anchor: TikTok renders it as a Button whose text starts with
         # "@", on both versions and in both languages. Measured 1 on a profile and 0 on the feed
         # on 43.1.4 AND 46.6.3 — the second half is what makes it an indicator rather than a
-        # decoration.
-        '//android.widget.Button[starts-with(@text, "@")]',
+        # decoration. The author of a feed video can start with « @ » too: see the constant.
+        PROFILE_HANDLE_BUTTON,
     ])
 
     @property
@@ -303,7 +312,7 @@ class ProfileSelectors:
         # Scoped to what FOLLOWS the handle so it stays a profile-only anchor: unscoped, the
         # same expression fires on twelve feed and comment screens, where a comment body is also
         # a long-clickable Button.
-        '//android.widget.Button[starts-with(@text, "@")]/following::android.widget.Button'
+        PROFILE_HANDLE_BUTTON + '/following::android.widget.Button'
         '[@long-clickable="true"][string-length(@text) > 0][1]',
         # Last resort, kept from the locale files where it did not belong (a length rule carries
         # no language). On its own it was the WHOLE bio reader, and it silently dropped every bio
@@ -330,8 +339,7 @@ class ProfileSelectors:
     # recommandé" marker, one row lower and under a different parent, and this anchor refuses
     # it — an icon id alone would have called that account verified.
     _verified_badge_base: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[starts-with(@text, "@")]'
-        '/following-sibling::android.widget.ImageView[1]',
+        PROFILE_HANDLE_BUTTON + '/following-sibling::android.widget.ImageView[1]',
     ])
 
     @property

@@ -4,7 +4,8 @@ The screens are captures of TikTok in French, anonymized, read by uiautomator2's
 `XPathEntry`; the clock only moves when the code dumps or sleeps. On 43.1.4 (Pixel 3a): a For You
 video, an ad, the comment sheet over a video, the suggestion page of the feed, a profile, the
 Messages inbox, the new followers page (a screen the reader does not know) and the update prompt
-(an unlabelled dialog); on 46.9.3 (Pixel 6a): a LIVE preview, and an English ad whose caption ends
+(an unlabelled dialog); on 43.1.4 in English (official emulator, no account signed in), a For You
+video whose author TikTok writes with an at-sign; on 46.9.3 (Pixel 6a): a LIVE preview, and an English ad whose caption ends
 in « more ». The GDPR notice is still written by hand: TikTok shows it once, and no capture holds it.
 """
 
@@ -43,6 +44,7 @@ UNKNOWN = _capture("tt4314_fr_new_followers.xml")
 UPDATE_PROMPT = _capture("tt4314_fr_update_prompt.xml")
 LIVE = _capture("tt4693_fr_live_preview.xml")
 AD_WITH_CAPTION_EN = _capture("tt4693_en_ad_caption_more.xml")
+VIDEO_AUTHOR_AT_SIGN_EN = _capture("tt4314_en_for_you_video_guest.xml")
 # Written by hand: see the module docstring.
 GDPR = ('<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0"><node class="android.widget.TextView" '
         'text="Nous avons mis à jour les transferts de données des utilisateurs de l\'EEE vers la Chine" '
@@ -118,6 +120,16 @@ def test_each_screen_is_recognised_on_one_photo(clock, xml, kind):
     detection, phone = _reader(clock, xml)
     screen = detection.read_screen()
     assert (screen.kind, phone.dumps) == (kind, 1)
+
+
+def test_a_video_whose_author_starts_with_an_at_sign_is_not_a_profile(clock):
+    """Signed out, TikTok writes the author of a feed video as « @Name »: the title is then a Button
+    whose text starts with « @ », which is also how a profile writes its handle."""
+    set_active_locale("en")
+    assert _field(VIDEO_AUTHOR_AT_SIGN_EN, "title").startswith("@")
+    detection, phone = _reader(clock, VIDEO_AUTHOR_AT_SIGN_EN)
+    screen = detection.read_screen()
+    assert (screen.kind, screen.profile, screen.for_you, phone.dumps) == ("video", False, True, 1)
 
 
 def test_a_live_preview_is_recognised_where_its_ids_are_known(clock):

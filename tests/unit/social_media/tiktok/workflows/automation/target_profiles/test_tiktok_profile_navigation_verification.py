@@ -14,7 +14,7 @@ Both would have been interacted with and recorded under the name we were asked f
 from types import SimpleNamespace
 
 from taktik.core.social_media.tiktok.actions.atomic.navigation.search_actions import SearchActions
-from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_HANDLE_BUTTON, PROFILE_SELECTORS
 
 
 class _SilentLogger:
@@ -123,4 +123,5 @@ def test_the_indicator_is_not_only_obfuscated_ids():
     """The guard nearly shipped broken: `profile_page_indicator` held 43.1.4 ids only, and read
     0 while standing on a real profile of 46.6.3 — it would have refused every profile there.
     The handle itself is the anchor that survives both."""
-    assert '//android.widget.Button[starts-with(@text, "@")]' in PROFILE_SELECTORS.profile_page_indicator
+    assert PROFILE_HANDLE_BUTTON in PROFILE_SELECTORS.profile_page_indicator
+    assert PROFILE_HANDLE_BUTTON.startswith('//android.widget.Button[starts-with(@text, "@")]')
