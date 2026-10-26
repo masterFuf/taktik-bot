@@ -23,7 +23,7 @@ en une ligne ce qui est apparu et ce qui est parti (`+wb_guide -pcw`) : une phra
 empreintes hexadecimales ne sont que deux etiquettes. C'est ce que la note de `screen_skeleton`
 reclamait, et le seul endroit ou on tient deux ecrans consecutifs pour le calculer.
 
-L'etat est remis a zero au demarrage de chaque run par `run_bridge_main`, comme `miss_capture` et
+L'etat est remis a zero au debut de chaque run par `run_start.begin_run`, comme `miss_capture` et
 `foreground_guard`.
 """
 
@@ -46,7 +46,7 @@ _anneau: List[Dict[str, Any]] = []
 
 
 def reinitialiser() -> None:
-    """Vide l'anneau. Appele au demarrage d'un run par `run_bridge_main`."""
+    """Vide l'anneau. Appele au debut d'un run par `run_start.begin_run`."""
     _anneau.clear()
 
 

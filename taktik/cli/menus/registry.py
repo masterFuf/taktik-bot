@@ -24,6 +24,7 @@ from rich.console import Console
 from taktik.cli.commands.workflows import _coerce
 from taktik.cli.hosts.ai_key import MissingAIKeyError, ensure_ai_key, is_interactive
 from taktik.cli.hosts.registry import build_registry
+from taktik.core.shared.diagnostics.run_start import run_scope
 
 console = Console()
 
@@ -98,12 +99,14 @@ def run_registry_menu(platform: str, device_manager, device_id: str) -> None:
     handler = build.registry.resolve(workflow_id)
     invocation = WorkflowInvocation(platform=platform, workflow_id=workflow_id, params=params)
 
-    try:
-        result = handler(invocation, dict(params))
-    except Exception as exc:  # noqa: BLE001 - report at the operator, never a raw traceback
-        console.print(f"[red]Workflow failed:[/red] {type(exc).__name__}: {exc}")
-        input("\nPress Enter to continue...")
-        return
+    # The menu serves one run after another: each begins clean and stops its network watch when it ends.
+    with run_scope():
+        try:
+            result = handler(invocation, dict(params))
+        except Exception as exc:  # noqa: BLE001 - report at the operator, never a raw traceback
+            console.print(f"[red]Workflow failed:[/red] {type(exc).__name__}: {exc}")
+            input("\nPress Enter to continue...")
+            return
 
     if isinstance(result, dict) and result.get("success") is False:
         console.print(f"[red]Failed:[/red] {result.get('error') or result.get('message') or result}")

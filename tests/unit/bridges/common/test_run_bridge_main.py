@@ -129,3 +129,40 @@ def test_the_entry_reads_no_payload_the_launcher_does():
 def test_there_is_no_other_config_source():
     with pytest.raises(TypeError):
         entrypoint.run_bridge_main(_Bridge, config_source="stdin")
+
+
+def test_a_bridge_s_run_starts_without_what_an_earlier_run_of_its_process_left(monkeypatch, tmp_path, events):
+    """The entry begins the run (`begin_run`): no latch, no network watch, whatever the process held."""
+    from unit.previous_run import CLEAN, RunThatLosesItsNetwork
+
+    RunThatLosesItsNetwork(monkeypatch)()  # an earlier run of this process: its latch, its watch
+    bridge_run = RunThatLosesItsNetwork(monkeypatch)
+
+    class _Observed:
+        def __init__(self, config):
+            pass
+
+        def run(self):
+            bridge_run()
+            return 0
+
+    assert _run(monkeypatch, ["bridge", _config_file(tmp_path, "{}")], factory=_Observed) == 0
+    assert bridge_run.started_with == [CLEAN]
+
+
+def test_a_bridge_s_run_leaves_no_watch_once_it_has_ended(monkeypatch, tmp_path, events):
+    """The entry ends the run (`end_run`) whatever way it leaves, a crash included: its watch is stopped."""
+    from unit.previous_run import RunThatLosesItsNetwork, watches_alive
+
+    run = RunThatLosesItsNetwork(monkeypatch)
+
+    class _Crashing:
+        def __init__(self, config):
+            pass
+
+        def run(self):
+            run()
+            raise RuntimeError("boom")
+
+    assert _run(monkeypatch, ["bridge", _config_file(tmp_path, "{}")], factory=_Crashing) == 1
+    assert watches_alive() == []

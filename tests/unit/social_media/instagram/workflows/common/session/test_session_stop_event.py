@@ -75,3 +75,17 @@ def test_the_event_stays_json_serialisable(capsys):
     assert event['reason'] == "Manual stop (Ctrl+C)"
     assert event['reason_code'] == "manual_stop"
     assert event['status'] == 'INTERRUPTED'
+
+
+def test_a_completed_status_follows_a_failed_motive(capsys):
+    # A caller's COMPLETED is a guess: the profile-list loop passed it whatever happened.
+    _helpers().finalize_session(status='COMPLETED', reason=sr.navigation_lost())
+
+    assert _emitted_event(capsys)['status'] == 'INTERRUPTED'
+
+
+def test_a_status_the_caller_knows_stays(capsys):
+    # A crash is filed ERROR by its caller: deriving the status must not turn it into INTERRUPTED.
+    _helpers().finalize_session(status='ERROR', reason=sr.crashed('boom'))
+
+    assert _emitted_event(capsys)['status'] == 'ERROR'

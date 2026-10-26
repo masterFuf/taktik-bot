@@ -36,19 +36,26 @@ quinze secondes et concluait a une navigation perdue. Le detecteur de la platefo
 `ACCOUNT_CHALLENGE` des qu'il le voit ; rien n'est touche sur cet ecran, c'est a l'operateur de le
 passer, a la main.
 
+**Sixth case: the phone lost its network** (2.0). The door measured a network at the start of the
+run; the mobile data and the Wi-Fi then went away, and the run went on: the profile it looked for
+showed « User not found », the screen Instagram also shows for a deleted account, and the session
+ended `completed`. The network watch the door starts (`shared/device/network_watch.py`) measures the
+phone again from a thread of its own and sets `NETWORK_LOST` once a lost network is confirmed; the
+screen is never read for it, since a profile without network and a deleted account look the same.
+
 **The witness.** The runtime that knows the operated account installs a listener
 (`configurer_temoin`), told once when the latch is set: that is where a block becomes one entry
 of the account's health history, whoever saw it. This module stays blind to accounts and SQLite.
 
-Un processus de pont sert un run : le verrou y part leve. `run_bridge_main` le remet aussi a zero
-au demarrage, comme les autres compteurs partages, pour les ponts qui passent par lui (pas les
-ponts Instagram, qui ont leur propre point d'entree). La session persistante du Cartography Lab,
-qui sert une action apres l'autre dans un meme processus, le leve avant chaque action -- sans quoi
-une action entrerait avec le verrou de la precedente et s'arreterait d'emblee.
+Qui le leve : `run_start.begin_run`, que chaque hote appelle au debut de chacun de ses runs
+(l'entree des ponts `run_bridge_main`, la session du Cartography Lab avant chaque action, chaque
+porte de la CLI, menu interactif compris). Sans quoi un run entrerait avec le verrou du run
+precedent du meme processus et s'arreterait d'emblee, sous un motif qui n'est pas le sien.
 """
 
 from __future__ import annotations
 
+import threading
 import time
 from typing import Any, Callable, Dict, Optional
 
@@ -71,7 +78,17 @@ DESKTOP_GONE = "desktop_gone"
 #: ailleurs, tant que l'operateur ne l'a pas passe lui-meme.
 ACCOUNT_CHALLENGE = "account_challenge"
 
+#: Le telephone n'a plus de reseau, constate deux fois de suite par la veille du reseau : sans
+#: reseau, les profils s'ouvrent vides et les gestes partent dans le cache.
+NETWORK_LOST = "network_lost"
+
 _arret: Optional[Dict[str, Any]] = None
+
+#: Deux fils posent le verrou a cote du fil du run : le chien de garde de l'app de bureau
+#: (`bridges/common/owner_watchdog.py`) et la veille du reseau (`shared/device/network_watch.py`).
+#: Sans ce verrou-ci, deux constats simultanes passaient tous deux le test « pas encore d'arret » :
+#: le second ecrasait le premier, et le temoin etait prevenu deux fois.
+_ecriture = threading.Lock()
 
 #: Told once, when the latch is set: the platform runtime that knows the operated account installs
 #: it (the account's health record). Same shape as the telemetry sink; None = nobody listens.
@@ -79,7 +96,7 @@ _temoin: Optional[Callable[[Dict[str, Any]], None]] = None
 
 
 def reinitialiser() -> None:
-    """Lever le verrou. Appele au demarrage d'un run par `run_bridge_main`."""
+    """Lever le verrou et oublier le temoin. Appele au debut d'un run par `run_start.begin_run`."""
     global _arret, _temoin
     _arret = None
     _temoin = None
@@ -98,9 +115,10 @@ def demander_arret(code: str, detail: Optional[str] = None, **contexte: Any) -> 
     perdu, les constats suivants ne savent plus rien de l'ecran ni du paquet au premier plan.
     """
     global _arret
-    if _arret is not None:
-        return
-    _arret = {"code": code, "detail": detail, "at": time.time(), **contexte}
+    with _ecriture:
+        if _arret is not None:
+            return
+        _arret = {"code": code, "detail": detail, "at": time.time(), **contexte}
     logger.warning(f"⛔ Arret demande : {code}" + (f" — {detail}" if detail else ""))
     temoin = _temoin
     if temoin is not None:
@@ -118,4 +136,5 @@ def arret_demande() -> Optional[Dict[str, Any]]:
 __all__ = [
     "demander_arret", "arret_demande", "reinitialiser", "configurer_temoin",
     "DEVICE_DISCONNECTED", "TARGET_APP_CRASHED", "ACTION_BLOCKED", "DESKTOP_GONE", "ACCOUNT_CHALLENGE",
+    "NETWORK_LOST",
 ]

@@ -308,6 +308,7 @@ _FAMILY_BY_CODE = {
     "target_app_crashed": FAMILY_FAILED,
     "desktop_gone": FAMILY_FAILED,
     "account_challenge": FAMILY_FAILED,
+    "network_lost": FAMILY_FAILED,
 }
 
 
@@ -539,6 +540,27 @@ def account_challenge() -> StopReason:
     return _reason("account_challenge", FAMILY_FAILED, "Instagram is checking the account")
 
 
+def network_lost(detail: Any = None) -> StopReason:
+    """The phone lost its network during the run: no mobile data, no Wi-Fi that answers.
+
+    Measured by the network watch (``shared/device/network_watch.py``), never read on the screen:
+    offline, the profile a run opens shows « User not found », the very screen of a deleted account,
+    and the feed shows its cache. FAILED: the run did not go where it was set to go.
+
+    It does not say that nothing was done. A like given offline (C57S, Instagram 410, October 2026)
+    turned the heart red, was counted, and was still there once the network was back and Instagram
+    restarted: Instagram keeps such a gesture and sends it later, maybe in a burst with the others.
+    What the run counted before the stop stays counted.
+    """
+    text = str(detail).strip() if detail else ""
+    return _reason(
+        "network_lost",
+        FAMILY_FAILED,
+        f"Network lost{f': {text[:120]}' if text else ''}",
+        detail=text[:120] or None,
+    )
+
+
 def for_halt(halt: Dict[str, Any]) -> StopReason:
     """The motive for a run stopped by the shared halt latch (``shared/diagnostics/run_halt``).
 
@@ -556,18 +578,24 @@ def for_halt(halt: Dict[str, Any]) -> StopReason:
         return desktop_gone()
     if code == "account_challenge":
         return account_challenge()
+    if code == "network_lost":
+        return network_lost(halt.get("detail"))
     return target_app_crashed(halt.get("detail"))
 
 
 def settled_by_halt(reason: Any, halt: Optional[Dict[str, Any]]) -> Any:
     """The motive a run ends on, once its stop latch has been read.
 
-    A failure a caller names on its own (`navigation_lost`, `no_account`...) is often the latch's
-    cause seen from afar: the run lost its way BECAUSE Instagram put its account check on screen.
-    The latch saw the cause, so its motive wins over such a failure. A manual stop, a crash and
-    every expected end keep their own motive, and so does a reason that already is the latch's.
+    The motive a caller names on its own is often the latch's cause seen from afar: the run lost
+    its way (`navigation_lost`) BECAUSE Instagram put its account check on screen, and a run whose
+    only profile could not be opened offline ran out of list and ended `completed`. The latch saw
+    the cause, so its motive wins, over a failure and over an expected end alike: one rule for
+    every code of the latch. Only a manual stop, a crash and a reason that already is the latch's
+    keep their own motive.
     """
-    if not halt or getattr(reason, "family", None) != FAMILY_FAILED:
+    if not halt:
+        return reason
+    if getattr(reason, "family", None) == FAMILY_MANUAL:
         return reason
     if getattr(reason, "code", None) in (halt.get("code"), "crashed"):
         return reason

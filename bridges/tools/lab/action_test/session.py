@@ -14,6 +14,7 @@ from bridges.tools.lab.action_test.runner import (
     _install_selector_tracer,
 )
 from bridges.tools.lab.events import emit
+from taktik.core.shared.diagnostics.run_start import run_scope
 
 
 class _SessionContextCache:
@@ -46,22 +47,6 @@ def _register_step_telemetry() -> None:
         }))
     except Exception as exc:
         logger.debug(f"Could not register the telemetry sink: {exc}")
-
-
-def _begin_action_run() -> None:
-    """Each Lab action is a run of its own: lift the run's stop lock left by the previous one.
-
-    A bridge process serves one run and starts with the lock lifted; this one serves an action
-    after another. Without this, a block or a lost phone seen by one action would end every
-    workflow action after it, in a session still open.
-    """
-    try:
-        from taktik.core.shared.diagnostics import run_halt
-
-        run_halt.reinitialiser()
-    except Exception:
-        # A diagnostic that stops an action from running would be worse than none.
-        pass
 
 
 def report_action_session_entry_error(message: str, _reason: str) -> None:
@@ -181,26 +166,28 @@ def run_action_session_bridge(config: dict) -> None:
             continue
 
         tracer.reset()
-        _begin_action_run()
-        language_optimization = language.refresh()
-        _execute_action(
-            action_registry,
-            action_id,
-            bundle,
-            params,
-            tracer,
-            platform=platform,
-            device_id=device_id,
-            mode=command.get("mode", mode),
-            capture_artifacts=bool(command.get("capture_artifacts", capture_artifacts)),
-            perf_fast=bool(command.get("perf_fast", perf_fast)),
-            language_optimization=language_optimization,
-            request_id=request_id,
-            exit_on_error=False,
-            session_context_cache=session_context_cache,
-            scenario=scenario,
-            refresh_language=language.refresh,
-        )
+        # Each action is a run of its own: without it, a block or a lost phone seen by one action would
+        # end every workflow action after it, and its network watch would ping while the session waits.
+        with run_scope():
+            language_optimization = language.refresh()
+            _execute_action(
+                action_registry,
+                action_id,
+                bundle,
+                params,
+                tracer,
+                platform=platform,
+                device_id=device_id,
+                mode=command.get("mode", mode),
+                capture_artifacts=bool(command.get("capture_artifacts", capture_artifacts)),
+                perf_fast=bool(command.get("perf_fast", perf_fast)),
+                language_optimization=language_optimization,
+                request_id=request_id,
+                exit_on_error=False,
+                session_context_cache=session_context_cache,
+                scenario=scenario,
+                refresh_language=language.refresh,
+            )
 
 
 def _load_platform_runtime(platform: str):
