@@ -27,14 +27,13 @@ from typing import Any, Callable, Mapping, Optional
 
 from taktik.core.ai.credential import AICredentialProvider
 from taktik.core.kernel.contracts import WorkflowInvocation
-from taktik.core.kernel.handler_params import merge_invocation_payload
+from taktik.core.kernel.handler_params import merge_invocation_payload, package_name_from_payload
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.shared.device.network_door import open_network_door
 from taktik.core.social_media.instagram.workflows.agent.payload import (
     file_credential,
     taktik_agent_request_from_payload,
 )
-from taktik.core.social_media.instagram.workflows.common.startup import package_name_from_payload
 from taktik.core.social_media.instagram.workflows.common.session.warmup_budget import WarmupBudget
 
 

@@ -19,9 +19,8 @@ from typing import Any, Callable, Mapping, Optional
 from loguru import logger
 
 from taktik.core.kernel.contracts import WorkflowInvocation
-from taktik.core.kernel.handler_params import merge_invocation_payload
+from taktik.core.kernel.handler_params import merge_invocation_payload, package_name_from_payload, text_param
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
-from taktik.core.social_media.instagram.workflows.common.startup import package_name_from_payload
 from taktik.core.social_media.instagram.workflows.account.change_language_workflow import (
     ChangeLanguageWorkflow,
 )
@@ -145,8 +144,8 @@ def register_params_from_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     if method not in {"email", "phone"}:
         raise ValueError("Instagram register method must be 'email' or 'phone'")
 
-    email = _optional_string(payload, "email")
-    phone = _optional_string(payload, "phone")
+    email = text_param(payload, "email")
+    phone = text_param(payload, "phone")
     if method == "email" and not email:
         raise ValueError("Instagram register requires email when method is email")
     if method == "phone" and not phone:
@@ -266,21 +265,10 @@ def _log_status(state: str, message: str) -> None:
 
 
 def _required_string(payload: Mapping[str, Any], *names: str, message: str) -> str:
-    value = _optional_string(payload, *names)
+    value = text_param(payload, *names)
     if not value:
         raise ValueError(message)
     return value
-
-
-def _optional_string(payload: Mapping[str, Any], *names: str) -> str | None:
-    for name in names:
-        value = payload.get(name)
-        if value is None:
-            continue
-        text = str(value).strip()
-        if text:
-            return text
-    return None
 
 
 def _string_param(payload: Mapping[str, Any], name: str, *, default: str) -> str:

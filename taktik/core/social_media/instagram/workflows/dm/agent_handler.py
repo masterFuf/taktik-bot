@@ -21,7 +21,7 @@ from typing import Any, Callable, Mapping, Optional
 from loguru import logger
 
 from taktik.core.kernel.contracts import WorkflowInvocation
-from taktik.core.kernel.handler_params import merge_invocation_payload
+from taktik.core.kernel.handler_params import merge_invocation_payload, package_name_from_payload
 from taktik.core.shared.device.network_door import open_network_door
 from taktik.core.shared.diagnostics.action_block import look_for_action_block
 from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
@@ -40,7 +40,6 @@ from taktik.core.social_media.instagram.workflows.dm.session import (
     ensure_dm_inbox,
     return_to_inbox,
 )
-from taktik.core.social_media.instagram.workflows.common.startup import package_name_from_payload
 
 
 INSTAGRAM_DM_READ_WORKFLOW_ID = "instagram.engagement.dm_read"

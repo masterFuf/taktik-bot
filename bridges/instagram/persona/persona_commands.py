@@ -7,7 +7,7 @@ import sys
 import traceback
 
 from bridges.instagram.common.ipc import logger
-from taktik.core.social_media.instagram.workflows.common.startup import package_name_from_payload
+from taktik.core.kernel.handler_params import package_name_from_payload
 
 
 def report_persona_entry_error(message: str, _reason: str) -> None:

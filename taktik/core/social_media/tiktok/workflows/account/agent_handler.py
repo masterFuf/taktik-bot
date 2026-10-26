@@ -15,7 +15,12 @@ from typing import Any, Callable, Mapping, Optional
 
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
-from taktik.core.kernel.handler_params import merge_invocation_payload, value_param
+from taktik.core.kernel.handler_params import (
+    merge_invocation_payload,
+    package_name_from_payload,
+    text_param,
+    value_param,
+)
 from taktik.core.social_media.tiktok.workflows.common.agent_runtime import (
     bool_param,
     int_param,
@@ -114,8 +119,8 @@ def register_params_from_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     if method not in {"email", "phone"}:
         raise ValueError("TikTok register method must be 'email' or 'phone'")
 
-    email = _optional_string(payload, "email")
-    phone = _optional_string(payload, "phone")
+    email = text_param(payload, "email")
+    phone = text_param(payload, "phone")
     if method == "email" and not email:
         raise ValueError("TikTok register requires email when method is email")
     if method == "phone" and not phone:
@@ -125,13 +130,13 @@ def register_params_from_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         "method": method,
         "email": email,
         "phone": phone,
-        "phone_country": _optional_string(payload, "phoneCountry", "phone_country"),
+        "phone_country": text_param(payload, "phoneCountry", "phone_country"),
         "birth_year": int_param(payload, "birthYear", "birth_year", default=1995),
         "birth_month": int_param(payload, "birthMonth", "birth_month", default=6),
         "birth_day": int_param(payload, "birthDay", "birth_day", default=15),
-        "gmail_password": _optional_string(payload, "gmailPassword", "gmail_password"),
-        "tiktok_password": _optional_string(payload, "tiktokPassword", "tiktok_password"),
-        "nickname": _optional_string(payload, "nickname"),
+        "gmail_password": text_param(payload, "gmailPassword", "gmail_password"),
+        "tiktok_password": text_param(payload, "tiktokPassword", "tiktok_password"),
+        "nickname": text_param(payload, "nickname"),
     }
 
 
@@ -149,11 +154,6 @@ def change_language_params_from_payload(payload: Mapping[str, Any]) -> dict[str,
 def no_params_from_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     """Logout takes nothing but the package (`package_name_from_payload`)."""
     return {}
-
-
-def package_name_from_payload(payload: Mapping[str, Any]) -> Optional[str]:
-    """The TikTok package the flow runs on (a clone); None: the default TikTok."""
-    return _optional_string(payload, "packageName", "package_name")
 
 
 _READERS = {
@@ -234,18 +234,7 @@ def _emit(notifier: Any, method: str, *args: Any) -> None:
 
 
 def _required_string(payload: Mapping[str, Any], *names: str, message: str) -> str:
-    value = _optional_string(payload, *names)
+    value = text_param(payload, *names)
     if not value:
         raise ValueError(message)
     return value
-
-
-def _optional_string(payload: Mapping[str, Any], *names: str) -> str | None:
-    for name in names:
-        value = value_param(payload, name, default=None)
-        if value is None:
-            continue
-        text = str(value).strip()
-        if text:
-            return text
-    return None

@@ -21,10 +21,9 @@ from typing import Any, Callable, Mapping, Optional
 from loguru import logger
 
 from taktik.core.kernel.contracts import WorkflowInvocation
-from taktik.core.kernel.handler_params import merge_invocation_payload
+from taktik.core.kernel.handler_params import merge_invocation_payload, package_name_from_payload
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.shared.device.network_door import open_network_door
-from taktik.core.social_media.instagram.workflows.common.startup import package_name_from_payload
 from taktik.core.social_media.instagram.workflows.notifications import commands
 from taktik.core.social_media.instagram.workflows.notifications.payload import (
     NOTIFICATIONS_COMMANDS,

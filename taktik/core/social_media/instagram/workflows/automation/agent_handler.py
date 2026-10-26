@@ -23,14 +23,13 @@ from __future__ import annotations
 from typing import Any, Callable, Mapping, Optional
 
 from taktik.core.kernel.contracts import WorkflowInvocation
-from taktik.core.kernel.handler_params import merge_invocation_payload
+from taktik.core.kernel.handler_params import merge_invocation_payload, package_name_from_payload
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.shared.device.network_door import open_network_door
 from taktik.core.social_media.instagram.workflows.common.startup import (
     InstagramConnect,
     InstagramStartError,
     _log_to_logger,
-    package_name_from_payload,
 )
 
 

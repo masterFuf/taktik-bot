@@ -63,12 +63,16 @@ AI_REQUEST_MESSAGES = AiRequest(when={"messageMode": "ai"})
 AI_REQUEST_ALWAYS = AiRequest()
 
 
+#: The one reading of the clone a run starts, Instagram and TikTok alike.
+PACKAGE_READER = "taktik.core.kernel.handler_params:package_name_from_payload"
+
+
 def instagram_package_field(doc: str = "An Instagram clone's package, run instead of Instagram; absent: the "
                                        "installed Instagram.", by: str = OPERATOR) -> Field:
     """The clone an Instagram run starts: read by its launcher, which hands it to the host's connection.
     `by`: HOST when the host writes it in the bridge's file (the scraping's)."""
     return Field("packageName", "string", doc, aliases=("package_name",), by=by,
-                 reader="taktik.core.social_media.instagram.workflows.common.startup:package_name_from_payload")
+                 reader=PACKAGE_READER)
 
 
 #: `IPC.status`, or `send_message("status", ...)` when a run says why it ended.
@@ -282,6 +286,7 @@ __all__ = [
     "LOG_EVENT",
     "NETWORK_RESET",
     "NETWORK_RESET_COMPLETE_EVENT",
+    "PACKAGE_READER",
     "SESSION_START_EVENT",
     "STATUS_EVENT",
     "STEP_METRIC_EVENT",
