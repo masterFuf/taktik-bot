@@ -16,6 +16,7 @@ import itertools
 import pytest
 
 from taktik.core.shared.filtering import apply_comprehensive_filter
+from taktik.core.shared.filtering.profile_filters import exceeds_ceiling
 from taktik.core.social_media.instagram.services.filtering import FilteringBusiness
 
 
@@ -112,3 +113,58 @@ def test_a_score_landing_exactly_on_the_threshold_passes():
     )
     assert verdict["score"] == 85
     assert verdict["suitable"] is True
+
+
+NASA = {"username": "nasa", "followers_count": 104_000_000, "following_count": 80,
+        "posts_count": 4000, "is_verified": True, "visible_posts_count": 12}
+
+
+@pytest.mark.parametrize("ceiling", [0, None], ids=["zero", "null"])
+def test_a_follower_ceiling_of_zero_or_null_limits_nothing(ceiling):
+    """"0: no limit" is what the pages, the CLI and the declaration say. A literal zero refused
+    every profile with a single follower; a null broke the comparison and refused the profile as
+    a filter error."""
+    verdict = apply_comprehensive_filter(NASA, {"max_followers": ceiling})
+    assert verdict["category"] != "high_followers"
+    assert verdict["category"] != "error"
+    assert not [reason for reason in verdict["reasons"] if reason.startswith("Too many followers")]
+
+
+def test_a_follower_ceiling_still_refuses_the_profile_above_it():
+    verdict = apply_comprehensive_filter(NASA, {"max_followers": 100_000})
+    assert verdict["suitable"] is False
+    assert verdict["category"] == "high_followers"
+    assert verdict["reasons"] == ["Too many followers (104000000 > 100000)"]
+
+
+#: Follows more accounts than the declared default ceiling (7500): what the evaluator never read.
+FOLLOWS_MANY = {"username": "follows_many", "followers_count": 12_000, "following_count": 7_600,
+                "posts_count": 300, "visible_posts_count": 12}
+
+
+def test_a_following_ceiling_refuses_the_profile_above_it():
+    """"Max following" is declared, sent by the page and kept by `FilterCriteria`; the evaluator
+    did not read it, so a profile following 7600 accounts went through a ceiling of 7500."""
+    verdict = apply_comprehensive_filter(FOLLOWS_MANY, {"max_following": 7_500})
+    assert verdict["suitable"] is False
+    assert verdict["category"] == "high_following"
+    assert verdict["reasons"] == ["Too many following (7600 > 7500)"]
+
+
+@pytest.mark.parametrize("criteria", [{"max_following": 0}, {"max_following": None}, {}],
+                         ids=["zero", "null", "absent"])
+def test_a_following_ceiling_of_zero_null_or_absent_limits_nothing(criteria):
+    """The same rule as the follower ceiling: 0, null or absent is no limit."""
+    verdict = apply_comprehensive_filter(FOLLOWS_MANY, criteria)
+    assert verdict["category"] not in ("high_following", "error")
+    assert not [reason for reason in verdict["reasons"] if reason.startswith("Too many following")]
+
+
+@pytest.mark.parametrize("count, ceiling, over", [
+    (7_600, 7_500, True), (7_500, 7_500, False), (7_600, 0, False), (7_600, None, False), (None, 10, False),
+], ids=["above", "on_it", "zero", "null", "count_not_read"])
+def test_the_ceiling_rule_is_one_function(count, ceiling, over):
+    """The one writing of "0, null or absent limits nothing", that the evaluator and Threads call.
+    A count not read (None) is never over a ceiling: refusing it would take "not read" for a
+    measure."""
+    assert exceeds_ceiling(count, ceiling) is over

@@ -30,6 +30,7 @@ from typing import Callable, List, Optional
 
 from loguru import logger
 from taktik.core.shared.device.screen import screen_size_of
+from taktik.core.shared.filtering.profile_filters import exceeds_ceiling
 
 from taktik.core.social_media.threads import ThreadsManager
 from taktik.core.social_media.threads import ui as tui
@@ -707,7 +708,8 @@ def _parse_followers(text: str) -> Optional[int]:
 def _passes_filters(info: dict, filters: ProfileFilters, log_fn) -> bool:
     followers = info.get("followers")
     if followers is not None:
-        if followers < filters.min_followers or followers > filters.max_followers:
+        # The ceiling by the engine's one rule: "Followers max: 0" is no limit.
+        if followers < filters.min_followers or exceeds_ceiling(followers, filters.max_followers):
             log_fn("info", f"⏭️ Filtered @{info['username']} — {followers} followers outside [{filters.min_followers}, {filters.max_followers}]")
             return False
 
