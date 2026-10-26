@@ -9,7 +9,7 @@ version, the clone's package when the payload names one, app language:
 The order is the launcher's, for every host: what the reader refuses never reaches the phone. What
 differs between the hosts is injected:
 - `connect(package_name) -> InstagramRunPhone`: the phone, on the Instagram the payload names
-  (`packageName`), connected by the host in this call (the desktop: its database and its
+  (`packageName`, read by `package_name_from_payload` like every Instagram launcher), connected by the host in this call (the desktop: its database and its
   connection; the CLI: its connection). Its `start` is the clean restart of that Instagram before
   the run, the desktop's and the CLI's alike (the Lab session gives none: it holds its phone). Its
   `installed_version` is the version the selector overrides are chosen for.
@@ -73,12 +73,14 @@ def run_instagram_scraping(
     from taktik.core.social_media.instagram.workflows.common.startup import (
         InstagramStartError,
         _log_to_logger,
+        package_name_from_payload,
     )
 
     # Read and validated before the host touches the phone: what the reader refuses never reaches it.
     scraping_config = scraping_config_from_payload(payload)
-    # The Instagram the run starts and reads (a clone); None: the installed Instagram.
-    package_name = payload.get("packageName") or None
+    # The Instagram the run starts and reads (a clone); None: the installed Instagram. Read as every
+    # Instagram launcher reads it.
+    package_name = package_name_from_payload(payload)
     phone = connect(package_name)
     # A phone without network does not start its run, from any host (`NetworkUnreachableError`).
     open_network_door(payload.get("deviceId"))

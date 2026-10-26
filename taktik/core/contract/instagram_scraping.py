@@ -17,6 +17,7 @@ from .shared import (
     ERROR_CODE_FIELD,
     ERROR_EVENT,
     device_field,
+    instagram_package_field,
 )
 from .stop_reasons import INSTAGRAM_SCRAPING_COMPLETION_REASON
 
@@ -141,8 +142,8 @@ _SETTINGS = (
 
 _BRIDGE_FIELDS = (
     device_field("deviceId"),
-    Field("packageName", "string", "The Instagram the run restarts and reads (a clone); absent: the "
-          "installed Instagram.", by=HOST),
+    instagram_package_field("The Instagram the run restarts and reads (a clone); absent: the installed "
+                            "Instagram.", by=HOST),
 )
 
 _REFUSALS = (
