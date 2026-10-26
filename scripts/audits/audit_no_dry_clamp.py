@@ -36,7 +36,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Set, Tuple
 
-from ratchet import product_files
+from ratchet import UnreadableSource, product_files, read_source, relative
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -277,19 +277,16 @@ def _scopes(tree: ast.Module) -> Iterable[Tuple[str, ast.AST]]:
 
 
 def _scan_file(path: Path) -> List[Finding]:
+    rel = relative(path, ROOT)
     try:
-        source = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        return []
-    return scan_source(source, str(path.relative_to(ROOT)).replace("\\", "/"))
+        return scan_source(read_source(path, ROOT), rel)
+    except SyntaxError as exc:
+        raise UnreadableSource(f"{rel}: not valid Python ({exc.msg}, line {exc.lineno})") from exc
 
 
 def scan_source(source: str, rel: str = "<source>") -> List[Finding]:
     """Dry clamps in one module's source, allowed or not."""
-    try:
-        tree = ast.parse(source)
-    except SyntaxError:
-        return []
+    tree = ast.parse(source)
     findings: List[Finding] = []
     for name, scope in _scopes(tree):
         tainted = _tainted_names(scope)
@@ -326,7 +323,11 @@ def main() -> int:
     parser.add_argument("--show-allowed", action="store_true", help="list the accepted clamps")
     args = parser.parse_args()
 
-    all_findings = collect()
+    try:
+        all_findings = collect()
+    except UnreadableSource as exc:
+        print(f"Dry clamp audit FAILED: {exc}")
+        return 1
     blocking = [f for f in all_findings if f.key not in ALLOWED]
     allowed = [f for f in all_findings if f.key in ALLOWED]
     seen = {f.key for f in all_findings}
