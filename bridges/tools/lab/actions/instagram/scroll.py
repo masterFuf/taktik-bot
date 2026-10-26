@@ -159,11 +159,20 @@ def scroll_reveal_post(a, p):
     A gesture that only met ads and suggested posts (`filler_run`) is followed by another, as the
     production reading does (`browse_feed`): a real post may sit right behind the block. After
     `_TAIL_FILLER_RUNS` of them in a row the production calls the followed feed exhausted, and so
-    does this action: not applicable, no real post to frame."""
+    does this action: not applicable, no real post to frame.
+
+    The production's humanized framing may leave the bar of the post it landed on under the screen
+    (`framing_decision` « deferred »): the bar is then brought up as on arrival, by the same
+    production reveal of the current post."""
     fs = a.scroll
-    fs._reveal_current_metadata()
-    anchors = fs._read_feed_anchors()
-    if anchors.get("on_feed") and fs._metadata_visible(anchors)[0] and not fs._dominant_is_ad(anchors):
+
+    def current_bar_shown():
+        fs._reveal_current_metadata()
+        anchors = fs._read_feed_anchors()
+        return bool(anchors.get("on_feed") and fs._metadata_visible(anchors)[0]
+                    and not fs._dominant_is_ad(anchors))
+
+    if current_bar_shown():
         return {"success": True, "message": "barre d'engagement du post visible (post courant)",
                 "details": {"advanced": False}}
     filler_runs = 0
@@ -180,6 +189,8 @@ def scroll_reveal_post(a, p):
             "(the production calls it exhausted)",
             **res)
     ok = bool(res.get("metadata_visible") or res.get("full_post"))
+    if not ok and res.get("on_feed") and not res.get("is_ad"):
+        ok = current_bar_shown()
     return {"success": ok,
             "message": ("barre d'engagement du post visible" if ok else "barre d'engagement non atteinte (pub/suggestion ?)"),
             "details": res}
