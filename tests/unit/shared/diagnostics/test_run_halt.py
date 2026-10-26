@@ -96,3 +96,35 @@ def test_le_detail_est_plafonne():
     motif = stop_reasons.device_disconnected("x" * 400)
 
     assert len(motif.params["detail"]) == 120
+
+
+# --- deux fils qui constatent en meme temps ---------------------------------------------------
+
+def test_deux_fils_qui_constatent_ensemble_n_ecrivent_qu_un_constat(monkeypatch):
+    """Le chien de garde de l'app de bureau et la veille du reseau posent le verrou depuis leur fil.
+
+    Le premier constat gagne, une seule fois : le temoin (l'historique de sante du compte) n'est
+    prevenu qu'une fois. Le second fil arrive ici pendant que le premier ecrit son constat (entre
+    la lecture « pas encore d'arret » et l'ecriture), la fenetre ou deux constats passaient.
+    """
+    import threading
+
+    prevenus = []
+    run_halt.configurer_temoin(prevenus.append)
+    second = threading.Thread(target=run_halt.demander_arret, args=(run_halt.DESKTOP_GONE, "le second"))
+    heure = run_halt.time.time
+
+    def horloge_qui_laisse_passer_le_second():
+        if not second.is_alive() and second.ident is None:
+            second.start()
+            second.join(timeout=0.5)
+        return heure()
+
+    monkeypatch.setattr(run_halt.time, "time", horloge_qui_laisse_passer_le_second)
+    run_halt.demander_arret(run_halt.NETWORK_LOST, "le premier")
+    monkeypatch.setattr(run_halt.time, "time", heure)
+    second.join(timeout=5)
+
+    assert not second.is_alive()
+    assert run_halt.arret_demande()["code"] == run_halt.NETWORK_LOST
+    assert [constat["code"] for constat in prevenus] == [run_halt.NETWORK_LOST]

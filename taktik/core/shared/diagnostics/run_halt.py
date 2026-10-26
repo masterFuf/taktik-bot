@@ -56,6 +56,7 @@ une action entrerait avec le verrou de la precedente et s'arreterait d'emblee.
 
 from __future__ import annotations
 
+import threading
 import time
 from typing import Any, Callable, Dict, Optional
 
@@ -84,6 +85,12 @@ NETWORK_LOST = "network_lost"
 
 _arret: Optional[Dict[str, Any]] = None
 
+#: Deux fils posent le verrou a cote du fil du run : le chien de garde de l'app de bureau
+#: (`bridges/common/owner_watchdog.py`) et la veille du reseau (`shared/device/network_watch.py`).
+#: Sans ce verrou-ci, deux constats simultanes passaient tous deux le test « pas encore d'arret » :
+#: le second ecrasait le premier, et le temoin etait prevenu deux fois.
+_ecriture = threading.Lock()
+
 #: Told once, when the latch is set: the platform runtime that knows the operated account installs
 #: it (the account's health record). Same shape as the telemetry sink; None = nobody listens.
 _temoin: Optional[Callable[[Dict[str, Any]], None]] = None
@@ -109,9 +116,10 @@ def demander_arret(code: str, detail: Optional[str] = None, **contexte: Any) -> 
     perdu, les constats suivants ne savent plus rien de l'ecran ni du paquet au premier plan.
     """
     global _arret
-    if _arret is not None:
-        return
-    _arret = {"code": code, "detail": detail, "at": time.time(), **contexte}
+    with _ecriture:
+        if _arret is not None:
+            return
+        _arret = {"code": code, "detail": detail, "at": time.time(), **contexte}
     logger.warning(f"⛔ Arret demande : {code}" + (f" — {detail}" if detail else ""))
     temoin = _temoin
     if temoin is not None:
