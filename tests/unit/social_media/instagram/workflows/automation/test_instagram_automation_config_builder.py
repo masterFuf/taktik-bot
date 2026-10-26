@@ -292,20 +292,34 @@ def test_action_carries_profile_filters_and_relationship_flags():
     assert action["filters"]["skip_follows_us"] is True
 
 
-def test_action_max_bounds_zero_means_no_limit():
-    """A literal 'Max followers: 0' must not reject every profile (same guard as the scraping
-    mapper): 0 on a MAX bound falls back to the permissive default."""
+def test_a_zero_maximum_lets_through_a_profile_of_any_size():
+    """`maxFollowers: 0` and `maxFollowing: 0` say "no limit": the declaration, the page and the
+    sheet promise it. The builder turned the zeros into 100000 and 10000, and a target run with
+    both at 0 refused @nasa, "Too many followers (104000000 > 100000)" (Instagram 410). The zeros
+    are kept as sent, and the run's own path, down to the evaluator, lets the profile through."""
+    from taktik.core.shared.filtering import apply_comprehensive_filter
+    from taktik.core.social_media.instagram.workflows.automation.config import (
+        WorkflowConfigBuilder,
+    )
+
     config = build_instagram_automation_config(
         {
-            "workflowType": "target_followers",
-            "target": "someone",
+            "workflowType": "target_profiles",
+            "target": "nasa",
             "filters": {"minFollowers": 0, "maxFollowers": 0, "minPosts": 0, "maxFollowing": 0},
         }
     )
     action = config["actions"][0]
-    assert action["min_followers"] == 0        # 0 min = no minimum, kept literally
-    assert action["max_followers"] == 100000   # 0 max = no limit
-    assert action["max_following"] == 10000
+    assert action["min_followers"] == 0
+    assert action["max_followers"] == 0
+    assert action["max_following"] == 0
+
+    criteria = WorkflowConfigBuilder.build_interaction_config(action)["filter_criteria"]
+    nasa = {"username": "nasa", "followers_count": 104_000_000, "following_count": 80,
+            "posts_count": 4000, "is_verified": True, "visible_posts_count": 12}
+    verdict = apply_comprehensive_filter(nasa, criteria)
+    assert verdict["category"] != "high_followers"
+    assert not [reason for reason in verdict["reasons"] if reason.startswith("Too many followers")]
 
 
 def test_filters_survive_into_the_runner_interaction_config():

@@ -151,8 +151,10 @@ def _apply_basic_filters(
         })
         return result
 
-    max_followers = criteria.get('max_followers', float('inf'))
-    if followers > max_followers:
+    # A ceiling of 0, null or absent limits nothing: "0: no limit" is what the pages, the CLI and
+    # the declarations promise, and a literal zero would refuse every profile with one follower.
+    max_followers = criteria.get('max_followers')
+    if max_followers and followers > max_followers:
         result.update({
             'suitable': False,
             'reasons': [f'Too many followers ({followers} > {max_followers})'],

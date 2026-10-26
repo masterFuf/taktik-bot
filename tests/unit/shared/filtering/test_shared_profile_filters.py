@@ -112,3 +112,25 @@ def test_a_score_landing_exactly_on_the_threshold_passes():
     )
     assert verdict["score"] == 85
     assert verdict["suitable"] is True
+
+
+NASA = {"username": "nasa", "followers_count": 104_000_000, "following_count": 80,
+        "posts_count": 4000, "is_verified": True, "visible_posts_count": 12}
+
+
+@pytest.mark.parametrize("ceiling", [0, None], ids=["zero", "null"])
+def test_a_follower_ceiling_of_zero_or_null_limits_nothing(ceiling):
+    """"0: no limit" is what the pages, the CLI and the declaration say. A literal zero refused
+    every profile with a single follower; a null broke the comparison and refused the profile as
+    a filter error."""
+    verdict = apply_comprehensive_filter(NASA, {"max_followers": ceiling})
+    assert verdict["category"] != "high_followers"
+    assert verdict["category"] != "error"
+    assert not [reason for reason in verdict["reasons"] if reason.startswith("Too many followers")]
+
+
+def test_a_follower_ceiling_still_refuses_the_profile_above_it():
+    verdict = apply_comprehensive_filter(NASA, {"max_followers": 100_000})
+    assert verdict["suitable"] is False
+    assert verdict["category"] == "high_followers"
+    assert verdict["reasons"] == ["Too many followers (104000000 > 100000)"]

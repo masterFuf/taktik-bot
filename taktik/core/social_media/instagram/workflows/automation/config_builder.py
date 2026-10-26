@@ -260,13 +260,14 @@ def _build_action_config(
     # flags were swallowed with them — verified on a real run, where the
     # already-following state was read and the profile handled anyway.
     #
-    # Rule for the HIGH bounds: zero means no limit. A zero maximum passed literally
-    # would reject every profile having a single follower.
+    # The HIGH bounds travel as sent: zero means no limit, and the evaluator reads it so
+    # (`shared/filtering/profile_filters.py`). Swapping it for a large number here refused every
+    # profile above that number, on a run that had asked for no limit.
     action_filters: Dict[str, Any] = {
         "min_followers": int(filters.get("minFollowers", 50) or 0),
-        "max_followers": int(filters.get("maxFollowers", 50000) or 0) or 100000,
+        "max_followers": int(filters.get("maxFollowers", 50000) or 0),
         "min_posts": int(filters.get("minPosts", 5) or 0),
-        "max_following": int(filters.get("maxFollowing", 7500) or 0) or 10000,
+        "max_following": int(filters.get("maxFollowing", 7500) or 0),
         "skip_follows_us": bool(filters.get("skipFollowsUs", False)),
         "skip_already_following": bool(filters.get("skipAlreadyFollowing", False)),
         # Revisit delays, in days, scoped to the account being automated (0 = never come
