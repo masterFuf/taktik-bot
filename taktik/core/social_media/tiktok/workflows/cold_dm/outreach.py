@@ -14,7 +14,7 @@ from loguru import logger
 
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.diagnostics.action_block import look_for_action_block
-from taktik.core.social_media.tiktok import TikTokManager
+from taktik.core.social_media.tiktok.manager import TikTokManager
 from taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions import DMActions
 from taktik.core.social_media.tiktok.actions.atomic.navigation.navigation_actions import NavigationActions
 from taktik.core.social_media.tiktok.actions.base.base_action import BaseAction
