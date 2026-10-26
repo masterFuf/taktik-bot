@@ -23,3 +23,39 @@ def test_each_halt_motive_keeps_its_own_reason(code):
     assert reason.family == stop_reasons.FAMILY_FAILED
     # Also when it travels as the bare code (the TikTok loops pass strings).
     assert stop_reasons.terminal_status(code) == stop_reasons.STATUS_INTERRUPTED
+
+
+# --- the end of a run, once the latch has been read -----------------------------------------
+
+def test_the_latch_explains_an_expected_end_too():
+    """The run of a single profile that the phone could not open, offline: its list ran out, so
+    the loop ended on `completed`. The latch had seen the cause; its motive is the run's."""
+    settled = stop_reasons.settled_by_halt(stop_reasons.completed(0), {"code": "network_lost"})
+
+    assert settled.code == "network_lost"
+    assert stop_reasons.terminal_status(settled) == stop_reasons.STATUS_INTERRUPTED
+
+
+@pytest.mark.parametrize("reason", [
+    stop_reasons.end_of_list(12, 40),
+    stop_reasons.duration_cap(30),
+    stop_reasons.navigation_lost(),
+    "Limits reached",
+], ids=["end_of_list", "duration_cap", "navigation_lost", "plain_string"])
+def test_one_rule_for_every_end_but_three(reason):
+    assert stop_reasons.settled_by_halt(reason, {"code": "account_challenge"}).code == "account_challenge"
+
+
+@pytest.mark.parametrize("reason", [
+    stop_reasons.manual_stop(),
+    stop_reasons.crashed("boom"),
+    stop_reasons.network_lost("no route"),
+], ids=["manual_stop", "crashed", "already_the_latch"])
+def test_a_manual_stop_a_crash_and_the_latch_own_motive_keep_theirs(reason):
+    assert stop_reasons.settled_by_halt(reason, {"code": "network_lost"}) is reason
+
+
+def test_without_a_halt_every_motive_stays():
+    reason = stop_reasons.completed(3)
+
+    assert stop_reasons.settled_by_halt(reason, None) is reason

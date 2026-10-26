@@ -193,13 +193,9 @@ class ProfileListWorkflowMixin:
             self.stats_manager.display_final_stats(workflow_name="PROFILE_LIST")
 
             if finalize and self.automation and hasattr(self.automation, 'helpers'):
-                if session_stop_reason:
-                    self.automation.helpers.finalize_session(
-                        status='COMPLETED', reason=session_stop_reason)
-                else:
-                    self.automation.helpers.finalize_session(
-                        status='COMPLETED',
-                        reason=stop_reasons.completed(stats['interacted']))
+                # The status is the end of session's to derive, from the motive it settles on.
+                self.automation.helpers.finalize_session(
+                    reason=session_stop_reason or stop_reasons.completed(stats['interacted']))
 
             return stats
 

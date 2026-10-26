@@ -582,12 +582,16 @@ def for_halt(halt: Dict[str, Any]) -> StopReason:
 def settled_by_halt(reason: Any, halt: Optional[Dict[str, Any]]) -> Any:
     """The motive a run ends on, once its stop latch has been read.
 
-    A failure a caller names on its own (`navigation_lost`, `no_account`...) is often the latch's
-    cause seen from afar: the run lost its way BECAUSE Instagram put its account check on screen.
-    The latch saw the cause, so its motive wins over such a failure. A manual stop, a crash and
-    every expected end keep their own motive, and so does a reason that already is the latch's.
+    The motive a caller names on its own is often the latch's cause seen from afar: the run lost
+    its way (`navigation_lost`) BECAUSE Instagram put its account check on screen, and a run whose
+    only profile could not be opened offline ran out of list and ended `completed`. The latch saw
+    the cause, so its motive wins, over a failure and over an expected end alike: one rule for
+    every code of the latch. Only a manual stop, a crash and a reason that already is the latch's
+    keep their own motive.
     """
-    if not halt or getattr(reason, "family", None) != FAMILY_FAILED:
+    if not halt:
+        return reason
+    if getattr(reason, "family", None) == FAMILY_MANUAL:
         return reason
     if getattr(reason, "code", None) in (halt.get("code"), "crashed"):
         return reason

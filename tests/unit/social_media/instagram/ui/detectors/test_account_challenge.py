@@ -148,6 +148,7 @@ def test_the_run_ends_on_the_check_not_on_the_lost_navigation():
     assert settled.code == "account_challenge"
     assert stop_reasons.terminal_status(settled) == stop_reasons.STATUS_INTERRUPTED
     assert stop_reasons.for_halt(halt).code == "account_challenge"
-    # A manual stop, a crash and an expected end keep their own motive.
-    for reason in (stop_reasons.manual_stop(), stop_reasons.crashed("boom"), stop_reasons.duration_cap(30)):
+    # A manual stop and a crash keep their own motive (an expected end gives way too, see
+    # `test_halt_motives.py`).
+    for reason in (stop_reasons.manual_stop(), stop_reasons.crashed("boom")):
         assert stop_reasons.settled_by_halt(reason, halt) is reason
