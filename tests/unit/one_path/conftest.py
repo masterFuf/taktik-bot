@@ -186,9 +186,9 @@ class Rig:
 
         # A name some module copies when it is imported is patched by `patch_seam`, never by
         # `mp.setattr` (`test_one_path_seams.py` holds every rig to it): a copier imported later
-        # in this install would keep the double for the rest of the session. `copies=False` where
-        # the rig replaces the source alone: the copies stay real, whatever the order of the tests.
-        patch_seam(mp, "taktik.core.social_media.tiktok", "TikTokManager", FakeTikTokManager, copies=False)
+        # in this install would keep the double for the rest of the session. The manager is patched
+        # at its module, so the package re-export and every copier are replaced then put back.
+        patch_seam(mp, "taktik.core.social_media.tiktok.manager", "TikTokManager", FakeTikTokManager)
 
         class FakePermissionHandler:
             def __init__(self, device, device_id=""):
