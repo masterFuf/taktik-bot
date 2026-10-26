@@ -118,7 +118,7 @@ def automation_run(monkeypatch, tmp_path):
     monkeypatch.setattr(network_door, "measure_network_baseline",
                         lambda device_id: {"rtt_ms": 41, "packet_loss_pct": 0, "received": 3})
 
-    def connect(runtime):
+    def connect(runtime, _package_name):
         runtime.device_manager = _device_manager()
         return True
 

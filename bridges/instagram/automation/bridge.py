@@ -49,14 +49,12 @@ class DesktopBridge:
         self.device_id = config.get("deviceId")
         self.workflow_type = config.get("workflowType")
         self.target = config.get("target")
-        self.package_name = config.get("packageName")
         self.running = True
         # Set when the launcher asks for the phone, and once the phone is ready for the run.
         self.phone_asked = False
         self.phone_ready = False
         self.runtime = InstagramDesktopRuntime(
             device_id=self.device_id,
-            package_name=self.package_name,
             network_reset=config.get("networkReset", {}),
         )
 
@@ -92,16 +90,17 @@ class DesktopBridge:
         if self.decision_client:
             self.decision_client.close()
 
-    def _connect(self, _package_name):
+    def _connect(self, package_name):
         """The phone the launcher asks for, once it has read the payload: the database setup, the
-        connection (its app service is built on the payload's package), the IP rotation, then the
-        media capture."""
+        connection (its app service is built on the package the launcher read, a clone or None), the IP
+        rotation, then the media capture. The bridge never reads the package itself: the launcher's
+        reading (`package_name_from_payload`) is the one the selectors are patched for."""
         from taktik.core.social_media.instagram.workflows.common.startup import InstagramRunPhone
 
         self.phone_asked = True
         if not self.runtime.setup_database():
             raise _PhoneNotReady(2)
-        if not self.runtime.connect_device():
+        if not self.runtime.connect_device(package_name):
             raise _PhoneNotReady(3)
         # Before anything opens Instagram: if a fresh IP was requested and did not happen, stop here
         # rather than run the account on the previous account's IP.

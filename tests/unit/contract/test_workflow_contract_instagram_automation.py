@@ -68,7 +68,7 @@ def desktop_bridge(monkeypatch):
         lambda *a, **k: SimpleNamespace(should_block_run=False, describe=lambda: "rotated"),
     )
 
-    def connect(runtime):
+    def connect(runtime, _package_name):
         runtime.device_manager = SimpleNamespace(device=object(), device_id="emulator-5554")
         return True
 

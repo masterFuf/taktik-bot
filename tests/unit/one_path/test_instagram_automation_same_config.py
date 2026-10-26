@@ -6,6 +6,8 @@ the pacing profile, the feed settings, the split between sources were lost) and 
 the workflow config says Instagram was restarted by the host, and in the terminal no host did it.
 """
 
+import pytest
+
 from instagram_rig import AI_KEY, INSTAGRAM, feed_payload, target_payload
 
 # Steps that belong to a host, not to the run: the stats wiring, the database setup, the bridge's
@@ -66,6 +68,24 @@ def test_a_clone_is_restarted_and_patched_the_same_way(ig_rig):
 
     assert cli["steps"] == bridge["steps"]
     assert "clone_patch com.taktik.ig1" in cli["steps"]
+
+
+@pytest.mark.parametrize("named", [{"package_name": "com.taktik.ig1"}, {"packageName": " com.taktik.ig1 "}],
+                         ids=["cli_name", "padded"])
+def test_the_bridge_restarts_the_clone_the_launcher_reads(ig_rig, named):
+    """The launcher reads the clone (`package_name_from_payload`) and hands it to the host's `connect`.
+    The bridge built its app on its own reading of `packageName` (no `package_name`, no trimming) and
+    ignored the one handed over: it restarted the official app while the selectors were patched for
+    the clone."""
+    bridge, cli = _run_both(ig_rig, feed_payload(**named))
+
+    assert bridge["steps"][:3] == [
+        "is_installed com.taktik.ig1",
+        "stop com.taktik.ig1",
+        "launch com.taktik.ig1 None stop_first=False",
+    ]
+    assert "clone_patch com.taktik.ig1" in bridge["steps"]
+    assert cli["steps"] == bridge["steps"]
 
 
 def test_an_ai_run_installs_the_same_hooks_from_both_paths(ig_rig):

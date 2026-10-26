@@ -21,7 +21,7 @@ def test_a_base_that_does_not_open_is_reported_as_a_database_failure(monkeypatch
         raise OSError("unable to open database file")
 
     monkeypatch.setattr("taktik.core.database.configure_db_service", refuse)
-    runtime = session.InstagramDesktopRuntime(device_id="emulator-5554", package_name=None, network_reset={})
+    runtime = session.InstagramDesktopRuntime(device_id="emulator-5554", network_reset={})
 
     assert runtime.setup_database() is False
     assert sent == ["DATABASE_SETUP_FAILED"]
