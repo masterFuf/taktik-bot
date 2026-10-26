@@ -14,6 +14,11 @@ The two sources answer different questions and are used together:
 
 This is the mechanism the standalone Smart Comment bridge proved in production; it lives in
 core so the in-thread reply keeps using it once that bridge is gone.
+
+From Instagram 442 on (447 included) the body IS in the hierarchy again: a node of its row spells
+"<author> said <text>" ("a dit" in French), and the Litho dump holds no body. The rows of the
+screen photo then answer (`comments_thread.read_comment_texts`, the reading the persona analysis
+already did), and Litho is not asked.
 """
 
 from __future__ import annotations
@@ -25,6 +30,7 @@ from loguru import logger
 
 from taktik.core.shared.device.adb import run_adb_shell_process
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
+from taktik.core.social_media.instagram.workflows.common.comments_thread import read_comment_texts
 
 # A comment body carries no attribute saying "this is a body", so each field is located by
 # its Litho node name and the records are rebuilt from the ORDER the fields appear in.
@@ -35,6 +41,19 @@ _LITHO_PATTERNS = {
 }
 _USERNAME_RE = re.compile(r"^[\w][\w.]{0,29}$")
 _MENTION_RE = re.compile(r"@([\w][\w.]{0,29})")
+
+
+def _comment_record(username: str, text: str) -> Dict[str, Any]:
+    """One comment as the readers return it. A body that opens with an @mention is a reply to
+    that person."""
+    mention = _MENTION_RE.match(text)
+    return {
+        "username": username,
+        "text": text,
+        "likes": 0,
+        "is_reply": bool(mention),
+        "parent_username": mention.group(1) if mention else None,
+    }
 
 
 def parse_litho_comments(dumpsys_output: str) -> List[Dict[str, Any]]:
@@ -63,14 +82,7 @@ def parse_litho_comments(dumpsys_output: str) -> List[Dict[str, Any]]:
             text = (value or "").strip()
             if not current_username or not text:
                 continue
-            mention = _MENTION_RE.match(text)
-            comments.append({
-                "username": current_username,
-                "text": text,
-                "likes": 0,
-                "is_reply": bool(mention),
-                "parent_username": mention.group(1) if mention else None,
-            })
+            comments.append(_comment_record(current_username, text))
             current_username = None  # each username labels exactly one body
 
     return comments
@@ -114,19 +126,27 @@ def resolve_device_serial(device) -> str:
 def read_visible_comments(device, device_id: str = "") -> List[Dict[str, Any]]:
     """The comments visible on screen right now, WITH their text.
 
-    Litho-only records (rows recycled off-screen) are dropped: acting on one would target
-    whoever happens to be scrolled away. Returns [] rather than raising when either source
-    is unavailable — a caller that cannot read the thread simply has nothing to reply to.
+    The bodies the rows of the screen spell (442 and later) answer first; otherwise the Litho
+    dump's (410), where Litho-only records (rows recycled off-screen) are dropped: acting on one
+    would target whoever happens to be scrolled away. Returns [] rather than raising when the
+    screen or the Litho dump is unavailable (said in the log): a caller that cannot read the
+    thread simply has nothing to reply to.
     """
+    try:
+        root = device.snapshot().root
+        on_screen = visible_comment_usernames(root)
+    except Exception as exc:
+        logger.debug(f"[comments] screen photo failed: {exc}")
+        return []
+
+    # 442 and later: the rows of the screen spell their bodies, the Litho dump holds none.
+    rows = read_comment_texts(root, list(POST_COMMENTS_SELECTORS.comment_said_connectors))
+    if rows:
+        return [_comment_record(author, text) for author, text in rows]
+
     device_id = device_id or resolve_device_serial(device)
     if not device_id:
         logger.debug("[comments] no adb serial — cannot read the Litho dump")
-        return []
-
-    try:
-        on_screen = visible_comment_usernames(device.snapshot().root)
-    except Exception as exc:
-        logger.debug(f"[comments] screen photo failed: {exc}")
         return []
 
     try:
