@@ -209,14 +209,16 @@ register_selector_platforms()
 
 
 @pytest.fixture(autouse=True)
-def _run_halt_starts_clear():
-    """Each test starts with the run's stop latch lowered and no witness: a halt left by an
-    earlier test stopped the loops of the next one before their first gesture."""
-    from taktik.core.shared.diagnostics import run_halt
+def _each_test_is_a_run():
+    """Each test begins as a run (`run_start.begin_run`, as every host begins one) and ends as one:
+    no stop latch nor witness, no network watch, no failure captures, screens or foreground clock of
+    an earlier test. A halt left by an earlier test stopped the loops of the next one before their
+    first gesture; a capture cap it filled skipped the captures of the next one."""
+    from taktik.core.shared.diagnostics.run_start import begin_run
 
-    run_halt.reinitialiser()
+    begin_run()
     yield
-    run_halt.reinitialiser()
+    begin_run()
 
 
 @pytest.fixture(autouse=True)
@@ -243,12 +245,11 @@ def _network_door_never_reaches_adb(monkeypatch):
 def _network_watch_never_starts(monkeypatch):
     """The door starts the run's network watch (`network_watch.start_network_watch`), a thread that
     pings the phone with the real adb every few seconds: in a test, the door starts none, even on a
-    readable measure, and no watch outlives its test. A test of the watch starts its own."""
-    from taktik.core.shared.device import network_door, network_watch
+    readable measure, and no watch outlives its test (`_each_test_is_a_run` stops it). A test of the
+    watch starts its own."""
+    from taktik.core.shared.device import network_door
 
     monkeypatch.setattr(network_door, "start_network_watch", lambda device_id, baseline: None)
-    yield
-    network_watch.stop_network_watch()
 
 
 @pytest.fixture(autouse=True)
