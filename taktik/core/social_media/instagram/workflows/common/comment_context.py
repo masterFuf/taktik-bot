@@ -42,7 +42,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from taktik.core.ai.comments.anchor import _WORD_RE, _strip_marks
-from taktik.core.shared.text import detect_text_language
+from taktik.core.shared.text import detect_text_language, is_latin_letter
 
 # ── Bounds. Each one is a decision, not a default. ──────────────────────────────────────────
 MAX_RECORDS = 20          # what we ever look at: the first screen carries 5-9 comments
@@ -100,16 +100,16 @@ def _words(value: str) -> List[str]:
 
 
 def _foreign_script(value: str) -> bool:
-    """More than 30 % of the letters outside the Latin range.
+    """More than 30 % of the letters outside the Latin script (`is_latin_letter`).
 
     `detect_text_language` reads six Latin-script languages and answers None for the rest, so a
     CJK, Cyrillic or Arabic comment would sail through the language filter, eat the budget and
-    teach the model nothing.
+    teach the model nothing. A comment in a decorated Latin font (small capitals) is Latin.
     """
     letters = [ch for ch in (value or "") if ch.isalpha()]
     if len(letters) < 4:
         return False
-    foreign = sum(1 for ch in letters if ord(ch) > 0x024F)
+    foreign = sum(1 for ch in letters if not is_latin_letter(ch))
     return foreign / len(letters) > 0.30
 
 

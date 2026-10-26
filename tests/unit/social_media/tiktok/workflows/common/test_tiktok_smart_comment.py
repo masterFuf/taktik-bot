@@ -292,3 +292,32 @@ def test_an_explicit_text_is_published_verbatim(given):
 
     assert workflow._try_comment_video(given) is True
     assert workflow.posted == [given]
+
+
+def test_a_comment_written_in_another_language_than_asked_is_not_published():
+    """Audit d'octobre 2026 : sous une legende anglaise, l'anglais demande, le modele ecrit en
+    francais. Le generateur refuse ce commentaire (`ai/written_language.py`) ; TikTok ne publie
+    rien et le dit dans le journal du run, avec la langue trouvee."""
+    import json
+
+    from taktik.core.ai.providers.openrouter import AIService
+    from unit.ai_written_texts import FRENCH_WHERE_ENGLISH_WAS_ASKED
+
+    ai = object.__new__(AIService)
+    ai.ipc = None
+    ai.model_generation = "test/model"
+    answer = {"anchor": "full video", "reasoning": "r", "comment": FRENCH_WHERE_ENGLISH_WAS_ASKED[3],
+              "safe_comment": FRENCH_WHERE_ENGLISH_WAS_ASKED[3]}
+    ai.text_completion = lambda *a, **k: {
+        "success": True, "text": json.dumps(answer, ensure_ascii=False), "model": "m", "cost_usd": 0.0,
+    }
+    logs = []
+    caption = "This is the secret of my success, the full video is on my profile"
+
+    comment = generate_tiktok_comment(
+        ai, _Screen(caption), "someone", account_persona=PERSONA,
+        log=lambda level, message: logs.append((level, message)),
+    )
+
+    assert comment is None
+    assert any(level == "warning" and "fr" in message and "en" in message for level, message in logs), logs

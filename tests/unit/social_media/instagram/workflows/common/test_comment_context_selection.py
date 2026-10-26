@@ -111,6 +111,16 @@ def test_a_foreign_script_is_dropped_before_the_language_filter():
     assert selection.dropped.get("foreign_script") == 1
 
 
+def test_a_comment_in_a_decorated_latin_font_is_not_a_foreign_script():
+    """Small capitals are Latin letters a font generator borrows, not another script: the engine
+    has one definition of a Latin letter (`is_latin_letter`, `shared/text.py`), the rule of a
+    text written by an AI uses it too."""
+    thread = [rec("lea", "ᴍᴀɢɴɪꜰɪǫᴜᴇ ᴛʀᴀᴠᴀɪʟ, ʙʀᴀᴠᴏ ᴀ ᴛᴏɪ")]
+    selection = select_thread_comments(thread, comment_lang="fr", base_lang="fr")
+
+    assert selection.dropped.get("foreign_script") is None
+
+
 def test_a_stranger_writing_another_latin_language_is_dropped_under_a_french_post():
     """The language filter drops a comment only on a CONFIDENT verdict outside {comment
     language, account language, English}. Kept, a Spanish comment shows the writer of a French

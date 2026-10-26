@@ -231,6 +231,13 @@ def generate_tiktok_comment(
         log("warning", f"AI comment generation error for @{username}: {exc}")
         return None
 
+    if result.get("wrong_language"):
+        log(
+            "warning",
+            f"Pas de commentaire pour @{username}: ecrit en {result['wrong_language']}, "
+            f"{comment_language} demande",
+        )
+        return None
     if decision_mode and result.get("success") and result.get("should_comment") is not True:
         log("info", f"Pas de commentaire pour @{username}: {result.get('reasoning') or 'video non pertinente'}")
         return None

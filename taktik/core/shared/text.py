@@ -6,12 +6,15 @@ French, English, Spanish, German, Italian, Portuguese. The author's CAPTION is g
 post's language; the vision model's guess is not (a French post whose image carries stylised
 English design text reads as English). Returns None when unsure (too little signal, a mixed text no
 language clearly wins, any other language) so the caller keeps its own fallback.
+
+`letters_of_another_script` — the letters of a text that are not Latin ones, for the rule a text
+written by an AI goes through (`taktik/core/ai/written_language.py`).
 """
 
 import re
 import unicodedata
 from dataclasses import dataclass
-from typing import FrozenSet, Optional
+from typing import FrozenSet, Optional, Sequence, Tuple
 
 #: Everything a UI can add and a dump can mangle.
 _NON_ALNUM = re.compile(r"[^0-9a-z]+")
@@ -124,8 +127,86 @@ _OTHER_LANGUAGES = (
     _Language("pt", frozenset(_PT_WORDS), "ãõáíóú"),
 )
 
+#: The letters the six languages write besides a to z.
+_SIX_LETTERS = "àâäçéèêëîïôöùûüÿœæñáíóúãõìòß"
 #: The letters of all six languages, so a word does not stop at "á" ("está" is not the French "est").
-_WORD_RE = re.compile(r"[a-zàâäçéèêëîïôöùûüÿœæñáíóúãõìòß']+", re.IGNORECASE)
+_WORD_RE = re.compile(f"[a-z{_SIX_LETTERS}']+", re.IGNORECASE)
+_SIX_ALPHABET = frozenset("abcdefghijklmnopqrstuvwxyz" + _SIX_LETTERS)
+
+#: A run of letters, whatever their alphabet: what `_WORD_RE` cuts in pieces when a word holds a
+#: letter it does not know ("była" became "by" and "a", two English words).
+_LETTER_RUN = re.compile(r"[^\W\d_]+")
+
+#: Latin letters a font generator borrows to decorate a text, and no language writes: small
+#: capitals (ᴀ, ʀ, ꜱ), the phonetic letters beside them, script and double-struck letters (ℯ, ℝ),
+#: the mathematical alphabets, full-width letters. A style, not a language: a word written with
+#: them is no word of another language.
+_DECORATED_LATIN = (
+    (0x0250, 0x02FF),    # IPA extensions, modifier letters
+    (0x1D00, 0x1DBF),    # phonetic extensions (small capitals)
+    (0x2100, 0x214F),    # letterlike symbols
+    (0xA720, 0xA7FF),    # Latin extended-D (ꜱ)
+    (0x1D400, 0x1D7FF),  # mathematical alphanumeric symbols
+    (0xFF21, 0xFF5A),    # full-width Latin
+)
+
+
+#: Every Latin letter: Basic Latin to Latin Extended-B, Latin Extended Additional (Vietnamese),
+#: and the decorated ones.
+_LATIN_LETTERS = ((0x0000, 0x024F), (0x1E00, 0x1EFF)) + _DECORATED_LATIN
+
+
+def _in_ranges(char: str, ranges: Sequence[Tuple[int, int]]) -> bool:
+    code = ord(char)
+    return any(low <= code <= high for low, high in ranges)
+
+
+def _is_decorated_latin(char: str) -> bool:
+    return _in_ranges(char, _DECORATED_LATIN)
+
+
+def is_latin_letter(char: str) -> bool:
+    """Whether `char` is a letter of the Latin script, in any language or decoration."""
+    return char.isalpha() and _in_ranges(char, _LATIN_LETTERS)
+
+
+def letters_of_another_script(text: Optional[str]) -> str:
+    """The letters of `text` that are not Latin ones, each once, in the order they come.
+
+    "展示" for "sert de portfolio pour展示 son style"; "" for a Latin text, whatever its accents,
+    emoji and digits (they are not letters of another script). A model asked for French that
+    writes an ideograph has drifted: `taktik/core/ai/written_language.py` refuses such a text.
+    """
+    found = []
+    for char in text or "":
+        if char.isalpha() and not is_latin_letter(char) and char not in found:
+            found.append(char)
+    return "".join(found)
+
+
+def _is_foreign_letter(char: str) -> bool:
+    """A letter none of the six languages writes: one of another script (Cyrillic, Greek, an
+    ideograph...) or a Latin letter only other languages write (ı, ş, ł, č, ř, ő, å)."""
+    return char.isalpha() and char not in _SIX_ALPHABET and not _is_decorated_latin(char)
+
+
+def _without_foreign_words(lowered: str) -> Tuple[str, int]:
+    """`lowered` with its words of another language blanked out, and how many there were.
+
+    A word holding a foreign letter is a word of none of the six: its letters must score for
+    none of them (the "á" of "nekonečná" is not Portuguese), and the pieces it would be cut into
+    must not count as words.
+    """
+    foreign = 0
+
+    def blank(match: "re.Match[str]") -> str:
+        nonlocal foreign
+        if any(_is_foreign_letter(char) for char in match.group(0)):
+            foreign += 1
+            return " "
+        return match.group(0)
+
+    return _LETTER_RUN.sub(blank, lowered), foreign
 
 #: A language needs at least this many points...
 _MIN_SCORE = 2
@@ -140,16 +221,23 @@ def _score(language: _Language, words: list, lowered: str) -> float:
     return hits + 1.5 * letters
 
 
+def _has_a_word_none_of_them_has(
+    language: _Language, others: Sequence[_Language], words: list
+) -> bool:
+    """A word of `language` that none of `others` has."""
+    return any(
+        word in language.words and all(word not in other.words for other in others)
+        for word in words
+    )
+
+
 def _has_a_word_of_its_own(language: _Language, words: list) -> bool:
     """A word of this language that French and English do not have ("und", "más", "questo").
 
     Without one, its letters alone come from a proper noun (Zürich, Málaga, São Paulo), not from
     prose in that language.
     """
-    return any(
-        word in language.words and word not in _FR_WORDS and word not in _EN_WORDS
-        for word in words
-    )
+    return _has_a_word_none_of_them_has(language, (_FRENCH, _ENGLISH), words)
 
 
 def _french_or_english(fr_score: float, en_score: float) -> Optional[str]:
@@ -177,10 +265,21 @@ def detect_text_language(text: Optional[str]) -> Optional[str]:
 
     Returns None (rather than guessing) on too-short or ambiguous input, or any other language —
     the caller then keeps its own fallback (the vision guess, or the account's base language).
+    Two rules keep that promise for a language the detector does not read (audit of October 2026,
+    where a Turkish caption came back French, a Czech one Portuguese, a Catalan one French):
+
+    - a word holding a letter none of the six writes (ı, ş, ł, č, a Cyrillic letter, an
+      ideograph) is a word of another language; it scores for none of the six, and that language
+      takes the text like the four others do: at least 2 words and one and a half times the
+      points of the best of the six. It is not named: the answer is None;
+    - when one of the four others has a word of its own and 2 points without taking the text,
+      French or English keeps it only with a word of its own that this language lacks. French
+      kept a Catalan or Portuguese caption on "de", "la", "que", which Spanish and Portuguese
+      write too, and on letters they write too.
     """
     if not text:
         return None
-    lowered = text.lower()
+    lowered, foreign_words = _without_foreign_words(text.lower())
     words = _WORD_RE.findall(lowered)
     if len(words) < 2:
         return None
@@ -195,10 +294,18 @@ def detect_text_language(text: Optional[str]) -> Optional[str]:
             continue
         score = _score(language, words, lowered)
         if score > best_score:
-            best_other, best_score = language.code, score
+            best_other, best_score = language, score
 
-    if best_score >= _MIN_SCORE and best_score > max(fr_score, en_score) * _MARGIN:
-        return best_other
+    if foreign_words >= _MIN_SCORE and foreign_words > max(fr_score, en_score, best_score) * _MARGIN:
+        return None
+    if best_other is None or best_score < _MIN_SCORE:
+        return verdict
+    if best_score > max(fr_score, en_score) * _MARGIN:
+        return best_other.code
+    if verdict is not None:
+        ours = _FRENCH if verdict == _FRENCH.code else _ENGLISH
+        if not _has_a_word_none_of_them_has(ours, (best_other,), words):
+            return None
     return verdict
 
 

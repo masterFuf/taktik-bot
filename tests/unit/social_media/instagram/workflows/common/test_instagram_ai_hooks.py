@@ -929,6 +929,49 @@ def test_an_account_without_a_known_language_does_not_comment_a_spanish_post(mon
     assert "posted" not in captured
 
 
+def test_a_comment_written_in_another_language_than_asked_is_skipped_not_replaced(monkeypatch):
+    """Audit of October 2026: a French account under English captions, the prompt asking English,
+    the model writing French. The generator refuses that comment; the hook must then skip the
+    post, not fall back on the custom comments as it does when the generation fails."""
+    import json
+    from types import SimpleNamespace
+
+    from taktik.core.ai.providers.openrouter import AIService
+    from unit.ai_written_texts import FRENCH_WHERE_ENGLISH_WAS_ASKED
+
+    captured = {}
+    ai = object.__new__(AIService)
+    ai.ipc = None
+    ai.model_generation = "test/model"
+    ai.analyze_post = lambda **kwargs: {
+        "success": True, "description": "Golden light over a harbour at dusk", "post_language": "english",
+    }
+    answer = {"anchor": "Golden hour", "reasoning": "the light", "comment": FRENCH_WHERE_ENGLISH_WAS_ASKED[1],
+              "safe_comment": FRENCH_WHERE_ENGLISH_WAS_ASKED[1]}
+
+    def completion(*_args, **kwargs):
+        captured["asked"] = _args[0] if _args else kwargs.get("system_prompt")
+        return {"success": True, "text": json.dumps(answer, ensure_ascii=False), "model": "m", "cost_usd": 0.0}
+
+    ai.text_completion = completion
+    action_cls = _install_comment_hook(monkeypatch, ai, captured)
+    monkeypatch.setattr(
+        "taktik.core.social_media.instagram.workflows.common.ai_hooks."
+        "InstagramPostedComments.recent_texts",
+        staticmethod(lambda account_id=None, limit=12: []),
+    )
+    host = SimpleNamespace(
+        scroll_actions=_FramedScroll("jane_doe Golden hour over the harbour, shot on film last weekend"),
+        _get_account_id=lambda: None,
+    )
+
+    result = action_cls.comment_on_post(host, username="jane_doe", custom_comments=["Superbe photo"])
+
+    assert "Write in English" in "".join(block["text"] for block in captured["asked"])
+    assert result["skipped"] is True and "fr" in result["skip_reason"]
+    assert "posted" not in captured, "no text in another language, and no custom comment in its place"
+
+
 def test_a_french_account_does_not_answer_a_german_comment_in_a_thread(monkeypatch):
     """Same rule for a reply as for a comment: {account language, English}. A German comment
     used to come back None, and the reply was written in the account's own language."""
