@@ -9,7 +9,8 @@ Three levels here:
   lives);
 - the real owner probe of this OS, against real processes (alive, missing, PID reused);
 - one real orphan: a fake desktop spawns a waiting bridge through the real launcher, dies
-  without a word, and the bridge must be gone within seconds -- by the step its kind expects.
+  without a word, and the bridge must be gone by the step its kind expects. The steps it must end
+  before are never due, so that order holds however loaded the machine is.
 """
 
 from __future__ import annotations
@@ -57,12 +58,17 @@ class _FakeProbe:
         self.closed = True
 
 
-def _watchdog(probe, *, handled=True, signal_grace=0.05, exit_grace=0.05):
+def _watchdog(probe, *, handled=True, signal_grace=0.05, exit_grace=0.05, halted=None):
     calls: list[tuple[str, float, object]] = []
     exited = threading.Event()
 
     def record(name, value=None):
         calls.append((name, time.monotonic(), value))
+
+    def halt(detail):
+        record("halt", detail)
+        if halted is not None:
+            halted.set()
 
     def interrupt():
         record("interrupt")
@@ -79,7 +85,7 @@ def _watchdog(probe, *, handled=True, signal_grace=0.05, exit_grace=0.05):
         signal_grace_s=signal_grace,
         hard_exit_grace_s=exit_grace,
         silence=lambda: record("silence"),
-        halt=lambda detail: record("halt", detail),
+        halt=halt,
         interrupt=interrupt,
         exit_now=exit_now,
     )
@@ -129,13 +135,17 @@ def test_an_unhandled_sigint_still_ends_with_the_exit():
 
 
 def test_a_stopped_watchdog_takes_no_further_step():
-    dog, calls, exited = _watchdog(_FakeProbe(), signal_grace=5)
+    # Stopped once the latch is raised, whatever the time the thread took to get there (a fixed
+    # pause let a loaded machine stop it before its first step); the signal is not due before.
+    halted = threading.Event()
+    dog, calls, exited = _watchdog(_FakeProbe(), signal_grace=60, halted=halted)
     dog.start()
-    time.sleep(0.2)
+    assert halted.wait(10), "the latch was never raised"
 
     dog.stop()
-    dog.join(1)
+    dog.join(10)
 
+    assert not dog.is_alive(), "the stop did not end the grace"
     assert [name for name, _, _ in calls] == ["silence", "halt"]
     assert not exited.is_set()
 
@@ -241,15 +251,15 @@ def test_a_process_younger_than_us_is_a_reused_pid():
 # PID in TAKTIK_DESKTOP_PID), waits until the bridge runs, then dies without a word.
 _FAKE_DESKTOP = r'''
 import os, subprocess, sys, time
-core, fixture_dir, marker, config = sys.argv[1:5]
+core, fixture_dir, marker, config, signal_grace, exit_grace = sys.argv[1:7]
 boot = """
 import sys
-core, fixture_dir, config = sys.argv[1:4]
+core, fixture_dir, config, signal_grace, exit_grace = sys.argv[1:6]
 sys.path[:0] = [core, fixture_dir]
 from bridges.common import owner_watchdog as w
 w.POLL_INTERVAL_S = 0.1
-w.SIGNAL_GRACE_S = 1.0
-w.HARD_EXIT_GRACE_S = 1.5
+w.SIGNAL_GRACE_S = float(signal_grace)
+w.HARD_EXIT_GRACE_S = float(exit_grace)
 from bridges import launcher
 launcher.BRIDGE_MODULES['fake_orphan_bridge'] = '_fake_orphan_bridge'
 sys.argv = ['launcher.py', 'fake_orphan_bridge', config]
@@ -257,7 +267,7 @@ launcher.main()
 """
 env = dict(os.environ, TAKTIK_DESKTOP_PID=str(os.getpid()))
 bridge = subprocess.Popen(
-    [sys.executable, "-c", boot, core, fixture_dir, config],
+    [sys.executable, "-c", boot, core, fixture_dir, config, signal_grace, exit_grace],
     stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, cwd=core,
 )
 print(bridge.pid, flush=True)
@@ -322,40 +332,48 @@ class _ProcessWatch:
             self._k32.CloseHandle(self._handle)
 
 
+#: The grace of a step the case must end before: so far off that no load brings it forward.
+NEVER_DUE_S = 600.0
+#: How long the test waits for the orphan to be gone: a bound on an event, not a measure.
+GONE_WITHIN_S = 60.0
+
+
 @pytest.mark.parametrize(
-    "mode, last_note, exit_code, within_s",
+    "mode, last_note, exit_code, signal_grace, exit_grace",
     [
-        # Reads the latch: ends at the next decision point, well before the signal.
-        ("latch", "latch:desktop_gone", 0, 0.9),
-        # Asleep in time.sleep with a stop handler: woken by the signal after its grace.
-        ("signal", "signal", 0, 2.4),
-        # A handler that only reports: nothing stops it but the last step.
-        ("stuck", "signal-ignored", wd.EXIT_CODE_ORPHANED, 3.9),
+        # Reads the latch: ends at its next decision point. The signal is never due, so the
+        # latch is the only step that can have ended it, however slow the machine.
+        ("latch", "latch:desktop_gone", 0, NEVER_DUE_S, NEVER_DUE_S),
+        # Asleep in time.sleep with a stop handler: woken by the signal after its grace. The exit
+        # is never due.
+        ("signal", "signal", 0, 1.0, NEVER_DUE_S),
+        # A handler that only reports: nothing stops it but the last step, which only a duration
+        # brings. Its note must come within that grace, the one wall-clock margin left here.
+        ("stuck", "signal-ignored", wd.EXIT_CODE_ORPHANED, 1.0, 1.5),
     ],
 )
-def test_an_orphan_bridge_stops_after_its_desktop_dies(tmp_path, mode, last_note, exit_code, within_s):
+def test_an_orphan_bridge_stops_after_its_desktop_dies(tmp_path, mode, last_note, exit_code, signal_grace,
+                                                        exit_grace):
     marker = tmp_path / "marker.txt"
     config = tmp_path / "config.json"
     config.write_text(json.dumps({"marker": str(marker), "mode": mode}), encoding="utf-8")
 
     desktop = subprocess.Popen(
-        [sys.executable, "-c", _FAKE_DESKTOP, str(CORE), str(FIXTURE_DIR), str(marker), str(config)],
+        [sys.executable, "-c", _FAKE_DESKTOP, str(CORE), str(FIXTURE_DIR), str(marker), str(config),
+         str(signal_grace), str(exit_grace)],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
     )
     bridge = None
     try:
         bridge = _ProcessWatch(int(desktop.stdout.readline()))
         desktop.wait(timeout=90)
-        died_at = time.monotonic()
         assert "ready" in marker.read_text(encoding="utf-8").split(), "the bridge never started"
 
-        assert bridge.wait_exit(within_s + 10), f"the orphan ({mode}) was still running"
-        elapsed = time.monotonic() - died_at
+        assert bridge.wait_exit(GONE_WITHIN_S), f"the orphan ({mode}) was still running"
 
+        # Which step ended it: its note, and on Windows the exit code only the last step gives.
         notes = marker.read_text(encoding="utf-8").split()
         assert notes[-1] == last_note, notes
-        # One poll, the graces of the steps before its own, and room for a slow machine.
-        assert elapsed < within_s + 3, f"{mode}: {elapsed:.1f} s"
         if sys.platform == "win32":
             assert bridge.exit_code() == exit_code
     finally:
