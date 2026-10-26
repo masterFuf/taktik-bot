@@ -214,6 +214,18 @@ def reply_mention(a, p):
     return {"success": True, "message": "notifications.reply_mention: reply opened"}
 
 
+@action("notifications.back_to_notifications")
+def back_to_notifications(a, p):
+    """Back to the notifications list from what a test opened over it (the reply sheet of a
+    mention, the follow requests): the production `_return_to_notifications`, Back until the list
+    is shown, a list under a sheet not counting as shown. Nothing pressed on the list itself."""
+    back = _workflow(a)._return_to_notifications()
+    msg = ("notifications.back_to_notifications: notifications list shown" if back
+           else "notifications.back_to_notifications: still not on the notifications list")
+    (logger.info if back else logger.warning)(msg)
+    return {"success": bool(back), "message": msg}
+
+
 @action("notifications.open_filter")
 def open_filter(a, p):
     """Tap the Filter button on the notifications screen.
