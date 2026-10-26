@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from loguru import logger
+
 from taktik.core.shared.device.app_manager import AppService
 from taktik.core.shared.device.connection import ConnectionService
 from bridges.common.entrypoint import send_run_error
@@ -12,9 +14,8 @@ from bridges.instagram.common.ipc import _ipc, send_error, send_status
 class InstagramDesktopRuntime:
     """Own bridge-owned runtime resources for one Instagram desktop session."""
 
-    def __init__(self, *, device_id: str | None, package_name: str | None, network_reset: dict):
+    def __init__(self, *, device_id: str | None, network_reset: dict):
         self.device_id = device_id
-        self.package_name = package_name
         self.network_reset = network_reset
         self.network_reset_enabled = network_reset.get("enabled", False)
         self.network_reset_method = network_reset.get("method", "data")
@@ -30,8 +31,9 @@ class InstagramDesktopRuntime:
         send_status("license_valid", "Database service configured")
         return True
 
-    def connect_device(self) -> bool:
-        """Connect to the specified device using ConnectionService."""
+    def connect_device(self, package_name: str | None) -> bool:
+        """Connect to the specified device using ConnectionService, its app service on `package_name`
+        (the clone the launcher read; None: the installed Instagram)."""
         try:
             send_status("connecting", f"Connecting to device {self.device_id}...")
 
@@ -49,7 +51,7 @@ class InstagramDesktopRuntime:
             self.app_service = AppService(
                 self.connection,
                 platform="instagram",
-                package_override=self.package_name,
+                package_override=package_name,
             )
 
             send_status("connected", f"Connected to {self.device_id}")
@@ -96,11 +98,15 @@ class InstagramDesktopRuntime:
         )
 
     def stop_app(self) -> None:
-        """Best-effort Instagram app stop at session end."""
+        """Instagram stopped at the end of the session. The run is over either way: a stop that fails
+        is said (the phone, the cause) and does not change its result."""
         if not self.app_service:
             return
 
         try:
-            self.app_service.stop()
-        except Exception:
-            pass
+            stopped = self.app_service.stop()
+        except Exception as e:
+            logger.warning(f"Instagram could not be stopped on {self.device_id} at the end of the run: {e}")
+            return
+        if not stopped:
+            logger.warning(f"Instagram did not stop on {self.device_id} at the end of the run")

@@ -7,6 +7,7 @@ import sys
 import traceback
 
 from bridges.instagram.common.ipc import logger
+from taktik.core.social_media.instagram.workflows.common.startup import package_name_from_payload
 
 
 def report_persona_entry_error(message: str, _reason: str) -> None:
@@ -28,7 +29,8 @@ class PersonaAnalysisRun:
 def run_persona_analysis(config: dict) -> None:
     """Connect the bridge and emit the final JSON result."""
     device_id = config.get("deviceId")
-    package_name = config.get("packageName")
+    # The clone the analysis runs on, read the way every Instagram run reads it; None: the installed one.
+    package_name = package_name_from_payload(config)
 
     if not device_id:
         print(json.dumps({"success": False, "error": "deviceId is required"}))
