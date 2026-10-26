@@ -21,6 +21,7 @@ from bridges.common.crash_hooks import exception_event
 from bridges.common.ipc import IPC
 from bridges.common.selector_platforms import register_selector_platforms
 from loguru import logger
+from taktik.core.shared.diagnostics.run_start import begin_run
 
 
 _ipc: IPC = IPC()
@@ -117,17 +118,6 @@ def report_entry_error(message: str, reason: str, exc: Optional[BaseException] =
         _ipc.error(message, error_code=code)
 
 
-def _reset_run_diagnostics() -> None:
-    # Module-level diagnostic counters would otherwise carry the previous run's counts.
-    for module in ('miss_capture', 'foreground_guard', 'screen_ring', 'run_halt'):
-        try:
-            __import__(f'taktik.core.shared.diagnostics.{module}', fromlist=['reinitialiser'])
-            sys.modules[f'taktik.core.shared.diagnostics.{module}'].reinitialiser()
-        except Exception:
-            # A diagnostic must never keep a bridge from starting.
-            pass
-
-
 def run_bridge_main(
     bridge_factory: Callable[[dict], Any],
     *,
@@ -168,7 +158,8 @@ def run_bridge_main(
         logger.error(f"No config file given. Usage: {usage}")
         sys.exit(1)
 
-    _reset_run_diagnostics()
+    # The run begins with nothing an earlier run of this process left (`run_start.py`).
+    begin_run()
     # Before the bridge is built, so before any phone connects (`compat/selectors/platforms.py`).
     register_selector_platforms()
 

@@ -1,6 +1,5 @@
 {
   "bridges/common/crash_hooks.py": 4,
-  "bridges/common/entrypoint.py": 1,
   "bridges/common/ipc.py": 2,
   "bridges/common/owner_watchdog.py": 1,
   "bridges/common/signal_handler.py": 2,
@@ -12,7 +11,6 @@
   "bridges/tools/lab/action_test/bundles/instagram.py": 1,
   "bridges/tools/lab/action_test/language.py": 1,
   "bridges/tools/lab/action_test/runner.py": 1,
-  "bridges/tools/lab/action_test/session.py": 1,
   "bridges/tools/lab/actions/instagram/publish.py": 3,
   "bridges/tools/lab/actions/instagram/tap.py": 1,
   "bridges/tools/lab/actions/tiktok/app.py": 1,

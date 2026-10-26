@@ -14,6 +14,7 @@ from bridges.tools.lab.action_test.runner import (
     _install_selector_tracer,
 )
 from bridges.tools.lab.events import emit
+from taktik.core.shared.diagnostics.run_start import begin_run
 
 
 class _SessionContextCache:
@@ -46,28 +47,6 @@ def _register_step_telemetry() -> None:
         }))
     except Exception as exc:
         logger.debug(f"Could not register the telemetry sink: {exc}")
-
-
-def _begin_action_run() -> None:
-    """Each Lab action is a run of its own: stop the network watch of the previous one, then lift
-    the run's stop lock it left.
-
-    A bridge process serves one run and starts with the lock lifted; this one serves an action
-    after another. Without this, a block or a lost phone seen by one action would end every
-    workflow action after it, in a session still open; and the watch a workflow action's network
-    door started would go on pinging the phone, and could stop a later action for its network. The
-    watch first: stopped, it can no longer set the lock that is lifted next.
-    """
-    from taktik.core.shared.device import network_watch
-
-    network_watch.stop_network_watch()
-    try:
-        from taktik.core.shared.diagnostics import run_halt
-
-        run_halt.reinitialiser()
-    except Exception:
-        # A diagnostic that stops an action from running would be worse than none.
-        pass
 
 
 def report_action_session_entry_error(message: str, _reason: str) -> None:
@@ -187,7 +166,9 @@ def run_action_session_bridge(config: dict) -> None:
             continue
 
         tracer.reset()
-        _begin_action_run()
+        # Each action is a run of its own: without this, a block or a lost phone seen by one action
+        # would end every workflow action after it, and its network watch would go on pinging.
+        begin_run()
         language_optimization = language.refresh()
         _execute_action(
             action_registry,

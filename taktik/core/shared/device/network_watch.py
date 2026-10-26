@@ -38,9 +38,9 @@ a burst a person would not make. The detection delay (at worst `MEASURE_INTERVAL
 
 **Its life.** The door starts it when it measures the session's baseline, never before an IP
 rotation, which cuts the network on purpose right after (`network_door.BEFORE_IP_ROTATION`). One
-watch per process: a new door replaces the watch before it, and a host that serves several runs in
-one process stops it when the next run begins (the Lab session, before each action, then lifts the
-latch). It stops by itself once the latch is set, by it or by anyone. A daemon thread: it ends with
+watch per process: a new door replaces the watch before it, and every host stops it when a run of
+its begins (`run_start.begin_run`, before it lifts the latch): the CLI's menu and the Lab session
+serve several runs in one process. It stops by itself once the latch is set, by it or by anyone. A daemon thread: it ends with
 the bridge's process. An IP rotation in the middle of a run (none today: the rotations of the
 bridges come before the door) would have to stop the watch first and have the door start it again.
 """
@@ -160,7 +160,7 @@ def start_network_watch(device_id: str, baseline: Dict[str, Any]) -> NetworkWatc
 
 
 def stop_network_watch() -> None:
-    """Stop the watch of the current run, if any. Called when a new run begins in the same process."""
+    """Stop the watch of the current run, if any. Called when a run begins (`run_start.begin_run`)."""
     global _watch
     watch, _watch = _watch, None
     if watch is not None:

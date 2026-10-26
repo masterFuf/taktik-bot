@@ -47,11 +47,10 @@ screen is never read for it, since a profile without network and a deleted accou
 (`configurer_temoin`), told once when the latch is set: that is where a block becomes one entry
 of the account's health history, whoever saw it. This module stays blind to accounts and SQLite.
 
-Un processus de pont sert un run : le verrou y part leve. `run_bridge_main` le remet aussi a zero
-au demarrage, comme les autres compteurs partages, pour les ponts qui passent par lui (pas les
-ponts Instagram, qui ont leur propre point d'entree). La session persistante du Cartography Lab,
-qui sert une action apres l'autre dans un meme processus, le leve avant chaque action -- sans quoi
-une action entrerait avec le verrou de la precedente et s'arreterait d'emblee.
+Qui le leve : `run_start.begin_run`, que chaque hote appelle au debut de chacun de ses runs
+(l'entree des ponts `run_bridge_main`, la session du Cartography Lab avant chaque action, chaque
+porte de la CLI, menu interactif compris). Sans quoi un run entrerait avec le verrou du run
+precedent du meme processus et s'arreterait d'emblee, sous un motif qui n'est pas le sien.
 """
 
 from __future__ import annotations
@@ -97,7 +96,7 @@ _temoin: Optional[Callable[[Dict[str, Any]], None]] = None
 
 
 def reinitialiser() -> None:
-    """Lever le verrou. Appele au demarrage d'un run par `run_bridge_main`."""
+    """Lever le verrou et oublier le temoin. Appele au debut d'un run par `run_start.begin_run`."""
     global _arret, _temoin
     _arret = None
     _temoin = None
