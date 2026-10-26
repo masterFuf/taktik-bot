@@ -12,6 +12,7 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
     POST_DETAIL_SELECTORS,
     POST_REELS_SELECTORS,
 )
+from taktik.core.social_media.instagram.workflows.common.comments_thread import compose_username_nodes
 
 # Labels that pass the username regex but are action buttons, not people.
 _COMMENTER_ACTION_TEXTS = frozenset({
@@ -78,6 +79,26 @@ def is_comments_view_open(device, logger=None) -> bool:
     return False
 
 
+def _compose_commenters(device, logger=None) -> List[Dict[str, Any]]:
+    """The authors of the comments list in the Compose shape (IG 442 and later), as rows; empty
+    on the older layouts, and when the list cannot be read (said in the log)."""
+    try:
+        nodes = device.xpath(POST_COMMENTS_SELECTORS.comments_list_nodes_selector()).all()
+    except Exception as exc:
+        if logger:
+            logger.debug(f"[commenters] comments list not read: {exc}")
+        return []
+    if not nodes:
+        return []
+    if getattr(nodes[0], "elem", None) is None:
+        if logger:
+            logger.debug("[commenters] the list's elements carry no tree: the Compose authors are not read")
+        return []
+    by_node = {element.elem: element for element in nodes}
+    return [{'username': handle, 'element': by_node[node]}
+            for handle, node in compose_username_nodes(nodes[0].elem) if node in by_node]
+
+
 def read_visible_commenters(device, logger=None) -> List[Dict[str, Any]]:
     """Read the people visible in the comments thread, as {'username', 'element'} rows.
 
@@ -90,7 +111,17 @@ def read_visible_commenters(device, logger=None) -> List[Dict[str, Any]]:
     buttons that are shaped exactly like a username node. Falls back to the whole screen if
     the container cannot be resolved, so a renamed RecyclerView degrades to the previous
     (over-broad) behaviour rather than to reading nothing.
+
+    From IG 442 on (447 included) the author is a TextView repeating its handle in its
+    content-desc, and the Button with an empty content-desc is a @mention inside a body: those
+    authors answer first (`comments_thread.compose_username_nodes`, the rule the like and the
+    reply pair their rows with), and a mention is never taken for one. The element is the
+    author's name: the avatar beside it opens the story of an author who has one up.
     """
+    compose = _compose_commenters(device, logger)
+    if compose:
+        return compose
+
     buttons = None
     for selector in (POST_COMMENTS_SELECTORS.commenter_button_nodes_in_list_selector,
                      POST_COMMENTS_SELECTORS.commenter_button_nodes_selector):
