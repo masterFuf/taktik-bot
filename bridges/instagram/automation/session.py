@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from loguru import logger
+
 from taktik.core.shared.device.app_manager import AppService
 from taktik.core.shared.device.connection import ConnectionService
 from bridges.common.entrypoint import send_run_error
@@ -96,11 +98,15 @@ class InstagramDesktopRuntime:
         )
 
     def stop_app(self) -> None:
-        """Best-effort Instagram app stop at session end."""
+        """Instagram stopped at the end of the session. The run is over either way: a stop that fails
+        is said (the phone, the cause) and does not change its result."""
         if not self.app_service:
             return
 
         try:
-            self.app_service.stop()
-        except Exception:
-            pass
+            stopped = self.app_service.stop()
+        except Exception as e:
+            logger.warning(f"Instagram could not be stopped on {self.device_id} at the end of the run: {e}")
+            return
+        if not stopped:
+            logger.warning(f"Instagram did not stop on {self.device_id} at the end of the run")
