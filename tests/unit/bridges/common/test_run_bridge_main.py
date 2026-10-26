@@ -148,3 +148,21 @@ def test_a_bridge_s_run_starts_without_what_an_earlier_run_of_its_process_left(m
 
     assert _run(monkeypatch, ["bridge", _config_file(tmp_path, "{}")], factory=_Observed) == 0
     assert bridge_run.started_with == [CLEAN]
+
+
+def test_a_bridge_s_run_leaves_no_watch_once_it_has_ended(monkeypatch, tmp_path, events):
+    """The entry ends the run (`end_run`) whatever way it leaves, a crash included: its watch is stopped."""
+    from unit.previous_run import RunThatLosesItsNetwork, watches_alive
+
+    run = RunThatLosesItsNetwork(monkeypatch)
+
+    class _Crashing:
+        def __init__(self, config):
+            pass
+
+        def run(self):
+            run()
+            raise RuntimeError("boom")
+
+    assert _run(monkeypatch, ["bridge", _config_file(tmp_path, "{}")], factory=_Crashing) == 1
+    assert watches_alive() == []

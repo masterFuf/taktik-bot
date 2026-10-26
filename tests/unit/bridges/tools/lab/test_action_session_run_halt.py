@@ -94,3 +94,40 @@ def test_each_action_starts_without_the_network_watch_of_the_previous_one(monkey
         run_halt.reinitialiser()
 
     assert watches_alive == [[], []]
+
+
+def test_no_watch_pings_the_phone_while_the_session_waits_for_its_next_action(monkeypatch):
+    """Between two actions the session waits on stdin: the watch of the action that ended is stopped."""
+    import taktik.core.shared.device.manager as manager
+    from unit.previous_run import RunThatLosesItsNetwork, watches_alive
+
+    class _DeviceManager:
+        def __init__(self, device_id):
+            self.device = object()
+
+        def connect(self, verify_atx=False):
+            return True
+
+    run = RunThatLosesItsNetwork(monkeypatch)
+    command = json.dumps({"type": "run_action", "action_id": "detection.dump_xml", "request_id": "r"})
+    waiting = []
+
+    def _commands():
+        # Each line is read while the session waits: note the watches alive at that moment.
+        for line in (command, command, '{"type": "close"}'):
+            waiting.append(watches_alive())
+            yield line + "\n"
+
+    monkeypatch.setattr(manager, "DeviceManager", _DeviceManager)
+    monkeypatch.setattr(session, "_load_platform_runtime",
+                        lambda platform: ({"detection.dump_xml": None}, lambda d: d, lambda f: {}))
+    monkeypatch.setattr(session, "_detect_and_optimize_selectors", lambda *a, **k: {})
+    monkeypatch.setattr(session, "_install_selector_tracer",
+                        lambda *a, **k: types.SimpleNamespace(reset=lambda: None))
+    monkeypatch.setattr(session, "_execute_action", lambda *a, **k: run())
+    monkeypatch.setattr(session, "emit", lambda payload: None)
+    monkeypatch.setattr(session.sys, "stdin", _commands())
+
+    session.run_action_session_bridge(config={"device_id": "fake", "platform": "instagram"})
+
+    assert waiting == [[], [], []]

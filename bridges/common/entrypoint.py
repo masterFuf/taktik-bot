@@ -21,7 +21,7 @@ from bridges.common.crash_hooks import exception_event
 from bridges.common.ipc import IPC
 from bridges.common.selector_platforms import register_selector_platforms
 from loguru import logger
-from taktik.core.shared.diagnostics.run_start import begin_run
+from taktik.core.shared.diagnostics.run_start import run_scope
 
 
 _ipc: IPC = IPC()
@@ -158,51 +158,52 @@ def run_bridge_main(
         logger.error(f"No config file given. Usage: {usage}")
         sys.exit(1)
 
-    # The run begins with nothing an earlier run of this process left (`run_start.py`).
-    begin_run()
-    # Before the bridge is built, so before any phone connects (`compat/selectors/platforms.py`).
-    register_selector_platforms()
+    # One run: begun with nothing an earlier run of this process left, its watch stopped at its end
+    # whatever way it leaves (`run_start.py`).
+    with run_scope():
+        # Before the bridge is built, so before any phone connects (`compat/selectors/platforms.py`).
+        register_selector_platforms()
 
-    config_path = sys.argv[1]
-    try:
-        config = load_bridge_config(config_path)
-    except Exception as exc:
-        report(CONFIG_ERROR, exc)
-        logger.error(f"Failed to load config from {config_path}: {exc}")
-        sys.exit(1)
-    if not isinstance(config, dict):
-        report(NOT_AN_OBJECT)
-        logger.error(f"Config in {config_path} is not a JSON object")
-        sys.exit(1)
-    _config_path = config_path
-
-    if not catch_crashes:
+        config_path = sys.argv[1]
         try:
-            code = bridge_factory(config).run()
+            config = load_bridge_config(config_path)
+        except Exception as exc:
+            report(CONFIG_ERROR, exc)
+            logger.error(f"Failed to load config from {config_path}: {exc}")
+            sys.exit(1)
+        if not isinstance(config, dict):
+            report(NOT_AN_OBJECT)
+            logger.error(f"Config in {config_path} is not a JSON object")
+            sys.exit(1)
+        _config_path = config_path
+
+        if not catch_crashes:
+            try:
+                code = bridge_factory(config).run()
+            except KeyboardInterrupt:
+                logger.info("Bridge interrupted by user")
+                sys.exit(0)
+            sys.exit(int(code or 0))
+
+        try:
+            bridge = bridge_factory(config)
+        except ImportError as exc:
+            send_import_error(exc)
+            sys.exit(1)
+        except Exception as exc:
+            report(INIT_ERROR, exc)
+            sys.exit(1)
+
+        try:
+            sys.exit(int(bridge.run()))
+        except SystemExit:
+            raise
         except KeyboardInterrupt:
             logger.info("Bridge interrupted by user")
             sys.exit(0)
-        sys.exit(int(code or 0))
-
-    try:
-        bridge = bridge_factory(config)
-    except ImportError as exc:
-        send_import_error(exc)
-        sys.exit(1)
-    except Exception as exc:
-        report(INIT_ERROR, exc)
-        sys.exit(1)
-
-    try:
-        sys.exit(int(bridge.run()))
-    except SystemExit:
-        raise
-    except KeyboardInterrupt:
-        logger.info("Bridge interrupted by user")
-        sys.exit(0)
-    except ImportError as exc:
-        send_import_error(exc)
-        sys.exit(1)
-    except Exception as exc:
-        report(CRASH, exc)
-        sys.exit(1)
+        except ImportError as exc:
+            send_import_error(exc)
+            sys.exit(1)
+        except Exception as exc:
+            report(CRASH, exc)
+            sys.exit(1)

@@ -39,8 +39,8 @@ a burst a person would not make. The detection delay (at worst `MEASURE_INTERVAL
 **Its life.** The door starts it when it measures the session's baseline, never before an IP
 rotation, which cuts the network on purpose right after (`network_door.BEFORE_IP_ROTATION`). One
 watch per process: a new door replaces the watch before it, and every host stops it when a run of
-its begins (`run_start.begin_run`, before it lifts the latch): the CLI's menu and the Lab session
-serve several runs in one process. It stops by itself once the latch is set, by it or by anyone. A daemon thread: it ends with
+its ends (`run_start.end_run`) and again when the next begins (`run_start.begin_run`, before it
+lifts the latch): the CLI's menu and the Lab session serve several runs in one process. It stops by itself once the latch is set, by it or by anyone. A daemon thread: it ends with
 the bridge's process. An IP rotation in the middle of a run (none today: the rotations of the
 bridges come before the door) would have to stop the watch first and have the door start it again.
 """
@@ -66,6 +66,11 @@ THREAD_NAME = "taktik-network-watch"
 
 #: How long `stop()` waits for a measure under way: beyond the probe's own adb timeout.
 _JOIN_TIMEOUT_S = 25.0
+
+#: How long the end of a run waits for a measure under way. A bridge exits right after, a menu goes
+#: back to its prompt: neither waits for adb. A watch still measuring then drops its verdict, and the
+#: start of the next run waits for it (`stop_network_watch`).
+END_OF_RUN_WAIT_S = 1.0
 
 
 def lost_network(measure: Optional[Dict[str, Any]], baseline: Dict[str, Any]) -> Optional[str]:
@@ -136,13 +141,13 @@ class NetworkWatch(threading.Thread):
         except Exception as exc:  # noqa: BLE001 -- a broken watch must not take the run down
             logger.warning(f"Network watch stopped watching {self.device_id} after {self.measures} measure(s): {exc}")
 
-    def stop(self) -> None:
-        """Stop watching, and wait for a measure under way (its verdict is dropped)."""
+    def stop(self, wait_s: float = _JOIN_TIMEOUT_S) -> bool:
+        """Stop watching, and wait up to `wait_s` for a measure under way (its verdict is dropped).
+        True once the thread is gone."""
         self._stopped.set()
         if self.is_alive() and self is not threading.current_thread():
-            self.join(timeout=_JOIN_TIMEOUT_S)
-            if self.is_alive():
-                logger.warning(f"Network watch on {self.device_id} still measuring after {_JOIN_TIMEOUT_S:g} s")
+            self.join(timeout=wait_s)
+        return not self.is_alive()
 
 
 _watch: Optional[NetworkWatch] = None
@@ -159,16 +164,29 @@ def start_network_watch(device_id: str, baseline: Dict[str, Any]) -> NetworkWatc
     return watch
 
 
-def stop_network_watch() -> None:
-    """Stop the watch of the current run, if any. Called when a run begins (`run_start.begin_run`)."""
+def stop_network_watch(wait_s: float = _JOIN_TIMEOUT_S) -> None:
+    """Stop the watch of the current run, if any, waiting up to `wait_s` for a measure under way.
+
+    Called when a run begins, with the full wait (`run_start.begin_run`), and when it ends, with
+    `END_OF_RUN_WAIT_S` (`run_start.end_run`). A watch still measuring after the short wait stays
+    known here, its verdict dropped: the start of the next run waits for it.
+    """
     global _watch
-    watch, _watch = _watch, None
-    if watch is not None:
-        watch.stop()
+    watch = _watch
+    if watch is None:
+        return
+    if watch.stop(wait_s):
+        _watch = None
+    elif wait_s < _JOIN_TIMEOUT_S:
+        logger.info(f"Network watch on {watch.device_id}: a measure under way, its verdict dropped")
+    else:
+        _watch = None
+        logger.warning(f"Network watch on {watch.device_id} still measuring after {wait_s:g} s")
 
 
 __all__ = [
     "CONFIRMATION_DELAY_S",
+    "END_OF_RUN_WAIT_S",
     "MEASURE_INTERVAL_S",
     "NetworkWatch",
     "THREAD_NAME",

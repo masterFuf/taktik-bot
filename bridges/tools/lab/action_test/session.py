@@ -14,7 +14,7 @@ from bridges.tools.lab.action_test.runner import (
     _install_selector_tracer,
 )
 from bridges.tools.lab.events import emit
-from taktik.core.shared.diagnostics.run_start import begin_run
+from taktik.core.shared.diagnostics.run_start import run_scope
 
 
 class _SessionContextCache:
@@ -166,28 +166,28 @@ def run_action_session_bridge(config: dict) -> None:
             continue
 
         tracer.reset()
-        # Each action is a run of its own: without this, a block or a lost phone seen by one action
-        # would end every workflow action after it, and its network watch would go on pinging.
-        begin_run()
-        language_optimization = language.refresh()
-        _execute_action(
-            action_registry,
-            action_id,
-            bundle,
-            params,
-            tracer,
-            platform=platform,
-            device_id=device_id,
-            mode=command.get("mode", mode),
-            capture_artifacts=bool(command.get("capture_artifacts", capture_artifacts)),
-            perf_fast=bool(command.get("perf_fast", perf_fast)),
-            language_optimization=language_optimization,
-            request_id=request_id,
-            exit_on_error=False,
-            session_context_cache=session_context_cache,
-            scenario=scenario,
-            refresh_language=language.refresh,
-        )
+        # Each action is a run of its own: without it, a block or a lost phone seen by one action would
+        # end every workflow action after it, and its network watch would ping while the session waits.
+        with run_scope():
+            language_optimization = language.refresh()
+            _execute_action(
+                action_registry,
+                action_id,
+                bundle,
+                params,
+                tracer,
+                platform=platform,
+                device_id=device_id,
+                mode=command.get("mode", mode),
+                capture_artifacts=bool(command.get("capture_artifacts", capture_artifacts)),
+                perf_fast=bool(command.get("perf_fast", perf_fast)),
+                language_optimization=language_optimization,
+                request_id=request_id,
+                exit_on_error=False,
+                session_context_cache=session_context_cache,
+                scenario=scenario,
+                refresh_language=language.refresh,
+            )
 
 
 def _load_platform_runtime(platform: str):

@@ -6,10 +6,11 @@ again later » left the latch set, and the next run of the menu stopped before i
 under the motive of the run before. The network watch of the first run went on pinging the phone
 while the menu waited, and could set the latch for a run that had not started.
 
-Every door of the CLI that runs a workflow begins the run by `begin_run`
-(`taktik/core/shared/diagnostics/run_start.py`), as the bridges' entry and the Lab session do. Each
-door is played twice here, by its real code down to the workflow it calls: the first run sets the
-latch and leaves its watch running, the second must start without either.
+Every door of the CLI that runs a workflow runs it inside `run_scope()`
+(`taktik/core/shared/diagnostics/run_start.py`), as the bridges' entry and the Lab session do: the run
+begins clean (`begin_run`) and its watch stops when it ends (`end_run`). Each door is played twice
+here, by its real code down to the workflow it calls: the first run sets the latch and leaves its
+watch running; no watch may be left once it has ended, and the second run must start without either.
 """
 from __future__ import annotations
 
@@ -28,7 +29,7 @@ from taktik.cli.hosts.phone import CliPhone
 from taktik.cli.menus import registry as registry_menu
 from taktik.core.social_media.instagram.workflows.agent import agent_handler as agent_launcher
 from taktik.core.social_media.instagram.workflows.publish import agent_handler as publish_launcher
-from unit.previous_run import CLEAN, SERIAL, RunThatLosesItsNetwork
+from unit.previous_run import CLEAN, SERIAL, RunThatLosesItsNetwork, watches_alive
 
 
 class _ConnectedManager:
@@ -49,8 +50,7 @@ def _menu_automation(monkeypatch, tmp_path, run):
     monkeypatch.setattr(ai_key, "ensure_ai_key", lambda *a, **k: None)
     monkeypatch.setattr(cli_registry, "build_registry", lambda **kwargs: None)
     monkeypatch.setattr(cli_registry, "handler_on_phone", lambda build, workflow_id, phone: run)
-    for _ in range(2):
-        instagram_host.run_instagram_payload(_ConnectedManager(), SERIAL, {"workflowType": "target_profiles"})
+    instagram_host.run_instagram_payload(_ConnectedManager(), SERIAL, {"workflowType": "target_profiles"})
 
 
 def _menu_registry(monkeypatch, tmp_path, run):
@@ -62,8 +62,7 @@ def _menu_registry(monkeypatch, tmp_path, run):
     # The first entry, then an empty parameter line.
     monkeypatch.setattr(registry_menu.click, "prompt", lambda text, **k: "" if "param" in str(text) else 1)
     monkeypatch.setattr("builtins.input", lambda *a, **k: "")
-    for _ in range(2):
-        registry_menu.run_registry_menu("tiktok", _ConnectedManager(), SERIAL)
+    registry_menu.run_registry_menu("tiktok", _ConnectedManager(), SERIAL)
 
 
 def _menu_publish(monkeypatch, tmp_path, run):
@@ -72,8 +71,7 @@ def _menu_publish(monkeypatch, tmp_path, run):
     image.write_bytes(b"\xff\xd8\xff")
     monkeypatch.setattr(workflow_cmds, "_choose_phone", _phone)
     monkeypatch.setattr(publish_launcher, "run_instagram_publish", run)
-    for _ in range(2):
-        assert publish_cmds.run_publish("post", SERIAL, (str(image),)) is True
+    assert publish_cmds.run_publish("post", SERIAL, (str(image),)) is True
 
 
 def _command_workflows_run(monkeypatch, tmp_path, run):
@@ -82,19 +80,16 @@ def _command_workflows_run(monkeypatch, tmp_path, run):
     monkeypatch.setattr(workflow_cmds, "build_registry", lambda **kwargs: build)
     monkeypatch.setattr(workflow_cmds, "handler_on_phone", lambda build, workflow_id, phone: run)
     monkeypatch.setattr(workflow_cmds, "ensure_ai_key", lambda *a, **k: None)
-    for _ in range(2):
-        result = CliRunner().invoke(workflow_cmds.workflows,
-                                    ["run", "tiktok.automation.for_you", "--device", SERIAL])
-        assert result.exit_code == 0, result.output
+    result = CliRunner().invoke(workflow_cmds.workflows, ["run", "tiktok.automation.for_you", "--device", SERIAL])
+    assert result.exit_code == 0, result.output
 
 
 def _command_agent_run(monkeypatch, tmp_path, run):
     monkeypatch.setattr(workflow_cmds, "_choose_phone", _phone)
     monkeypatch.setattr(agent_cmds, "ensure_ai_key", lambda *a, **k: None)
     monkeypatch.setattr(agent_launcher, "run_instagram_agent", run)
-    for _ in range(2):
-        result = CliRunner().invoke(agent_cmds.agent, ["run", "--device", SERIAL])
-        assert result.exit_code == 0, result.output
+    result = CliRunner().invoke(agent_cmds.agent, ["run", "--device", SERIAL])
+    assert result.exit_code == 0, result.output
 
 
 DOORS = {
@@ -111,5 +106,16 @@ def test_the_second_run_of_a_door_starts_without_what_the_first_left(door, monke
     run = RunThatLosesItsNetwork(monkeypatch)
 
     door(monkeypatch, tmp_path, run)
+    door(monkeypatch, tmp_path, run)
 
     assert run.started_with == [CLEAN, CLEAN]
+
+
+@pytest.mark.parametrize("door", list(DOORS.values()), ids=list(DOORS))
+def test_no_watch_pings_the_phone_once_a_run_of_a_door_has_ended(door, monkeypatch, tmp_path):
+    # The menu waits for the operator between two runs: nothing measures the phone meanwhile.
+    run = RunThatLosesItsNetwork(monkeypatch)
+
+    door(monkeypatch, tmp_path, run)
+
+    assert watches_alive() == []

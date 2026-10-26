@@ -1,4 +1,5 @@
-"""A run begins: what an earlier run of the same process left is cleared, in one place.
+"""A run begins and ends in one place: what an earlier run of the process left is cleared, and the
+network watch of a run stops with it.
 
 A bridge process serves one run. Two hosts serve several in one process: the CLI's interactive menu
 (one run after another) and the Cartography Lab session (one action after another). What a run keeps
@@ -8,10 +9,15 @@ the screens of the black box (`screen_ring`), the clock of the foreground check 
 Left in place, the next run of the menu started with the latch of the run before and stopped before
 its first gesture, under a motive that was not its own, while the watch went on pinging the phone.
 
-Every host calls `begin_run()` where one of its runs begins, before the run touches anything:
-`run_bridge_main` (the entry of every bridge), the Lab session before each action, and each door of
-the CLI that runs a workflow. `tests/unit/shared/diagnostics/test_run_start.py` holds every host to
-it, and holds that nothing else lifts the latch or stops the watch.
+A run ends too: the menu waits for the operator, the Lab session for its next action, and the
+watch of the run that ended went on pinging the phone meanwhile, and could log a loss of network for
+no run at all. `end_run()` stops it; the latch stays as the run left it, until the next run begins.
+
+Every host runs each of its runs inside `run_scope()`, which begins it and ends it whatever way it
+leaves (in TypeScript, `begin(); try { ... } finally { end(); }`): `run_bridge_main` (the entry of
+every bridge), the Lab session around each action, and each door of the CLI that runs a workflow.
+`tests/unit/shared/diagnostics/test_run_start.py` holds every host to it, and holds that nothing else
+lifts the latch or stops the watch. The test harness begins each test as a run (`tests/unit/conftest.py`).
 
 A host, never a launcher: a plan of the kernel (`kernel/executor.py`) runs several workflows as one
 run, and a block seen by its first step must stop the next. In Symfony terms: the reset of the
@@ -20,6 +26,9 @@ messages, never by a handler.
 """
 
 from __future__ import annotations
+
+from contextlib import contextmanager
+from typing import Iterator
 
 from taktik.core.shared.device import network_watch
 from taktik.core.shared.diagnostics import foreground_guard, miss_capture, run_halt, screen_ring
@@ -37,4 +46,19 @@ def begin_run() -> None:
     screen_ring.reinitialiser()
 
 
-__all__ = ["begin_run"]
+def end_run() -> None:
+    """Stop the network watch of the run that ended: nothing measures the phone until the next run."""
+    network_watch.stop_network_watch(wait_s=network_watch.END_OF_RUN_WAIT_S)
+
+
+@contextmanager
+def run_scope() -> Iterator[None]:
+    """One run of a host: `with run_scope(): <the run>`. Begun clean, ended even when the run raises."""
+    begin_run()
+    try:
+        yield
+    finally:
+        end_run()
+
+
+__all__ = ["begin_run", "end_run", "run_scope"]
