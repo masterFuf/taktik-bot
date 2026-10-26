@@ -27,12 +27,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Optional
 
+# Tests and fixtures hold literals that are not device input: `product_files` leaves them out.
+from ratchet import product_files
 
 ROOT = Path(__file__).resolve().parents[2]
-SCAN_ROOTS = (
-    ROOT / "taktik" / "core",
-    ROOT / "bridges",
-)
 
 # method name -> how many leading positional args are coordinates
 COORD_METHODS = {
@@ -46,9 +44,6 @@ COORD_METHODS = {
     "drag": 4,
     "human_drag_between_raw": 4,   # (device, (x, y), (x, y)) -- tuples are flattened below
 }
-
-# Files whose literals are documentation or test fixtures, not device input.
-EXCLUDED_PARTS = ("__pycache__", "/tests/", "\\tests\\", "test_")
 
 
 @dataclass(frozen=True)
@@ -114,16 +109,7 @@ def _scan_file(path: Path) -> List[Finding]:
 
 
 def collect() -> List[Finding]:
-    findings: List[Finding] = []
-    for root in SCAN_ROOTS:
-        if not root.exists():
-            continue
-        for path in sorted(root.rglob("*.py")):
-            text = str(path)
-            if any(part in text for part in EXCLUDED_PARTS):
-                continue
-            findings.extend(_scan_file(path))
-    return findings
+    return [finding for path in product_files(ROOT) for finding in _scan_file(path)]
 
 
 def main() -> int:

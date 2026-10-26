@@ -316,8 +316,9 @@ class InstagramColdDmRig:
         mp.setattr(app_manager, "get_installed_app_version", lambda device_id, package, platform: "410.0.0.53.71")
         from taktik.core.compat.selectors import setup as compat_setup
 
-        mp.setattr(compat_setup, "apply_version_overrides",
-                   lambda platform, version: rig.calls.append(f"version_overrides {version}") or 0)
+        patch_seam(mp, compat_setup.__name__, "apply_version_overrides",
+                   lambda platform, version: rig.calls.append(f"version_overrides {version}") or 0,
+                   copies=False)
         patch_seam(mp, "taktik.core.clone", "set_active_package",
                    lambda package: rig.calls.append(f"active_package {package}"))
         patch_seam(mp, "taktik.core.social_media.instagram.ui.language", "detect_and_optimize",

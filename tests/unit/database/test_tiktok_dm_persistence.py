@@ -41,6 +41,9 @@ def database(tmp_path, monkeypatch):
 def persistence(monkeypatch):
     import taktik.core.database as database
     from taktik.core.database import tiktok_dm
+    # Copies `configure_db_service` when it is imported: imported before the patch, it keeps the
+    # real one (imported first by a test below, it kept the double for the rest of the session).
+    from taktik.core.database import tiktok_account_identity  # noqa: F401
 
     # The profile link is a separate concern with its own database service; the direction rule
     # under test does not depend on it.

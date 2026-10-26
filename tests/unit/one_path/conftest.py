@@ -184,7 +184,11 @@ class Rig:
             def launch(self):
                 rig.calls.append("launch tiktok")
 
-        mp.setattr("taktik.core.social_media.tiktok.TikTokManager", FakeTikTokManager)
+        # A name some module copies when it is imported is patched by `patch_seam`, never by
+        # `mp.setattr` (`test_one_path_seams.py` holds every rig to it): a copier imported later
+        # in this install would keep the double for the rest of the session. `copies=False` where
+        # the rig replaces the source alone: the copies stay real, whatever the order of the tests.
+        patch_seam(mp, "taktik.core.social_media.tiktok", "TikTokManager", FakeTikTokManager, copies=False)
 
         class FakePermissionHandler:
             def __init__(self, device, device_id=""):
@@ -285,8 +289,8 @@ class Rig:
             workflow as search_workflow,
         )
 
-        mp.setattr(for_you_workflow, "ForYouWorkflow", FakeVideoWorkflow)
-        mp.setattr(search_workflow, "SearchWorkflow", FakeVideoWorkflow)
+        patch_seam(mp, for_you_workflow.__name__, "ForYouWorkflow", FakeVideoWorkflow, copies=False)
+        patch_seam(mp, search_workflow.__name__, "SearchWorkflow", FakeVideoWorkflow, copies=False)
 
         from taktik.core.social_media.tiktok.workflows.automation.followers.models import (
             FollowersStats,
@@ -342,11 +346,6 @@ class Rig:
                     self.callbacks["pause"](9)
                 return ScriptedFollowersStats(**outcome)
 
-        from taktik.core.social_media.tiktok.workflows.automation import (
-            followers as followers_package,
-            post_url as post_url_package,
-            target_profiles as target_profiles_package,
-        )
         from taktik.core.social_media.tiktok.workflows.automation.followers import (
             agent_handler as followers_handler,
             workflow as followers_workflow,
@@ -359,12 +358,9 @@ class Rig:
         )
 
         for module, name in ((followers_workflow, "FollowersWorkflow"),
-                             (followers_package, "FollowersWorkflow"),
                              (target_profiles_workflow, "TargetProfilesWorkflow"),
-                             (target_profiles_package, "TargetProfilesWorkflow"),
-                             (post_url_workflow, "PostUrlWorkflow"),
-                             (post_url_package, "PostUrlWorkflow")):
-            mp.setattr(module, name, FakeProfileWorkflow)
+                             (post_url_workflow, "PostUrlWorkflow")):
+            patch_seam(mp, module.__name__, name, FakeProfileWorkflow)
 
         # A registrar may bind its default factory when it is defined: patch that too, so the
         # rig never builds a real workflow whatever the handler does.
@@ -386,7 +382,7 @@ class Rig:
 
         from taktik.core.social_media.tiktok.services.navigation import reset
 
-        mp.setattr(reset, "return_to_tiktok_home", fake_return_home)
+        patch_seam(mp, reset.__name__, "return_to_tiktok_home", fake_return_home, copies=False)
         # Bound by name at import in the old Search and Followers bridges.
         from bridges.tiktok.automation import followers as followers_bridge
         from bridges.tiktok.automation import search_callbacks
@@ -471,7 +467,6 @@ class Rig:
         mp.setattr(publish_bridge.TikTokPublishBridge, "_capture_phase",
                    lambda _self, device, phase: rig.calls.append(f"capture {phase}"))
 
-        from taktik.core.social_media.tiktok.workflows import publish as publish_package
         from taktik.core.social_media.tiktok.workflows.publish import (
             agent_handler as publish_handler,
             upload_workflow,
@@ -497,8 +492,7 @@ class Rig:
                 return dict(rig.upload_outcome or {"success": True, "message": "Video published",
                                                    "error_type": None})
 
-        for module in (upload_workflow, publish_package):
-            mp.setattr(module, "TikTokUploadWorkflow", FakeUploadWorkflow)
+        patch_seam(mp, upload_workflow.__name__, "TikTokUploadWorkflow", FakeUploadWorkflow)
         for fn in (publish_handler.register_tiktok_publish_handlers,
                    publish_handler.build_tiktok_upload_post_handler):
             if (fn.__kwdefaults__ or {}).get("workflow_factory") is not None:
@@ -550,9 +544,6 @@ class Rig:
         mp.setattr(signal, "signal", lambda signum, handler: rig.signal_handlers.__setitem__(signum, handler))
         mp.setattr(signal_handler, "_ipc", None)
 
-        from taktik.core.social_media.tiktok.workflows import (
-            scraping as scraping_package,
-        )
         from taktik.core.social_media.tiktok.workflows.scraping import (
             agent_handler as scraping_handler,
             workflow as scraping_workflow,
@@ -634,8 +625,7 @@ class Rig:
                     self.completion_reason = rig.scraping_reason or "completed"
                 return profiles
 
-        for module in (scraping_workflow, scraping_package):
-            mp.setattr(module, "ScrapingWorkflow", FakeScrapingWorkflow)
+        patch_seam(mp, scraping_workflow.__name__, "ScrapingWorkflow", FakeScrapingWorkflow)
 
         class FakeScrapingNavigation:
             def __init__(self, device):
@@ -694,9 +684,6 @@ class Rig:
         rig = self
         mp = self.monkeypatch
 
-        from taktik.core.social_media.tiktok.workflows.automation import (
-            sync_lists as sync_lists_package,
-        )
         from taktik.core.social_media.tiktok.workflows.automation.sync_lists import (
             workflow as sync_lists_workflow,
         )
@@ -733,8 +720,7 @@ class Rig:
                     outcome.update(rig.sync_runs.pop(0))
                 return ScriptedSyncStats(**outcome)
 
-        for module in (sync_lists_workflow, sync_lists_package):
-            mp.setattr(module, "SyncListsWorkflow", FakeSyncListsWorkflow)
+        patch_seam(mp, sync_lists_workflow.__name__, "SyncListsWorkflow", FakeSyncListsWorkflow)
 
     def _install_inbox_fakes(self) -> None:
         rig = self
@@ -775,8 +761,8 @@ class Rig:
             def is_on_inbox_page(self):
                 return rig.inbox_opens
 
-        mp.setattr("taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions.DMActions",
-                   FakeDMActions)
+        patch_seam(mp, "taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions", "DMActions",
+                   FakeDMActions, copies=False)
 
         class FakeActivityActions:
             def __init__(self, device):
@@ -810,10 +796,8 @@ class Rig:
                 rig.calls.append(f"follow_suggested {name}")
                 return True
 
-        mp.setattr(
-            "taktik.core.social_media.tiktok.actions.atomic.interaction.activity_actions.ActivityActions",
-            FakeActivityActions,
-        )
+        patch_seam(mp, "taktik.core.social_media.tiktok.actions.atomic.interaction.activity_actions",
+                   "ActivityActions", FakeActivityActions, copies=False)
 
         # The database, at the seams every notification writer goes through.
         from taktik.core.database import tiktok_account_identity
@@ -854,7 +838,6 @@ class Rig:
         rig = self
         mp = self.monkeypatch
 
-        from taktik.core.social_media.tiktok.workflows import dm as dm_package
         from taktik.core.social_media.tiktok.workflows.dm import (
             agent_handler as dm_handler,
             inbox_agent_handler as inbox_handler,
@@ -1009,8 +992,7 @@ class Rig:
                     self._fire("notification", row)
                 return rows
 
-        for module in (dm_workflow, dm_package):
-            mp.setattr(module, "DMWorkflow", FakeDMWorkflow)
+        patch_seam(mp, dm_workflow.__name__, "DMWorkflow", FakeDMWorkflow)
         # A registrar may bind its default factory when it is defined.
         for fn in (dm_handler.register_tiktok_dm_handlers, dm_handler.build_tiktok_dm_handler,
                    inbox_handler.register_tiktok_inbox_handlers, inbox_handler.build_tiktok_inbox_handler):
@@ -1070,7 +1052,6 @@ class Rig:
         rig = self
         mp = self.monkeypatch
 
-        from taktik.core.social_media.tiktok.workflows.automation import unfollow as unfollow_package
         from taktik.core.social_media.tiktok.workflows.automation.unfollow import (
             agent_handler as unfollow_handler,
             workflow as unfollow_workflow,
@@ -1130,8 +1111,7 @@ class Rig:
                 self._fire("stats", stats.to_dict())
                 return stats
 
-        for module in (unfollow_workflow, unfollow_package):
-            mp.setattr(module, "UnfollowWorkflow", FakeUnfollowWorkflow)
+        patch_seam(mp, unfollow_workflow.__name__, "UnfollowWorkflow", FakeUnfollowWorkflow)
         # A registrar may bind its default factory when it is defined.
         for fn in (unfollow_handler.register_tiktok_unfollow_handlers,
                    unfollow_handler.build_tiktok_unfollow_handler):

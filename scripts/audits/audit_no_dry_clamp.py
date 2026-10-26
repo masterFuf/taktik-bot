@@ -36,13 +36,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Set, Tuple
 
+from ratchet import product_files
 
 ROOT = Path(__file__).resolve().parents[2]
-SCAN_ROOTS = (
-    ROOT / "taktik" / "core",
-    ROOT / "bridges",
-)
-EXCLUDED_PARTS = ("__pycache__", "/tests/", "\\tests\\", "test_")
 
 # Methods of `random.Random` / numpy generators that return a random value.
 RANDOM_METHODS = {
@@ -321,15 +317,7 @@ def scan_source(source: str, rel: str = "<source>") -> List[Finding]:
 
 
 def collect() -> List[Finding]:
-    findings: List[Finding] = []
-    for root in SCAN_ROOTS:
-        if not root.exists():
-            continue
-        for path in sorted(root.rglob("*.py")):
-            if any(part in str(path) for part in EXCLUDED_PARTS):
-                continue
-            findings.extend(_scan_file(path))
-    return findings
+    return [finding for path in product_files(ROOT) for finding in _scan_file(path)]
 
 
 def main() -> int:
