@@ -22,29 +22,13 @@ sys.path.insert(0, str(CORE))
 
 from taktik.core.shared.device import adb, network_probe  # noqa: E402
 from unit.android_shell import adb_line, phone_words  # noqa: E402
-
-PING_COMPLET = """PING 1.1.1.1 (1.1.1.1) 56(84) bytes of data.
-64 bytes from 1.1.1.1: icmp_seq=1 ttl=57 time=23.4 ms
-64 bytes from 1.1.1.1: icmp_seq=2 ttl=57 time=24.9 ms
-64 bytes from 1.1.1.1: icmp_seq=3 ttl=57 time=26.4 ms
-
---- 1.1.1.1 ping statistics ---
-3 packets transmitted, 3 received, 0% packet loss, time 2003ms
-rtt min/avg/max/mdev = 23.418/24.905/26.377/1.207 ms"""
-
-PING_SANS_RESUME = """PING 1.1.1.1 (1.1.1.1) 56(84) bytes of data.
-64 bytes from 1.1.1.1: icmp_seq=1 ttl=57 time=100.0 ms
-64 bytes from 1.1.1.1: icmp_seq=2 ttl=57 time=200.0 ms"""
-
-PING_TOUT_PERDU = """PING 1.1.1.1 (1.1.1.1) 56(84) bytes of data.
-
---- 1.1.1.1 ping statistics ---
-3 packets transmitted, 0 received, 100% packet loss, time 2015ms"""
-
-#: Ce que ping repond sur un telephone sans aucune route (Pixel 3, 28/09 : ni donnees mobiles ni
-#: Wi-Fi), tel que le rapport du lot planifrun le cite. La sortie exacte reste a relever sur un
-#: telephone sans reseau (preuve a faire avec Kevin).
-PING_INJOIGNABLE = "connect: Network is unreachable"
+from unit.ping_outputs import (  # noqa: E402
+    PING_ABSENT,
+    PING_COMPLET,
+    PING_INJOIGNABLE,
+    PING_SANS_RESUME,
+    PING_TOUT_PERDU,
+)
 
 
 @pytest.fixture
@@ -145,6 +129,6 @@ def test_une_sortie_muette_ne_donne_rien(ping):
 
 
 def test_une_sortie_illisible_ne_donne_rien(ping):
-    ping('/system/bin/sh: ping: not found')
+    ping(PING_ABSENT)
 
     assert network_probe.measure_network_baseline('SERIE') is None

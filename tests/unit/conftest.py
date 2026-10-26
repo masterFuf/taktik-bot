@@ -240,6 +240,18 @@ def _network_door_never_reaches_adb(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _network_watch_never_starts(monkeypatch):
+    """The door starts the run's network watch (`network_watch.start_network_watch`), a thread that
+    pings the phone with the real adb every few seconds: in a test, the door starts none, even on a
+    readable measure, and no watch outlives its test. A test of the watch starts its own."""
+    from taktik.core.shared.device import network_door, network_watch
+
+    monkeypatch.setattr(network_door, "start_network_watch", lambda device_id, baseline: None)
+    yield
+    network_watch.stop_network_watch()
+
+
+@pytest.fixture(autouse=True)
 def _no_operator_settings_file(monkeypatch, tmp_path_factory):
     """No test reads or writes the operator's `~/.taktik/api_config.json` (a saved OpenRouter key
     there would turn every "no key" test green or red depending on the machine), and no key typed

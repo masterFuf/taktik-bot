@@ -49,12 +49,18 @@ def _register_step_telemetry() -> None:
 
 
 def _begin_action_run() -> None:
-    """Each Lab action is a run of its own: lift the run's stop lock left by the previous one.
+    """Each Lab action is a run of its own: stop the network watch of the previous one, then lift
+    the run's stop lock it left.
 
     A bridge process serves one run and starts with the lock lifted; this one serves an action
     after another. Without this, a block or a lost phone seen by one action would end every
-    workflow action after it, in a session still open.
+    workflow action after it, in a session still open; and the watch a workflow action's network
+    door started would go on pinging the phone, and could stop a later action for its network. The
+    watch first: stopped, it can no longer set the lock that is lifted next.
     """
+    from taktik.core.shared.device import network_watch
+
+    network_watch.stop_network_watch()
     try:
         from taktik.core.shared.diagnostics import run_halt
 

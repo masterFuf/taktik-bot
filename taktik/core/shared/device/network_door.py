@@ -13,6 +13,10 @@ bridges as an `error` line (`NETWORK_UNREACHABLE`), the CLI on its console.
 
 In Symfony terms: a voter the core consults before the run, not a listener of one host. The measure
 itself is the probe's (`network_probe.measure_network_baseline`); this module decides.
+
+The door also hands the run to the network watch (`network_watch.py`), which measures the phone again
+during the run and stops it when the network goes: the session's baseline starts the watch, the
+measure before an IP rotation never does (the rotation cuts the network on purpose).
 """
 
 from __future__ import annotations
@@ -22,6 +26,7 @@ from typing import Optional
 from loguru import logger
 
 from taktik.core.shared.device.network_probe import measure_network_baseline
+from taktik.core.shared.device.network_watch import start_network_watch
 
 #: The moment of a run the measure is the baseline of: the network the run starts on.
 SESSION_BASELINE = "session_baseline"
@@ -53,7 +58,8 @@ def open_network_door(device_id: Optional[str], *, moment: str = SESSION_BASELIN
     `NetworkUnreachableError` when ping says the phone has no route.
 
     A readable measure travels as the step `network_probe` (`action` is `moment`) and in the run's
-    log: the question « was the network slow? » has a measured answer, kept with the run.
+    log: the question « was the network slow? » has a measured answer, kept with the run. At the
+    session's baseline, it also starts the network watch of the run.
     """
     if not device_id:
         logger.warning("Network door: no device serial, the phone's network was not measured")
@@ -84,6 +90,8 @@ def open_network_door(device_id: Optional[str], *, moment: str = SESSION_BASELIN
         packet_loss_pct=baseline["packet_loss_pct"],
         replies=baseline["received"],
     )
+    if moment == SESSION_BASELINE:
+        start_network_watch(device_id, baseline)
     return baseline
 
 

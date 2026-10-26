@@ -8,8 +8,9 @@ this test goes through the code of the last two with the real loop and the real 
 - the latch's motive only replaced a FAILED end, and a list that runs out ends `completed`;
 - the status was the caller's, and the profile-list loop always said COMPLETED.
 
-The latch is set while the navigation waits, as the network watch would: the test does not need
-the watch, only what it leaves behind.
+The latch is set while the navigation waits, by the network watch itself (its rule, measured twice
+on the C57S's answer without network, without its thread): the line it ends on is the one the
+desktop's scheduler check plays (`scheduler-run-failure.cjs`, « a run whose phone lost its network »).
 """
 
 import json
@@ -19,12 +20,18 @@ from types import SimpleNamespace
 import pytest
 from loguru import logger
 
+from taktik.core.shared.device import network_probe
+from taktik.core.shared.device.network_watch import NetworkWatch
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.social_media.instagram.actions.base.base_business.profile_processing import (
     ProfileProcessingMixin,
 )
 from taktik.core.social_media.instagram.workflows.automation.profile_list import ProfileListWorkflowMixin
 from taktik.core.social_media.instagram.workflows.common.workflow_helpers import WorkflowHelpers
+from unit.ping_outputs import PING_INJOIGNABLE
+
+#: The door's measure at the start of that run.
+DEPART = {'rtt_ms': 377.3, 'packet_loss_pct': 0.0, 'received': 3, 'unreachable': False}
 
 
 @pytest.fixture(autouse=True)
@@ -78,9 +85,12 @@ def _session_stop(capsys) -> dict:
     return stops[0]
 
 
-def test_the_run_ends_on_the_lost_network_not_on_its_finished_list(capsys):
+def test_the_run_ends_on_the_lost_network_not_on_its_finished_list(capsys, monkeypatch):
+    monkeypatch.setattr(network_probe, '_shell', lambda device_id, command, timeout=15: PING_INJOIGNABLE)
+    watch = NetworkWatch('C57S', DEPART)
+
     def navigation_while_the_network_goes(username):
-        run_halt.demander_arret(run_halt.NETWORK_LOST, "no route to the Internet, measured twice")
+        assert [watch.tick(), watch.tick()] == [False, True]
         return False
 
     _ProfileListRun(navigation_while_the_network_goes).interact_with_profile_list(['nasa'])
@@ -88,6 +98,8 @@ def test_the_run_ends_on_the_lost_network_not_on_its_finished_list(capsys):
     stop = _session_stop(capsys)
     assert stop['reason_code'] == 'network_lost'
     assert stop['status'] == 'INTERRUPTED'
+    assert stop['reason'] == ('Network lost: no route to the Internet (ping: network is unreachable), '
+                              'measured twice 3 s apart')
 
 
 def test_without_a_halt_the_same_run_stays_completed(capsys):

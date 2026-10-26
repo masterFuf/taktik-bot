@@ -213,7 +213,7 @@
   "taktik/core/social_media/instagram/workflows/automation/post_url/mixins/extractors.py": 5,
   "taktik/core/social_media/instagram/workflows/automation/post_url/mixins/url_handling.py": 28,
   "taktik/core/social_media/instagram/workflows/automation/post_url/workflow.py": 1,
-  "taktik/core/social_media/instagram/workflows/automation/profile_list/workflow.py": 27,
+  "taktik/core/social_media/instagram/workflows/automation/profile_list/workflow.py": 26,
   "taktik/core/social_media/instagram/workflows/automation/unfollow/mixins/actions.py": 2,
   "taktik/core/social_media/instagram/workflows/automation/unfollow/mixins/sync_followers.py": 4,
   "taktik/core/social_media/instagram/workflows/automation/unfollow/mixins/sync_following.py": 8,

@@ -545,8 +545,12 @@ def network_lost(detail: Any = None) -> StopReason:
 
     Measured by the network watch (``shared/device/network_watch.py``), never read on the screen:
     offline, the profile a run opens shows « User not found », the very screen of a deleted account,
-    and the feed shows its cache. FAILED, because what the run did after the loss did not reach
-    Instagram, or cannot be told to have.
+    and the feed shows its cache. FAILED: the run did not go where it was set to go.
+
+    It does not say that nothing was done. A like given offline (C57S, Instagram 410, October 2026)
+    turned the heart red, was counted, and was still there once the network was back and Instagram
+    restarted: Instagram keeps such a gesture and sends it later, maybe in a burst with the others.
+    What the run counted before the stop stays counted.
     """
     text = str(detail).strip() if detail else ""
     return _reason(
