@@ -228,8 +228,9 @@ class InstagramScrapingRig:
                    lambda device, *a, **k: rig.calls.append("detect_language") or "en")
         from taktik.core.compat.selectors import setup as compat_setup
 
-        mp.setattr(compat_setup, "apply_version_overrides",
-                   lambda platform, version: rig.calls.append(f"version_overrides {version}") or 0)
+        patch_seam(mp, compat_setup.__name__, "apply_version_overrides",
+                   lambda platform, version: rig.calls.append(f"version_overrides {version}") or 0,
+                   copies=False)
 
         def fake_build_ai_service(*, api_key, provider="openrouter", ipc=None, vision_model=None, text_model=None,
                                   niche_taxonomy=None,

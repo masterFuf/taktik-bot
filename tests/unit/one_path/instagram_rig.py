@@ -184,8 +184,9 @@ class InstagramRig:
                    lambda device, *a, **k: rig.calls.append("detect_language") or "fr")
         from taktik.core.compat.selectors import setup as compat_setup
 
-        mp.setattr(compat_setup, "apply_version_overrides",
-                   lambda platform, version: rig.calls.append(f"version_overrides {version}") or 0)
+        patch_seam(mp, compat_setup.__name__, "apply_version_overrides",
+                   lambda platform, version: rig.calls.append(f"version_overrides {version}") or 0,
+                   copies=False)
 
         from taktik.core.social_media.instagram.workflows.automation.automation import InstagramAutomation
 

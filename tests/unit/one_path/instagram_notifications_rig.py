@@ -16,7 +16,7 @@ import io
 import json
 import sys
 
-from one_path_seams import RigNetwork
+from one_path_seams import RigNetwork, patch_seam
 
 DEVICE_ID = "emulator-5554"
 CLONE = "com.instagram.android.clone"
@@ -261,10 +261,10 @@ class InstagramNotificationsRig:
             def navigate_to_home(self):
                 rig.record("screen", "home")
 
-        self.monkeypatch.setattr(
-            "taktik.core.social_media.instagram.services.profile.ProfileBusiness", _Profile)
-        self.monkeypatch.setattr(
-            "taktik.core.social_media.instagram.actions.atomic.navigation.NavigationActions", _Navigation)
+        patch_seam(self.monkeypatch, "taktik.core.social_media.instagram.services.profile", "ProfileBusiness",
+                   _Profile, copies=False)
+        patch_seam(self.monkeypatch, "taktik.core.social_media.instagram.actions.atomic.navigation",
+                   "NavigationActions", _Navigation, copies=False)
 
     def _config_file_bridge(self) -> bool:
         import importlib
