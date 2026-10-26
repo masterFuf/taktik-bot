@@ -15,7 +15,9 @@ any rise); it creates the file, freezing the current state, only when the file d
 
 A gate reads its files through `source_files` and `read_source`: sorted, `__pycache__` and
 `node_modules` left out, a BOM accepted. A file that cannot be read raises `UnreadableSource` with
-its path: it is named, never skipped.
+its path: it is named, never skipped. A gate that reads the product without counting per file (the
+coordinate and dry-clamp audits) takes `product_files`: the engine and its bridges, tests left out on
+the path inside the core.
 
 A gate that counts outside Python (the app's `npm run adb:calls`, which reads TypeScript) hands its
 counts to the same verdict on the command line, so both halves keep one ratchet:
@@ -70,6 +72,19 @@ def source_files(root: Path, scan_roots: Iterable[str], suffixes: Iterable[str])
             if file.is_file() and file.name.endswith(wanted):
                 files.append(file)
     return sorted(files)
+
+
+#: The product a gate reads: the engine and its bridges.
+PRODUCT_ROOTS = ("taktik/core", "bridges")
+#: What it leaves out there besides caches: tests and their fixtures.
+TEST_PARTS = ("/tests/", "test_")
+
+
+def product_files(root: Path) -> List[Path]:
+    """The `.py` files of the product, tests left out. Read on the path inside `root`: a checkout
+    under a folder named `tests` (an agent's worktree) is still read."""
+    return [file for file in source_files(root, PRODUCT_ROOTS, (".py",))
+            if not any(part in "/" + relative(file, root) for part in TEST_PARTS)]
 
 
 def read_source(file: Path, root: Path) -> str:
