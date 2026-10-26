@@ -23,6 +23,7 @@ def _run(post_type: str, device_id: str | None, media: tuple[str, ...], caption:
          hashtags: str, story_via_feed: bool = False, rehearse: bool = False) -> None:
     from taktik.cli.commands.workflows import _choose_phone
     from taktik.cli.hosts.phone import PhoneNotConnectedError
+    from taktik.core.shared.diagnostics.run_start import begin_run
     from taktik.core.social_media.instagram.workflows.publish.agent_handler import run_instagram_publish
     from taktik.core.social_media.instagram.workflows.publish.payload import PublishRequestError
 
@@ -54,6 +55,8 @@ def _run(post_type: str, device_id: str | None, media: tuple[str, ...], caption:
         "storyViaFeed": story_via_feed,
         "stopBeforeShare": rehearse,
     }
+    # The menu publishes one post after another: this one starts without the latch of the one before.
+    begin_run()
     try:
         result = run_instagram_publish(payload, device_id=phone.device_id,
                                        connect=lambda: phone.connect().device, log=_log, status=_status)

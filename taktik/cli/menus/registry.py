@@ -24,6 +24,7 @@ from rich.console import Console
 from taktik.cli.commands.workflows import _coerce
 from taktik.cli.hosts.ai_key import MissingAIKeyError, ensure_ai_key, is_interactive
 from taktik.cli.hosts.registry import build_registry
+from taktik.core.shared.diagnostics.run_start import begin_run
 
 console = Console()
 
@@ -98,6 +99,8 @@ def run_registry_menu(platform: str, device_manager, device_id: str) -> None:
     handler = build.registry.resolve(workflow_id)
     invocation = WorkflowInvocation(platform=platform, workflow_id=workflow_id, params=params)
 
+    # The menu serves one run after another: this one starts without the latch of the one before.
+    begin_run()
     try:
         result = handler(invocation, dict(params))
     except Exception as exc:  # noqa: BLE001 - report at the operator, never a raw traceback

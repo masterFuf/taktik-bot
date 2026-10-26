@@ -92,6 +92,7 @@ def run_agent(device_id: str | None, params: tuple[str, ...]) -> None:
     from taktik.cli.commands.workflows import _choose_phone, _coerce
     from taktik.cli.hosts.instagram import CliInstagramHost
     from taktik.cli.hosts.phone import PhoneNotConnectedError
+    from taktik.core.shared.diagnostics.run_start import begin_run
     from taktik.core.social_media.instagram.workflows.agent.agent_handler import run_instagram_agent
 
     config: dict[str, Any] = {}
@@ -131,6 +132,7 @@ def run_agent(device_id: str | None, params: tuple[str, ...]) -> None:
     ))
 
     workflows: list = []
+    begin_run()
     try:
         result = run_instagram_agent(
             config,

@@ -49,6 +49,7 @@ from taktik.cli.hosts.registry import build_registry, handler_on_phone
 from taktik.core.contract.ai_request import asks_for_ai
 from taktik.core.contract.registry import contracts_by_id
 from taktik.core.contract.settings_keys import undeclared_settings
+from taktik.core.shared.diagnostics.run_start import begin_run
 
 console = Console()
 
@@ -258,6 +259,7 @@ def run_workflow(workflow_id: str, device_id: str | None, params: tuple[str, ...
     payload = {**{key: device_id for key in HOST_PAYLOAD_KEYS}, **dict(resolved_params)}
 
     console.print(f"[blue]Running[/blue] [bold]{workflow_id}[/bold] on [cyan]{device_id}[/cyan]")
+    begin_run()
     try:
         # A launcher that takes the connected device, not a `connect`, gets it now and reads after.
         handler = handler_on_phone(build, workflow_id, phone)

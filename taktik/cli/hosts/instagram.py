@@ -197,12 +197,15 @@ def _run_through_handler(device_manager: Any, device_id: str, workflow_id: str,
     from taktik.cli.hosts.ai_key import ensure_ai_key, is_interactive
     from taktik.cli.hosts.registry import build_registry, handler_on_phone
     from taktik.core.kernel.contracts import WorkflowInvocation
+    from taktik.core.shared.diagnostics.run_start import begin_run
 
     ensure_ai_key(workflow_id, payload, interactive=is_interactive())
 
     build = build_registry(device_manager=device_manager, device_id=device_id)
     handler = handler_on_phone(build, workflow_id, CliPhone(device_manager, device_id))
     invocation = WorkflowInvocation(platform="instagram", workflow_id=workflow_id, params={})
+    # The main menu serves one run after another: this one starts without the latch of the one before.
+    begin_run()
     return handler(invocation, {"deviceId": device_id, **dict(payload)})
 
 
