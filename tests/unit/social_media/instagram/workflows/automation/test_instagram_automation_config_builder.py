@@ -322,6 +322,37 @@ def test_a_zero_maximum_lets_through_a_profile_of_any_size():
     assert not [reason for reason in verdict["reasons"] if reason.startswith("Too many followers")]
 
 
+
+@pytest.mark.parametrize("filters, refused", [
+    ({"maxFollowing": 7500}, True),
+    ({}, True),
+    ({"maxFollowing": 0}, False),
+], ids=["ceiling_sent", "declared_default", "zero_no_limit"])
+def test_the_following_ceiling_reaches_the_evaluator_and_refuses(filters, refused):
+    """"Max following" (declared default 7500, "0: no limit") went from the page to the action and
+    `FilterCriteria`, and no stage of the evaluator read it: a profile following 7600 accounts was
+    interacted with on every Instagram automation run. The run's own path, from the raw config
+    down to the evaluator, refuses it now, and a zero still limits nothing."""
+    from taktik.core.shared.filtering import apply_comprehensive_filter
+    from taktik.core.social_media.instagram.workflows.automation.config import (
+        WorkflowConfigBuilder,
+    )
+
+    config = build_instagram_automation_config(
+        {"workflowType": "target_profiles", "target": "follows_many", "filters": filters}
+    )
+    criteria = WorkflowConfigBuilder.build_interaction_config(config["actions"][0])["filter_criteria"]
+    profile = {"username": "follows_many", "followers_count": 12_000, "following_count": 7_600,
+               "posts_count": 300, "visible_posts_count": 12}
+    verdict = apply_comprehensive_filter(profile, criteria)
+    following_reasons = [reason for reason in verdict["reasons"] if reason.startswith("Too many following")]
+    if refused:
+        assert verdict["suitable"] is False
+        assert following_reasons == ["Too many following (7600 > 7500)"]
+    else:
+        assert verdict["category"] != "high_following"
+        assert following_reasons == []
+
 def test_filters_survive_into_the_runner_interaction_config():
     """End-to-end lock on the exact broken path: front raw config -> action ->
     WorkflowConfigBuilder.build_interaction_config -> filter_criteria consumed by

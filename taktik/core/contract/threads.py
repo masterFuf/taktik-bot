@@ -29,7 +29,7 @@ PROFILE_FILTERS = Shape(
     doc="A visited profile outside these is skipped.",
     fields=(
         Field("minFollowers", "int", "Fewest followers.", default=0, attr="filters.min_followers"),
-        Field("maxFollowers", "int", "Most followers.", default=10_000_000, attr="filters.max_followers"),
+        Field("maxFollowers", "int", "Most followers; 0: no limit.", default=10_000_000, attr="filters.max_followers"),
         Field("bioKeywordsInclude", ListOf("string"), "The bio holds one of these.", default=(),
               attr="filters.bio_keywords_include"),
         Field("bioKeywordsExclude", ListOf("string"), "The bio holds none of these.", default=(),

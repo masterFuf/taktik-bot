@@ -30,9 +30,19 @@ Two things about the scoring are easy to misread, and both are deliberate:
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Mapping
+from typing import Any, Callable, Dict, Mapping, Optional
 
 from loguru import logger
+
+
+def exceeds_ceiling(count: Optional[float], ceiling: Optional[float]) -> bool:
+    """Whether `count` goes over `ceiling`, the one rule of a ceiling in the engine.
+
+    A ceiling of 0, null or absent limits nothing: "0: no limit" is what the pages, the CLI and the
+    declarations promise, and a literal zero would refuse every profile with one follower. A count
+    not read (None) is never over a ceiling: refusing it would take "not read" for a measure.
+    """
+    return bool(ceiling) and count is not None and count > ceiling
 
 
 def create_profile_filter(criteria: Mapping[str, Any]) -> Callable[[Mapping[str, Any]], Dict[str, Any]]:
@@ -151,14 +161,23 @@ def _apply_basic_filters(
         })
         return result
 
-    # A ceiling of 0, null or absent limits nothing: "0: no limit" is what the pages, the CLI and
-    # the declarations promise, and a literal zero would refuse every profile with one follower.
     max_followers = criteria.get('max_followers')
-    if max_followers and followers > max_followers:
+    if exceeds_ceiling(followers, max_followers):
         result.update({
             'suitable': False,
             'reasons': [f'Too many followers ({followers} > {max_followers})'],
             'category': 'high_followers',
+            'score': 0
+        })
+        return result
+
+    following = profile_info.get('following_count', 0)
+    max_following = criteria.get('max_following')
+    if exceeds_ceiling(following, max_following):
+        result.update({
+            'suitable': False,
+            'reasons': [f'Too many following ({following} > {max_following})'],
+            'category': 'high_following',
             'score': 0
         })
         return result
@@ -182,6 +201,7 @@ def _apply_basic_filters(
         'verified_check': 'passed',
         'business_check': 'passed',
         'followers_range': 'passed',
+        'following_maximum': 'passed',
         'posts_minimum': 'passed',
         'bot_detection': 'passed'
     }
@@ -360,4 +380,4 @@ def _determine_final_category(result: Mapping[str, Any]) -> str:
         return 'poor'
 
 
-__all__ = ["apply_comprehensive_filter", "create_profile_filter"]
+__all__ = ["apply_comprehensive_filter", "create_profile_filter", "exceeds_ceiling"]
