@@ -65,3 +65,20 @@ def test_a_mentioned_person_is_not_an_author_to_open():
     assert result["success"] is False
     assert "user_4" not in result["details"]["visible"]
     assert phone.gestures == []
+
+
+def test_the_profile_is_waited_for_as_the_loop_waits(monkeypatch):
+    """Checked at once after the tap, the profile read as not opened on the Pixel 6a (Instagram 447,
+    October 2026: one tap, then the Back of the return): it was still loading. The loop waits for
+    it (`wait_for_profile_screen`, 8 s); the action waits the same way."""
+    phone = SheetPhone(SHEET, [PROFILE, SHEET])
+    bundle = build_instagram_action_bundle(create_instagram_device_facade(phone))
+    waited = []
+    loaded_late = lambda timeout=0: waited.append(timeout) or True
+    monkeypatch.setattr(bundle.detection, "is_on_profile_screen", lambda: False)
+    monkeypatch.setattr(bundle.detection, "wait_for_profile_screen", loaded_late)
+
+    result = ACTION_REGISTRY["post.open_commenter_profile"](bundle, {})
+
+    assert result["details"]["profile_opened"] is True, result
+    assert waited == [8.0]

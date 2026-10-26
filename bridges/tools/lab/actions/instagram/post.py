@@ -90,7 +90,8 @@ def read_commenters(a, p):
 def open_commenter_profile(a, p):
     """Open the profile of a person of the open comments thread, and come back to the thread, as
     the commenters interaction loop does: its source (`make_commenters_source`) reads the authors,
-    taps the author's element, and its return goes back to the thread. Param username (optional,
+    taps the author's element, waits for the profile as the loop does, and its return goes back to
+    the thread. Param username (optional,
     else the first author on screen). A thread with no author on screen is a failure."""
     from types import SimpleNamespace
 
@@ -105,7 +106,8 @@ def open_commenter_profile(a, p):
         return {"success": False, "message": f"no author{named} on the thread",
                 "details": {"visible": [r["username"] for r in rows]}}
     tapped = source.click(row["username"], row["element"])
-    on_profile = bool(tapped) and a.detection.is_on_profile_screen()
+    # The loop's own wait: a profile still loading is not a profile missed.
+    on_profile = bool(tapped) and a.detection.wait_for_profile_screen(timeout=8.0)
     back = source.ensure_open() if tapped else True
     logger.info(f"post.open_commenter_profile @{row['username']}: profile={on_profile}, back on the thread={back}")
     return {"success": on_profile and back,
