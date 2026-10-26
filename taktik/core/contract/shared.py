@@ -6,7 +6,7 @@ from __future__ import annotations
 from .error_codes import BRIDGE_ERROR_CODE
 from typing import Any, Optional
 
-from .schema import HOST, AiRequest, Event, Field, OneOf, Shape
+from .schema import HOST, OPERATOR, AiRequest, Event, Field, OneOf, Shape
 from .stop_reasons import TIKTOK_COMPLETION_REASON
 
 #: `enforce_pre_session_ip_rotation` (`bridges/common/network.py`), before the session.
@@ -64,9 +64,10 @@ AI_REQUEST_ALWAYS = AiRequest()
 
 
 def instagram_package_field(doc: str = "An Instagram clone's package, run instead of Instagram; absent: the "
-                                       "installed Instagram.") -> Field:
-    """The clone an Instagram run starts: read by its launcher, which hands it to the host's connection."""
-    return Field("packageName", "string", doc, aliases=("package_name",),
+                                       "installed Instagram.", by: str = OPERATOR) -> Field:
+    """The clone an Instagram run starts: read by its launcher, which hands it to the host's connection.
+    `by`: HOST when the host writes it in the bridge's file (the scraping's)."""
+    return Field("packageName", "string", doc, aliases=("package_name",), by=by,
                  reader="taktik.core.social_media.instagram.workflows.common.startup:package_name_from_payload")
 
 

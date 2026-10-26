@@ -9,7 +9,9 @@ reading) and asks the injected `connect` for the phone on that package, after it
 The automation read `packageName` on its own (no `package_name`, no trimming), its CLI handler adding
 the alias for it; it reads through the same helper since decision D3 of 2026-09-27, and asks its host
 for the phone through `connect` too since 2026-10-18 (it was handed a phone its host had connected).
-The scraping asks the same way; its `packageName` is a field of its bridge, read under that name only.
+The scraping asked the same way but read `packageName` by hand (`payload.get("packageName") or None`:
+no `package_name`, no trimming), a second reading of the same field; it reads through the same helper
+since 2026-10-26, so one payload names one package for every launcher.
 """
 
 from __future__ import annotations
@@ -83,6 +85,7 @@ LAUNCHERS = {
     "taktik_agent": (_agent, {}),
     "cold_dm": (_cold_dm, {}),
     "story_relay": (_story_relay, {}),
+    "scraping": (_scraping, {}),
 }
 
 
@@ -117,17 +120,6 @@ def test_without_a_clone_the_installed_instagram_is_connected(name):
         launch(payload, _connect(seen))
 
     assert seen == [None]
-
-
-def test_the_scraping_asks_for_the_phone_on_the_clone_of_its_bridge_field():
-    seen = []
-
-    with pytest.raises(Connected):
-        _scraping({"packageName": CLONE}, _connect(seen))
-    with pytest.raises(Connected):
-        _scraping({}, _connect(seen))
-
-    assert seen == [CLONE, None]
 
 
 REFUSED = {
