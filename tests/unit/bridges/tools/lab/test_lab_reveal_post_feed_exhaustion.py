@@ -75,3 +75,35 @@ def test_off_the_feed_it_stays_a_failure():
     result, _scroll = _reveal({**FILLER_RUN, "on_feed": False, "filler_run": False})
     assert result["success"] is False
     assert "not_applicable" not in (result.get("details") or {})
+
+
+#: Report of `scroll.reveal_post`, Pixel 6a (Instagram 447, French), Lab bench of October 2026: the
+#: advance landed on a real post and the production's humanized framing chose not to correct
+#: (`framing_decision.reason` « deferred »), so the post's engagement bar stayed under the screen.
+FRAMING_DEFERRED = {"on_feed": True, "filler_run": False, "is_suggested": False, "is_ad": False,
+                    "metadata_visible": False, "full_post": False, "suggested_skipped": 0, "ads_skipped": 0,
+                    "framing_decision": {"correct": False, "needed": True, "reason": "deferred"}}
+
+
+class _BarUnderTheScreen(_Scroll):
+    """The production reveal of the current post's bar brings it up, once the advance is made."""
+
+    def __init__(self, *results):
+        super().__init__(*results)
+        self.reveals = 0
+
+    def _reveal_current_metadata(self):
+        self.reveals += 1
+        return 1
+
+    def _metadata_visible(self, _anchors):
+        return (self.advances > 0 and self.reveals > 1, None)
+
+
+def test_a_post_whose_framing_was_deferred_has_its_bar_brought_up_as_on_arrival():
+    register_instagram()
+    scroll = _BarUnderTheScreen(FRAMING_DEFERRED)
+    result = INSTAGRAM_ACTIONS["scroll.reveal_post"](_Bundle(scroll), {})
+    assert result["success"] is True
+    assert scroll.advances == 1
+    assert scroll.reveals == 2

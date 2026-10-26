@@ -14,6 +14,7 @@ the read worked — same data path the prod reader/persistence already use.
 from loguru import logger
 
 from bridges.tools.lab.actions.instagram import action
+from bridges.tools.lab.action_test.not_applicable import not_applicable
 from bridges.tools.lab.action_test.params import lab_flag
 from taktik.core.shared.device.screen import screen_size_of
 from taktik.core.social_media.instagram.workflows.dm.session import DmListNotRead
@@ -107,9 +108,14 @@ def open_thread(a, p):
 def read_last_incoming(a, p):
     """Read the LAST incoming message of the OPEN thread via the PROD message extractor
     (``_collect_text_messages``: left/right bounds heuristic, skips our own replies). A thread
-    must be open. Returns the text to the Lab UI; the content is not logged."""
+    must be open. Returns the text to the Lab UI; the content is not logged. A thread read whose
+    bubbles are all ours (a conversation nobody answered yet) is not applicable; a thread the
+    reader got nothing from stays a failure."""
     msgs = _dm_runtime(a)._collect_text_messages() or []
     incoming = [m for m in msgs if not m.get("is_sent")]
+    if msgs and not incoming:
+        return not_applicable("dm.read_last_incoming", "the open thread holds only our own messages",
+                              sent=len(msgs))
     text = incoming[-1]["text"] if incoming else None
     logger.info(f"dm.read_last_incoming: {'message read' if text else 'none'} ({len(text or '')} chars)")
     return {"success": bool(text),

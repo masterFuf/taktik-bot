@@ -165,19 +165,15 @@ class PersonaCommentsMixin:
     def _visible_comment_texts(self) -> list:
         """The comment bodies currently on screen, whatever layout IG serves.
 
-        Three sources, cheapest first; the first that holds bodies answers. The body ids (older
-        builds, clones). The rows of one photo of the screen: IG 442 stopped giving the body an
-        id, its row spells "<author> <text>". The Litho dump: IG 410 renders the bodies with
-        Litho, in no accessibility node, so both reads above find nothing there; the thread's
-        reader (`read_visible_comments`, the one `comment.read_thread` and the replies use) reads
-        them from `dumpsys activity top`.
+        Two sources, cheapest first; the first that holds bodies answers. The body ids (older
+        builds, clones). Then the thread's reader (`read_visible_comments`, the one
+        `comment.read_thread` and the replies use): the rows of one photo of the screen, where IG
+        442 and later spell "<author> said <text>", else the Litho dump of `dumpsys activity top`,
+        where IG 410 renders the bodies in no accessibility node.
         """
         from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
         from taktik.core.social_media.instagram.workflows.common.comment_reading import (
             read_visible_comments,
-        )
-        from taktik.core.social_media.instagram.workflows.common.comments_thread import (
-            read_comment_texts,
         )
 
         try:
@@ -193,16 +189,6 @@ class PersonaCommentsMixin:
                 logger.debug(f"[PersonaAnalysis] comment body node not read: {exc}")
         if texts:
             return texts
-
-        try:
-            root = self.device.snapshot().root
-            connectors = list(POST_COMMENTS_SELECTORS.comment_said_connectors)
-            rows = [text for _author, text in read_comment_texts(root, connectors)]
-        except Exception as exc:
-            logger.warning(f"[PersonaAnalysis] comment rows not read from the screen photo: {exc}")
-            rows = []
-        if rows:
-            return rows
 
         return [comment["text"] for comment in read_visible_comments(self.device)]
 
