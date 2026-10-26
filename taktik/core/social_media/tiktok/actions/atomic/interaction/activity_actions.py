@@ -58,11 +58,9 @@ class ActivityActions(BaseAction):
             if not self._find_and_click(entry, timeout=5):
                 self.logger.debug("open_activity: no Activity row in the inbox")
                 return False
-            time.sleep(3.0)
-
-        if not self.is_on_activity_page():
-            self.logger.warning("open_activity: the Activity page did not come up")
-            return False
+            if not self._wait_for_screen(self.activity_selectors.page_indicator):
+                self.logger.warning("open_activity: the Activity page did not come up")
+                return False
 
         if expand and self._find_and_click(self.activity_selectors.see_all_button, timeout=3):
             time.sleep(3.0)

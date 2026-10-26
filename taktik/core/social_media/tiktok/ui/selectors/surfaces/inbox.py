@@ -29,6 +29,17 @@ from taktik.core.social_media.tiktok.ui.selectors.locales import L
 _UNREAD_COUNT = ('//*[@clickable="true"]//android.view.View[string-length(@content-desc)>0]'
                  '[translate(@content-desc, "0123456789", "")=""]')
 
+def _page_titles(title_ids: List[str], labels: List[str]) -> List[str]:
+    """A page's title: one of `title_ids` that reads one of `labels` (a count may follow it,
+    « Demandes de messages (1) »).
+
+    Both, never one. The id is the title of EVERY titled page (`nmh` on 43.1.4: « New followers »,
+    « Message requests », « Se connecter »), and the label alone is also the inbox row that opens
+    the page. Either one on its own says yes on a screen that is not the page.
+    """
+    return [f'{title}[starts-with(@text, "{label}")]' for title in title_ids for label in labels]
+
+
 # A story tile of the strip above the conversations: clickable, named by its content-desc, which
 # its caption repeats, and holding a clickable avatar. The bottom bar's tabs repeat their label
 # too but sit in no RecyclerView; the "+ Widget" and memories tiles have no clickable avatar.
@@ -180,6 +191,12 @@ class InboxSelectors:
     ])
 
     # === Page Nouveaux followers (dédiée) ===
+    #: The title of the page, beside its name (`new_followers_page_title`). `nmh` « New followers »
+    #: on 43.1.4 (C57S in English, Pixel 3a in French). The rows alone do not tell this page from
+    #: the Activity page: on 43.1.4 the rows of both are `o0v` (`tt4314_fr_activity.xml`).
+    _new_followers_page_title_ids: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, ":id/nmh")]',
+    ])
     new_followers_page_item: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/o0v")]',
         # A2: the row is the avatar's great-grandparent. Three rows on the captured page.
@@ -239,7 +256,8 @@ class InboxSelectors:
         # A2: a request row is a conversation row, so its badge is the same count.
         _UNREAD_COUNT,
     ])
-    _message_requests_page_title_base: List[str] = field(default_factory=lambda: [
+    #: The title of the page, beside its name (`message_requests_page_title`): `nmh` on 43.1.4.
+    _message_requests_page_title_ids: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/nmh")]',
     ])
 
@@ -322,10 +340,21 @@ class InboxSelectors:
         return self._see_all_base + L("inbox.see_all_button")
 
     @property
+    def new_followers_page_title(self) -> List[str]:
+        """The title of the new-followers page, in the active language: what tells it from the
+        Activity page, whose rows are the same."""
+        return _page_titles(self._new_followers_page_title_ids, L("inbox.new_followers_page_title_labels"))
+
+    @property
     def message_requests_page_title(self) -> List[str]:
-        return (self._message_requests_page_title_base
-                + L("inbox.message_requests_page_title")
-                + L("inbox.message_requests_page_title_anchors"))
+        """The title of the message-requests page, in the active language.
+
+        Until 2026-10-25 it also took the title id alone and the label alone: the first answered on
+        the new-followers page (`nmh` « New followers », C57S, 43.1.4), the second on the inbox
+        row « Demandes de messages » that opens the page (46.9.3), so the page read as open on the
+        screens it is opened from.
+        """
+        return _page_titles(self._message_requests_page_title_ids, L("inbox.message_requests_page_title_labels"))
 
     @property
     def accept_request_button(self) -> List[str]:

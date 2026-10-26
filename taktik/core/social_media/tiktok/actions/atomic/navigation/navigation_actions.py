@@ -64,29 +64,6 @@ class NavigationActions(SearchActions):
         self.logger.warning("❌ Failed to navigate to Home")
         return False
     
-    def navigate_to_inbox(self) -> bool:
-        """Navigate to Inbox.
-        
-        Uses resource-id mkr with content-desc "Inbox".
-        """
-        self.logger.info("📥 Navigating to Inbox")
-        
-        # The bar has to EXIST before a tab can be tapped. Every full-screen page — a new-followers
-        # list, a follow list, a visited profile, a settings sub-screen — hides it, and the tap
-        # then lands on nothing while the caller reads "the tab is gone". This is a no-op from the
-        # feed, so it costs nothing on the common path. Measured three times on 2026-08-30: the
-        # navigation reset left the app, profile navigation failed from the inbox, and the
-        # new-followers welcome pass could not reopen the page it had just read.
-        return_to_tiktok_shell(self.device, logger=self.logger)
-
-        if self._find_and_click(self.navigation_selectors.inbox_tab, timeout=5):
-            self._human_like_delay('navigation')
-            self.logger.success("✅ Navigated to Inbox")
-            return True
-        
-        self.logger.warning("❌ Failed to navigate to Inbox")
-        return False
-    
     def navigate_to_profile(self) -> bool:
         """Navigate to own profile.
         

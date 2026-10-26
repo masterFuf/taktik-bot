@@ -264,11 +264,18 @@ STRINGS: Dict[str, List[str]] = {
     "inbox.inbox_title": [
         "//*[contains(@resource-id, \":id/title\")][@text=\"Inbox\"]",
     ],
-    "inbox.message_requests_page_title": [
-        "//*[contains(@resource-id, \":id/nmh\")][contains(@text, \"Message requests\")]",
+    # The name of the message-requests page as its title reads it: a bare label, the title is
+    # built from it (`InboxSelectors._page_titles`: the title id AND the name).
+    "inbox.message_requests_page_title_labels": [
+        "Message requests",
     ],
     "inbox.message_requests_section": [
         "//*[contains(@text, \"Message requests\")]",
+    ],
+    # The name of the new-followers page as its title reads it, measured on the C57S (43.1.4,
+    # 2026-10-25): a bare label, the title is built from it (`InboxSelectors._page_titles`).
+    "inbox.new_followers_page_title_labels": [
+        "New followers",
     ],
     "inbox.new_followers_section": [
         "//*[contains(@resource-id, \":id/b8h\")][@text=\"New followers\"]",
@@ -604,9 +611,9 @@ STRINGS: Dict[str, List[str]] = {
     # Captured from a list holding four real requests. `user_name` is a readable id; the preview
     # and the timestamp hang off it structurally rather than off their own obfuscated ids.
     #
-    # The page title matches on its TEXT. That is what broke `open_message_requests_page`: it
-    # required the id `nmh`, dead on 46.6.3, so the condition could never hold — the navigation
-    # had landed on the page and the function reported it had not.
+    # The page title is the title id AND its label (`inbox.message_requests_page_title_labels`); on
+    # 46.6.3 that id is `pmf` (the version overrides), where `nmh` alone had made the page
+    # unrecognisable there, and its label alone, which stood here, answered on the inbox row.
     "inbox.conversation_username_anchors": [
         "//*[contains(@resource-id, \":id/user_name\")]",
     ],
@@ -621,9 +628,6 @@ STRINGS: Dict[str, List[str]] = {
     ],
     "inbox.conversation_timestamp_anchors": [
         "//android.widget.TextView[contains(@text, \"·\")]",
-    ],
-    "inbox.message_requests_page_title_anchors": [
-        "//*[contains(@text, \"Demandes de messages\") or contains(@text, \"Message requests\")]",
     ],
     # The header name, reached from the back button rather than from its own id — both ids
     # there are obfuscated and dead on 46.6.3, so `get_conversation_info` returned None and

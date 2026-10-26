@@ -1460,6 +1460,13 @@
         }
       ],
       [
+        "log",
+        {
+          "level": "warning",
+          "message": "The new-followers page could not be opened"
+        }
+      ],
+      [
         "status",
         {
           "message": "Reading the activity page",

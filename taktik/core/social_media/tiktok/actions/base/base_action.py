@@ -11,6 +11,11 @@ from taktik.core.shared.actions.base_action import SharedBaseAction
 # Re-export for backward compatibility (some files import these from here)
 TAKTIK_KEYBOARD_PKG = 'com.alexal1.adbkeyboard'
 
+#: How long a screen opened by a tap may take to show what proves it is there. A slow phone takes
+#: seconds to dump its screen and to load a list: on the C57S (43.1.4), 1.2 to 2 s for the
+#: new-followers page on 2026-10-25, longer than the 3 s the old fixed pause gave it on another day.
+SCREEN_ARRIVAL_TIMEOUT_S = 10.0
+
 
 def _photo_of(screen):
     """A `TikTokScreen` carries its photo (None when the screen could not be read); a photo is its
@@ -83,6 +88,23 @@ class BaseAction(SharedBaseAction):
             time.sleep(0.3)
         
         return False
+
+    def _wait_for_screen(self, *proofs: List[str], timeout: float = SCREEN_ARRIVAL_TIMEOUT_S) -> bool:
+        """After the tap that opens a screen: True once each of `proofs` is on screen, in turn, all
+        within `timeout` of this call; False at the first one missing.
+
+        Each proof is waited for by `_wait_for_element`, one photo of the screen a turn, so the
+        answer comes as soon as the screen is there, and a miss is logged and reported
+        (`selector_miss`). A fixed pause followed by a short look was what came before: too short
+        on a slow phone, and the time lost on a fast one. In Symfony terms, a `waitFor()` of the
+        test client instead of a `sleep()` after the click.
+        """
+        deadline = time.time() + timeout
+        for proof in proofs:
+            # Each proof gets at least one look, even when the ones before it used the time up.
+            if not self._wait_for_element(proof, timeout=max(deadline - time.time(), 0.5)):
+                return False
+        return True
 
     def _get_element_text(self, selectors: Union[List[str], str], timeout: float = 5.0,
                           screen=None) -> Optional[str]:

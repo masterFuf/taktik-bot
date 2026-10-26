@@ -141,9 +141,16 @@ def _scan_followers(device, settings: NotificationsSettings, bot_username, stats
     )
     stats["new_followers_listed"] = outcome["listed"]
     stats["new_followers_recorded"] = outcome["resolved"]
-    # Said out loud: a budget that silently drops half the list looks exactly like a quiet week.
+    # Said out loud: a page that would not open, a budget that silently drops half the list, or a
+    # page lost halfway all look exactly like a quiet week.
+    if not outcome["opened"]:
+        _emit(notifier, "log", "warning", "The new-followers page could not be opened")
     if outcome["skipped_over_budget"]:
         _emit(notifier, "log", "warning", f"{outcome['skipped_over_budget']} follower(s) left unresolved (budget)")
+    if outcome["stop_reason"] == "list_unreachable":
+        _emit(notifier, "log", "warning",
+              f"The new-followers page could not be reopened after a profile: "
+              f"{outcome['left_unread']} follower(s) left unread")
 
 
 def _read_activity(device, settings: NotificationsSettings, stats, notifier) -> None:

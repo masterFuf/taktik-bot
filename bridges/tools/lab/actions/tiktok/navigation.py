@@ -11,7 +11,8 @@ def go_home(a, p):
 
 @action("tt.navigation.go_inbox")
 def go_inbox(a, p):
-    return a.nav.navigate_to_inbox()
+    """The inbox as every workflow reaches it (`DMActions.navigate_to_inbox`): the tab, then its title."""
+    return a.dm.navigate_to_inbox()
 
 
 @action("tt.navigation.go_profile")
