@@ -36,6 +36,13 @@ quinze secondes et concluait a une navigation perdue. Le detecteur de la platefo
 `ACCOUNT_CHALLENGE` des qu'il le voit ; rien n'est touche sur cet ecran, c'est a l'operateur de le
 passer, a la main.
 
+**Sixth case: the phone lost its network** (2.0). The door measured a network at the start of the
+run; the mobile data and the Wi-Fi then went away, and the run went on: the profile it looked for
+showed « User not found », the screen Instagram also shows for a deleted account, and the session
+ended `completed`. The network watch the door starts (`shared/device/network_watch.py`) measures the
+phone again from a thread of its own and sets `NETWORK_LOST` once a lost network is confirmed; the
+screen is never read for it, since a profile without network and a deleted account look the same.
+
 **The witness.** The runtime that knows the operated account installs a listener
 (`configurer_temoin`), told once when the latch is set: that is where a block becomes one entry
 of the account's health history, whoever saw it. This module stays blind to accounts and SQLite.
@@ -70,6 +77,10 @@ DESKTOP_GONE = "desktop_gone"
 #: La plateforme verifie le compte (son ecran de controle) : plus aucun geste, ni sur cet ecran ni
 #: ailleurs, tant que l'operateur ne l'a pas passe lui-meme.
 ACCOUNT_CHALLENGE = "account_challenge"
+
+#: Le telephone n'a plus de reseau, constate deux fois de suite par la veille du reseau : sans
+#: reseau, les profils s'ouvrent vides et les gestes partent dans le cache.
+NETWORK_LOST = "network_lost"
 
 _arret: Optional[Dict[str, Any]] = None
 
@@ -118,4 +129,5 @@ def arret_demande() -> Optional[Dict[str, Any]]:
 __all__ = [
     "demander_arret", "arret_demande", "reinitialiser", "configurer_temoin",
     "DEVICE_DISCONNECTED", "TARGET_APP_CRASHED", "ACTION_BLOCKED", "DESKTOP_GONE", "ACCOUNT_CHALLENGE",
+    "NETWORK_LOST",
 ]

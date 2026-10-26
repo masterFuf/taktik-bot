@@ -308,6 +308,7 @@ _FAMILY_BY_CODE = {
     "target_app_crashed": FAMILY_FAILED,
     "desktop_gone": FAMILY_FAILED,
     "account_challenge": FAMILY_FAILED,
+    "network_lost": FAMILY_FAILED,
 }
 
 
@@ -539,6 +540,23 @@ def account_challenge() -> StopReason:
     return _reason("account_challenge", FAMILY_FAILED, "Instagram is checking the account")
 
 
+def network_lost(detail: Any = None) -> StopReason:
+    """The phone lost its network during the run: no mobile data, no Wi-Fi that answers.
+
+    Measured by the network watch (``shared/device/network_watch.py``), never read on the screen:
+    offline, the profile a run opens shows « User not found », the very screen of a deleted account,
+    and the feed shows its cache. FAILED, because what the run did after the loss did not reach
+    Instagram, or cannot be told to have.
+    """
+    text = str(detail).strip() if detail else ""
+    return _reason(
+        "network_lost",
+        FAMILY_FAILED,
+        f"Network lost{f': {text[:120]}' if text else ''}",
+        detail=text[:120] or None,
+    )
+
+
 def for_halt(halt: Dict[str, Any]) -> StopReason:
     """The motive for a run stopped by the shared halt latch (``shared/diagnostics/run_halt``).
 
@@ -556,6 +574,8 @@ def for_halt(halt: Dict[str, Any]) -> StopReason:
         return desktop_gone()
     if code == "account_challenge":
         return account_challenge()
+    if code == "network_lost":
+        return network_lost(halt.get("detail"))
     return target_app_crashed(halt.get("detail"))
 
 
