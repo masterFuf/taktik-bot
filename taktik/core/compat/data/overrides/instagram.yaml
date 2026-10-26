@@ -108,6 +108,17 @@ versions:
       - '//*[@resource-id="com.instagram.android:id/profile_user_info_compose_view"]//android.widget.TextView[not(parent::*/parent::*[contains(@resource-id, "profile_user_info_compose_view")])]'
       - '//*[@resource-id="com.instagram.android:id/profile_header_bio_text"]'
 
+    # Home story tray: the « Ajouter à la story » badge of our own bubble (`reel_empty_badge`) is a
+    # clickable Button inside the tray in 447 (an ImageView in 410), described with the word « story »:
+    # the tray took it for a friend's bubble, second after ours, and the first friend's story opened
+    # the story camera (Pixel 6a, French, October 2026, every tray opening of the Lab bench; fixture
+    # ig447_fr_home_feed). The baseline's xpath, the badge left out. Str fields.
+    story.feed_story_buttons:
+      - '//*[contains(@resource-id, "reels_tray_container")]//android.widget.Button[not(contains(@resource-id, "reel_empty_badge"))][contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "story")]'
+
+    story.feed_unseen_story_buttons:
+      - '//*[contains(@resource-id, "reels_tray_container")]//android.widget.Button[not(contains(@resource-id, "reel_empty_badge"))][contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "story") and (contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "non vus") or contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "unseen"))]'
+
   # ─── Instagram v442.x ───────────────────────────────────────────────
   # Verified against a live v442.0.0.46.79 device dump (2026-08-25).
   #
