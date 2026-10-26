@@ -72,6 +72,13 @@ class Shape:
     fields: Tuple["Field", ...]
     doc: str = ""
 
+    def field_by_key(self, key: str) -> "Field":
+        """The field named `key`: what a reader asks for to apply its declared default."""
+        for item in self.fields:
+            if item.key == key:
+                return item
+        raise KeyError(key)
+
 
 TypeSpec = Union[str, OneOf, ListOf, MapOf, Shape]
 

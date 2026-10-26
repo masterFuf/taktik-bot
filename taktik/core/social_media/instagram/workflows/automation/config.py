@@ -2,8 +2,14 @@ from typing import Dict, Any
 from dataclasses import dataclass
 
 from loguru import logger
+from taktik.core.contract.instagram_automation import FILTERS
 from taktik.core.shared.config import resolve_filter_criteria
 
+
+#: The ceilings an action without them is filtered with: the declaration's defaults
+#: (`contract/instagram_automation.py`), the ones the page shows and the builder applies.
+DEFAULT_MAX_FOLLOWERS: int = FILTERS.field_by_key("maxFollowers").default
+DEFAULT_MAX_FOLLOWING: int = FILTERS.field_by_key("maxFollowing").default
 
 _EXECUTION_CONFIG_KEYS = (
     'min_likes_per_profile',
@@ -61,9 +67,9 @@ class ActionProbabilities:
 class FilterCriteria:
     """Filter criteria for profile selection"""
     min_followers: int = 0
-    max_followers: int = 100000
+    max_followers: int = DEFAULT_MAX_FOLLOWERS
     min_posts: int = 3
-    max_following: int = 10000
+    max_following: int = DEFAULT_MAX_FOLLOWING
     allow_private: bool = False
     # Certified and professional accounts pass unless the operator refuses them.
     allow_verified: bool = True
@@ -79,9 +85,9 @@ class FilterCriteria:
         criteria = resolve_filter_criteria(action)
         return cls(
             min_followers=criteria.get('min_followers', 0),
-            max_followers=criteria.get('max_followers', 100000),
+            max_followers=criteria.get('max_followers', DEFAULT_MAX_FOLLOWERS),
             min_posts=criteria.get('min_posts', 3),
-            max_following=criteria.get('max_following', 10000),
+            max_following=criteria.get('max_following', DEFAULT_MAX_FOLLOWING),
             allow_private=criteria.get('allow_private', False),
             allow_verified=bool(criteria.get('allow_verified', True)),
             allow_business=bool(criteria.get('allow_business', True)),
