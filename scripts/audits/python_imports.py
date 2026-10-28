@@ -55,6 +55,43 @@ def _dynamic_target(call: ast.Call) -> str | None:
     return None
 
 
+def from_target(node: ast.ImportFrom, package: str) -> str:
+    """The module a `from ... import` reads, its relative dots resolved against `package`."""
+    if not node.level:
+        return node.module or ""
+    parts = package.split(".")
+    base = ".".join(parts[: len(parts) - node.level + 1])
+    return f"{base}.{node.module}" if node.module else base
+
+
+def reexports(tree: ast.Module, module: str, is_package: bool) -> dict[str, str]:
+    """The names a module binds at its top level by `from x import name`: name -> `x`, the module that
+    owns it. A package's `__init__.py` that holds such names is a facade. Read where `defined_names`
+    reads (inside a top-level `if` / `try` / `with` too); a function body is not the top level."""
+    package = module if is_package else module.rpartition(".")[0]
+    found: dict[str, str] = {}
+
+    def visit(body: list[ast.stmt]) -> None:
+        for statement in body:
+            if isinstance(statement, ast.ImportFrom):
+                owner = from_target(statement, package)
+                for alias in statement.names:
+                    if alias.name != "*":
+                        found[alias.asname or alias.name] = owner
+            elif isinstance(statement, ast.Try):
+                for block in (statement.body, statement.orelse, statement.finalbody,
+                              *(handler.body for handler in statement.handlers)):
+                    visit(block)
+            elif isinstance(statement, (ast.If, ast.For, ast.AsyncFor, ast.While)):
+                visit(statement.body)
+                visit(statement.orelse)
+            elif isinstance(statement, (ast.With, ast.AsyncWith)):
+                visit(statement.body)
+
+    visit(tree.body)
+    return found
+
+
 def import_statements(tree: ast.Module, module: str, is_package: bool) -> list[ImportStatement]:
     """Each import of the module, with its line and the dotted names it reaches."""
     package = module if is_package else module.rpartition(".")[0]
@@ -67,12 +104,7 @@ def import_statements(tree: ast.Module, module: str, is_package: bool) -> list[I
             modules = tuple(alias.name for alias in node.names)
             targets = set(modules)
         elif isinstance(node, ast.ImportFrom):
-            if node.level:
-                parts = package.split(".")
-                base = ".".join(parts[: len(parts) - node.level + 1])
-                target = f"{base}.{node.module}" if node.module else base
-            else:
-                target = node.module or ""
+            target = from_target(node, package)
             targets = {target} | {f"{target}.{alias.name}" for alias in node.names}
             modules = (target,)
             names = tuple(alias.name for alias in node.names if alias.name != "*")

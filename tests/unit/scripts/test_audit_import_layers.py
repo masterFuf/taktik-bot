@@ -78,3 +78,40 @@ def test_an_fstring_module_name_keeps_its_literal_package():
     tree = ast.parse("__import__(f'taktik.core.shared.diagnostics.{name}')\n")
     statements = import_statements(tree, "bridges.common.entrypoint", False)
     assert [set(s.targets) for s in statements] == [{"taktik.core.shared.diagnostics"}]
+
+
+# `no-facade-import`: a name is imported from its module, never through a package that re-exports it.
+
+PROBE = "taktik/core/social_media/tiktok/workflows/cold_dm/probe.py"
+
+
+def _facade_hits(source, path=PROBE):
+    modules = {**MODULES, path: audit.read_module(path, source)}
+    return audit.facade_imports(modules).get(path, [])
+
+
+def test_the_facade_import_baseline_is_the_tree():
+    from ratchet import compare, load_baseline
+
+    counts = audit.facade_import_counts(MODULES)
+    assert compare(counts, load_baseline(audit.FACADE_IMPORTS.baseline), audit.FACADE_IMPORTS.noun) == ([], [])
+
+
+def test_a_new_facade_import_turns_the_ratchet_red_and_names_its_line():
+    source = "import random\n\nfrom taktik.core.social_media.tiktok import TikTokManager\n"
+    hits = _facade_hits(source)
+    assert [(hit.line, hit.name, hit.package, hit.owner) for hit in hits] == [
+        (3, "TikTokManager", "taktik.core.social_media.tiktok", "taktik.core.social_media.tiktok.manager")]
+    assert audit.facade_import_caught(MODULES)
+
+
+def test_a_relative_facade_import_is_counted_too():
+    hits = _facade_hits("def f():\n    from ... import TikTokManager\n")
+    assert [(hit.line, hit.name) for hit in hits] == [(2, "TikTokManager")]
+
+
+def test_an_import_from_the_owner_module_is_not_a_facade_import():
+    source = ("from taktik.core.social_media.tiktok.manager import TikTokManager\n"
+              "from taktik.core.social_media.tiktok import manager\n"
+              "from taktik.core.social_media.tiktok import __version__\n")
+    assert _facade_hits(source) == []
