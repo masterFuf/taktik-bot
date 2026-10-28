@@ -43,9 +43,9 @@ from functools import lru_cache
 from pathlib import Path
 
 from lxml import etree
+from ratchet import UnreadableSource, parse_source, read_source, relative, source_files
 
 CORE = Path(__file__).resolve().parents[2]
-TESTS = CORE / "tests"
 
 MARKUP = re.compile(r"<(?:node|hierarchy)[\s>/]|<android\.[\w.$]+[\s>/]")
 DUMP_ATTRIBUTES = (
@@ -254,10 +254,7 @@ def _docstrings(tree: ast.AST) -> set[int]:
 @lru_cache(maxsize=None)
 def markup_literals(source: str) -> int:
     """How many string literals of a Python source carry screen markup (docstrings aside)."""
-    try:
-        tree = ast.parse(source.lstrip("﻿"))
-    except SyntaxError:
-        return 0
+    tree = ast.parse(source)
     docstrings = _docstrings(tree)
     count = 0
     for node in ast.walk(tree):
@@ -272,9 +269,9 @@ def markup_literals(source: str) -> int:
     return count
 
 
-def fixture_problem(relative: str, content: bytes) -> str | None:
+def fixture_problem(path: str, content: bytes) -> str | None:
     """Why an .xml under tests/ is not a real dump, or None."""
-    if "fixtures" not in Path(relative).parts[:-1]:
+    if "fixtures" not in Path(path).parts[:-1]:
         return "outside a fixtures/ folder"
     try:
         root = etree.fromstring(content)
@@ -293,15 +290,16 @@ def fixture_problem(relative: str, content: bytes) -> str | None:
 
 
 def read_tree() -> tuple[dict[str, str], dict[str, bytes]]:
+    """The tests' Python sources (each one parsed, so a file that is not valid Python raises
+    `UnreadableSource` here instead of counting no screen) and their XML fixtures."""
     sources, fixtures = {}, {}
-    for path in TESTS.rglob("*"):
-        if "__pycache__" in path.parts or not path.is_file():
-            continue
-        relative = path.relative_to(CORE).as_posix()
+    for path in source_files(CORE, ("tests",), (".py", ".xml")):
         if path.suffix == ".py":
-            sources[relative] = path.read_text(encoding="utf-8-sig", errors="replace")
-        elif path.suffix == ".xml":
-            fixtures[relative] = path.read_bytes()
+            source = read_source(path, CORE)
+            parse_source(path, CORE, source)
+            sources[relative(path, CORE)] = source
+        else:
+            fixtures[relative(path, CORE)] = path.read_bytes()
     return sources, fixtures
 
 
@@ -353,7 +351,11 @@ def check(sources: dict[str, str], fixtures: dict[str, bytes], lists=LISTS,
 
 
 def main() -> int:
-    sources, fixtures = read_tree()
+    try:
+        sources, fixtures = read_tree()
+    except UnreadableSource as exc:
+        print(f"FAIL: {exc}")
+        return 1
     failures = check(sources, fixtures)
     if failures:
         for failure in failures:

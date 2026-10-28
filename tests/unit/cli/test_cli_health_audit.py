@@ -24,6 +24,7 @@ from unit.paths import CORE
 # The audited script lives in this same repository, so resolve it from the repo root
 # (parents[3]) rather than through the parent folder holding the sibling repositories.
 SCRIPT = CORE / "scripts/audits/audit_cli_health.py"
+sys.path.insert(0, str(SCRIPT.parent))  # its library, ratchet.py
 
 
 @pytest.fixture(scope="module")
@@ -35,13 +36,19 @@ def audit():
     return module
 
 
+@pytest.fixture
+def probe_root(audit, tmp_path, monkeypatch):
+    """The probe is read like a file of the core: the audit names its files from ROOT."""
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+
+
 def _write(tmp_path: Path, body: str) -> Path:
     path = tmp_path / "probe.py"
     path.write_text(body, encoding="utf-8")
     return path
 
 
-def test_a_missing_method_is_reported(audit, tmp_path):
+def test_a_missing_method_is_reported(audit, tmp_path, probe_root):
     findings = audit.missing_attributes(_write(tmp_path, """
 from taktik.core.shared.device.manager import DeviceManager
 
@@ -53,7 +60,7 @@ def go():
     assert "method_that_never_existed" in findings[0]
 
 
-def test_a_real_method_is_not_reported(audit, tmp_path):
+def test_a_real_method_is_not_reported(audit, tmp_path, probe_root):
     findings = audit.missing_attributes(_write(tmp_path, """
 from taktik.core.shared.device.manager import DeviceManager
 
@@ -64,7 +71,7 @@ def go():
     assert findings == []
 
 
-def test_an_instance_attribute_is_not_reported(audit, tmp_path):
+def test_an_instance_attribute_is_not_reported(audit, tmp_path, probe_root):
     """`self.device = ...` in __init__ is invisible to hasattr on the class."""
     findings = audit.missing_attributes(_write(tmp_path, """
 from taktik.core.shared.device.manager import DeviceManager
@@ -76,7 +83,7 @@ def go():
     assert findings == []
 
 
-def test_same_name_in_two_scopes_is_not_confused(audit, tmp_path):
+def test_same_name_in_two_scopes_is_not_confused(audit, tmp_path, probe_root):
     """A click group and a class instance sharing a name are two different variables.
 
     This is what made every `@automation.command(...)` look like a call on the
@@ -98,7 +105,7 @@ def run_it():
     assert findings == [], findings
 
 
-def test_assigning_a_new_attribute_is_allowed(audit, tmp_path):
+def test_assigning_a_new_attribute_is_allowed(audit, tmp_path, probe_root):
     """Python lets you attach attributes; only reads and calls can crash."""
     findings = audit.missing_attributes(_write(tmp_path, """
 from taktik.core.shared.device.manager import DeviceManager
@@ -110,7 +117,7 @@ def go():
     assert findings == []
 
 
-def test_a_file_with_a_bom_is_still_scanned(audit, tmp_path):
+def test_a_file_with_a_bom_is_still_scanned(audit, tmp_path, probe_root):
     """Several CLI modules start with a BOM; ast.parse rejects it outright."""
     path = tmp_path / "probe.py"
     path.write_text("﻿" + """
