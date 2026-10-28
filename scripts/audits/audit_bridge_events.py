@@ -19,7 +19,9 @@ statically (a variable that is neither a module constant nor the parameter of a
 declared forwarder): the app gate would be blind to it.
 
 A module whose JSON lines never reach a bridge's stdout is left out by name, with
-why (``NOT_BRIDGE_OUTPUT``); a listed file that is gone fails the audit.
+why (``NOT_BRIDGE_OUTPUT``); a listed file that is gone fails the audit. A file it
+cannot read or parse fails it too, named (``ratchet.parse_source``): a census that
+skipped it would miss its types.
 """
 
 from __future__ import annotations
@@ -31,6 +33,8 @@ import re
 import sys
 from collections import defaultdict
 from pathlib import Path
+
+from ratchet import UnreadableSource, parse_source, relative, source_files
 
 ROOT = Path(__file__).resolve().parents[2]
 SCANNED = ("bridges", "taktik")
@@ -181,15 +185,15 @@ class _FileScan:
         return False
 
 
-def scan(root: Path = ROOT) -> tuple[dict[str, list[str]], list[str]]:
+def scan(root: Path | None = None) -> tuple[dict[str, list[str]], list[str]]:
     """Return ({event type: [file:line]}, [unresolved emission points])."""
+    root = ROOT if root is None else root
     emitted: dict[str, list[str]] = defaultdict(list)
     unresolved: list[str] = []
-    for folder in SCANNED:
-        for path in sorted((root / folder).rglob("*.py")):
-            rel = path.relative_to(root).as_posix()
-            if rel not in NOT_BRIDGE_OUTPUT:
-                scan_source(path.read_text(encoding="utf-8-sig"), rel, emitted, unresolved)
+    for path in source_files(root, SCANNED, (".py",)):
+        rel = relative(path, root)
+        if rel not in NOT_BRIDGE_OUTPUT:
+            _scan_file(_FileScan(rel, parse_source(path, root)), emitted, unresolved)
     unresolved += [f"{rel}: listed in NOT_BRIDGE_OUTPUT but gone, drop the entry"
                    for rel in sorted(NOT_BRIDGE_OUTPUT) if not (root / rel).is_file()]
     return dict(emitted), unresolved
@@ -234,7 +238,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true", help="print {type: [file:line]} for the app gate")
     args = parser.parse_args(argv)
 
-    emitted, unresolved = scan()
+    try:
+        emitted, unresolved = scan()
+    except UnreadableSource as exc:
+        # With --json, stdout is the census: the app gate shows stderr when its last line is not JSON.
+        print(f"Bridge events audit failed: {exc}", file=sys.stderr if args.json else sys.stdout)
+        return 1
     if args.json:
         print(json.dumps({"emitted": emitted, "unresolved": unresolved}, sort_keys=True))
         return 1 if unresolved else 0

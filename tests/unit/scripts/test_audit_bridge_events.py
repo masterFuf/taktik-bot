@@ -12,6 +12,7 @@ from unit.paths import CORE
 sys.path.insert(0, str(CORE / "scripts/audits"))
 
 import audit_bridge_events as audit  # noqa: E402
+from ratchet import UnreadableSource  # noqa: E402
 
 
 def _types(source: str) -> tuple[set[str], list[str]]:
@@ -68,11 +69,19 @@ def test_a_type_it_cannot_read_is_reported():
 
 def test_a_file_listed_as_not_bridge_output_that_is_gone_is_reported(tmp_path):
     (tmp_path / "taktik").mkdir()
+    (tmp_path / "bridges").mkdir()
 
     _emitted, unresolved = audit.scan(tmp_path)
 
     assert [item for item in unresolved if "NOT_BRIDGE_OUTPUT" in item] == [
         f"{path}: listed in NOT_BRIDGE_OUTPUT but gone, drop the entry" for path in sorted(audit.NOT_BRIDGE_OUTPUT)]
+
+
+def test_a_scanned_folder_that_is_gone_fails_named(tmp_path):
+    (tmp_path / "taktik").mkdir()
+
+    with pytest.raises(UnreadableSource, match="bridges: no such folder"):
+        audit.scan(tmp_path)
 
 
 def test_the_bot_tree_is_fully_readable():

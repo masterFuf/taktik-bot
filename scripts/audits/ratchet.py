@@ -15,9 +15,10 @@ any rise); it creates the file, freezing the current state, only when the file d
 
 A gate reads its files through `source_files` and `read_source`: sorted, `__pycache__` and
 `node_modules` left out, a BOM accepted. A file that cannot be read raises `UnreadableSource` with
-its path: it is named, never skipped. A gate that reads the product without counting per file (the
-coordinate and dry-clamp audits) takes `product_files`: the engine and its bridges, tests left out on
-the path inside the core.
+its path: it is named, never skipped. A gate that walks the syntax tree takes `parse_source`, which
+raises the same for a file that is not valid Python. A gate that reads the product without counting
+per file (the coordinate and dry-clamp audits) takes `product_files`: the engine and its bridges,
+tests left out on the path inside the core.
 
 A gate that counts outside Python (the app's `npm run adb:calls`, which reads TypeScript) hands its
 counts to the same verdict on the command line, so both halves keep one ratchet:
@@ -28,6 +29,7 @@ counts to the same verdict on the command line, so both halves keep one ratchet:
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import sys
 from dataclasses import dataclass
@@ -92,6 +94,18 @@ def read_source(file: Path, root: Path) -> str:
         return file.read_text(encoding="utf-8-sig")
     except (OSError, UnicodeDecodeError) as exc:
         raise UnreadableSource(f"{relative(file, root)}: unreadable ({type(exc).__name__}: {exc})") from exc
+
+
+def parse_source(file: Path, root: Path, source: str | None = None) -> ast.Module:
+    """The module's syntax tree; a file that is not valid Python (a null byte included) is unreadable.
+    `source` is the text a gate already read with `read_source`, when it needs the lines too."""
+    source = read_source(file, root) if source is None else source
+    try:
+        return ast.parse(source, filename=relative(file, root))
+    except (SyntaxError, ValueError) as exc:
+        where = f", line {exc.lineno}" if isinstance(exc, SyntaxError) else ""
+        message = exc.msg if isinstance(exc, SyntaxError) else str(exc)
+        raise UnreadableSource(f"{relative(file, root)}: not valid Python ({message}{where})") from exc
 
 
 def relative(file: Path, root: Path) -> str:

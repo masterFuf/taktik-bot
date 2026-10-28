@@ -27,18 +27,18 @@ import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List
+from typing import List
+
+from ratchet import UnreadableSource, parse_source, read_source, relative, source_files
 
 ROOT = Path(__file__).resolve().parents[2]
 #: The profile-visiting bridges. Video-based families (For You, Search) and the scraping
 #: workflow live elsewhere and wire their own things -- a search run reports videos, not
 #: visited profiles, and has no avatar to lose.
-SCAN_ROOT = ROOT / "bridges" / "tiktok" / "automation"
+SCAN_ROOT = "bridges/tiktok/automation"
 
 #: The one module allowed to wire them -- it is where the shared wiring lives.
-WIRING_MODULE = (
-    ROOT / "bridges" / "tiktok" / "automation" / "workflow_callbacks.py"
-)
+WIRING_MODULE = f"{SCAN_ROOT}/workflow_callbacks.py"
 
 #: Setters that belong to the profile-visiting family. `set_on_stats_callback` is NOT here: the
 #: stats payload is genuinely per-bridge and is passed into the shared wiring as an argument.
@@ -48,7 +48,7 @@ SETTERS = {"set_on_action_callback", "set_on_profile_callback", "set_on_pause_ca
 #: report `video_info` and never visit a profile, so they have no avatar to drop and nothing to
 #: gain from the shared wiring. Listed by name rather than guessed, so the day it starts visiting
 #: profiles this line has to be revisited on purpose.
-ALLOWED = {"search_callbacks.py"}
+ALLOWED = {f"{SCAN_ROOT}/search_callbacks.py"}
 
 
 @dataclass(frozen=True)
@@ -59,24 +59,14 @@ class Finding:
     snippet: str
 
 
-def _sources() -> Iterable[Path]:
-    if not SCAN_ROOT.exists():
-        return
-    for path in sorted(SCAN_ROOT.rglob("*.py")):
-        if path.resolve() == WIRING_MODULE.resolve():
-            continue
-        if str(path.relative_to(SCAN_ROOT)).replace("\\", "/") in ALLOWED:
-            continue
-        yield path
+def _sources() -> List[Path]:
+    return [path for path in source_files(ROOT, (SCAN_ROOT,), (".py",))
+            if relative(path, ROOT) != WIRING_MODULE and relative(path, ROOT) not in ALLOWED]
 
 
 def _findings_in(path: Path) -> List[Finding]:
-    try:
-        source = path.read_text(encoding="utf-8")
-        tree = ast.parse(source)
-    except (OSError, SyntaxError):
-        return []
-
+    source = read_source(path, ROOT)
+    tree = parse_source(path, ROOT, source)
     lines = source.splitlines()
     found: List[Finding] = []
     for node in ast.walk(tree):
@@ -86,10 +76,12 @@ def _findings_in(path: Path) -> List[Finding]:
         if setter not in SETTERS:
             continue
         snippet = lines[node.lineno - 1].strip() if node.lineno <= len(lines) else ""
-        found.append(
-            Finding(str(path.relative_to(ROOT)).replace("\\", "/"), node.lineno, setter, snippet)
-        )
+        found.append(Finding(relative(path, ROOT), node.lineno, setter, snippet))
     return found
+
+
+def collect() -> List[Finding]:
+    return [finding for path in _sources() for finding in _findings_in(path)]
 
 
 def main() -> int:
@@ -97,7 +89,11 @@ def main() -> int:
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     args = parser.parse_args()
 
-    findings = [f for path in _sources() for f in _findings_in(path)]
+    try:
+        findings = collect()
+    except UnreadableSource as exc:
+        print(f"Workflow callback audit FAILED: {exc}")
+        return 1
 
     if args.json:
         print(json.dumps([f.__dict__ for f in findings], indent=2))
