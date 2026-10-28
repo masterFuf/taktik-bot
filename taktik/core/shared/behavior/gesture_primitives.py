@@ -70,17 +70,24 @@ def _relocate_path_outside_bounds(
     avoid_bounds: Sequence[Sequence[int]],
     *,
     rng=None,
-) -> Tuple[List[List[int]], bool]:
+) -> Tuple[List[List[int]], str]:
     """Move a colliding touch-down into the widest free horizontal gap.
 
     The obstacle geometry comes from the owning platform's live UI dump. Only ratio-based screen
     margins live here; no platform coordinate or selector leaks into the shared gesture engine.
     Translating the complete path preserves its sampled drift and curvature.
+
+    A gap must hold the whole curve, so a long drift can close the only gap of a crowded row
+    (Instagram 447: four counts beside the icons leave one gap, before Save). The drift is then
+    mirrored, as a drift the other way is as human as this one (real swipes drift both ways).
+
+    Returns the path and what was done: ``"clear"`` (the touch-down touched nothing),
+    ``"moved"``, or ``"blocked"`` (it touches a control and no gap holds the curve either way).
     """
     guarded = [list(point) for point in path]
     bounds = _normalise_bounds(avoid_bounds)
     if not guarded or not bounds:
-        return guarded, False
+        return guarded, "clear"
 
     rng = rng or random
     sx, sy = guarded[0]
@@ -92,14 +99,34 @@ def _relocate_path_outside_bounds(
         if top - pad_y <= sy <= bottom + pad_y
     ]
     if not crossing or not any(left <= sx <= right for left, right in crossing):
-        return guarded, False
+        return guarded, "clear"
 
-    # Keep the translated curve inside the same ratio-based screen envelope as sample_swipe.
-    x_offsets = [int(x) - sx for x, _ in guarded]
+    mirrored = [[2 * sx - int(x), int(y)] for x, y in guarded]
+    for candidate in (guarded, mirrored):
+        gaps = _free_gaps(candidate, crossing, screen_w)
+        if gaps:
+            # The widest blank span is normally the media area between the left action cluster
+            # and Save.
+            left, right = max(gaps, key=lambda gap: gap[1] - gap[0])
+            inset = 0.25 * (right - left)
+            safe_x = int(round(rng.uniform(left + inset, right - inset)))
+            return _translate_path(candidate, (safe_x, sy), screen_w, screen_h), "moved"
+    return guarded, "blocked"
+
+
+def _free_gaps(
+    path: Sequence[Sequence[int]],
+    crossing: Sequence[Tuple[int, int]],
+    screen_w: int,
+) -> List[Tuple[int, int]]:
+    """The free spans of the touch-down row where the whole ``path`` can start and stay inside
+    the same ratio-based screen envelope as sample_swipe."""
+    sx = int(path[0][0])
+    x_offsets = [int(x) - sx for x, _ in path]
     safe_left = max(int(0.06 * screen_w), int(0.04 * screen_w) - min(x_offsets))
     safe_right = min(int(0.94 * screen_w), int(0.96 * screen_w) - max(x_offsets))
     if safe_right <= safe_left:
-        return guarded, False
+        return []
 
     intervals = sorted(
         (max(safe_left, left), min(safe_right, right))
@@ -121,15 +148,7 @@ def _relocate_path_outside_bounds(
         cursor = max(cursor, right)
     if cursor < safe_right:
         gaps.append((cursor, safe_right))
-    gaps = [gap for gap in gaps if gap[1] - gap[0] >= max(4, int(0.025 * screen_w))]
-    if not gaps:
-        return guarded, False
-
-    # The widest blank span is normally the media area between the left action cluster and Save.
-    left, right = max(gaps, key=lambda gap: gap[1] - gap[0])
-    inset = 0.25 * (right - left)
-    safe_x = int(round(rng.uniform(left + inset, right - inset)))
-    return _translate_path(guarded, (safe_x, sy), screen_w, screen_h), True
+    return [gap for gap in gaps if gap[1] - gap[0] >= max(4, int(0.025 * screen_w))]
 
 
 def _move_path_into_x_band(
@@ -682,11 +701,17 @@ class GestureMixin:
                     )
                     source = "fallback_band"
             else:
-                prepared, moved = _relocate_path_outside_bounds(
+                prepared, outcome = _relocate_path_outside_bounds(
                     prepared, screen_w, screen_h, bounds
                 )
+                if outcome == "blocked":
+                    self.logger.warning(
+                        f"gesture touch-down {requested_start} lies on a control and no free gap "
+                        "of its row holds the curve: it stays there"
+                    )
                 if bounds:
-                    source = "ui_bounds" if moved else "ui_bounds_clear"
+                    source = {"moved": "ui_bounds", "clear": "ui_bounds_clear",
+                              "blocked": "ui_bounds_blocked"}[outcome]
 
         final_start = tuple(prepared[0])
         self._last_gesture_start = {

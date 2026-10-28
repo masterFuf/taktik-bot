@@ -10,8 +10,14 @@ _PATH = [[270, 1900], [285, 1680], [305, 1180], [320, 420]]
 
 
 class _Log:
+    def __init__(self):
+        self.warnings = []
+
     def debug(self, *_args, **_kwargs):
         pass
+
+    def warning(self, message, *_args, **_kwargs):
+        self.warnings.append(message)
 
     def error(self, *_args, **_kwargs):
         pass
@@ -316,6 +322,20 @@ def test_requested_share_start_is_relocated_before_touch_down(monkeypatch):
     final_x, final_y = state["final"]
     assert not (share[0] <= final_x <= share[2] and share[1] <= final_y <= share[3])
     assert raw.touch.events[0] == ("down", final_x, final_y)
+
+
+def test_a_touch_down_no_gap_can_free_is_reported_blocked_not_clear():
+    """A row of controls across the whole width: nothing frees the touch-down, and the gesture
+    state says so instead of calling the start clear."""
+    row = (0, 1800, 1080, 1980)
+    host = _Host(_RawBare(), exclusions=[row])
+
+    guarded = host._prepare_gesture_path([[250, 1900], [300, 700]], guard_start=True)
+
+    assert guarded[0] == [250, 1900]
+    assert host._last_gesture_start["adjusted"] is False
+    assert host._last_gesture_start["source"] == "ui_bounds_blocked"
+    assert len(host.logger.warnings) == 1
 
 
 def test_missing_dump_uses_ratio_based_safe_band():
