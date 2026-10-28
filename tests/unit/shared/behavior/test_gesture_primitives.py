@@ -338,6 +338,25 @@ def test_a_touch_down_no_gap_can_free_is_reported_blocked_not_clear():
     assert len(host.logger.warnings) == 1
 
 
+def test_a_start_moved_up_shortens_the_curve_instead_of_flattening_its_end():
+    """The drag logged by the Lab probe on a Pixel 6a (1080 x 2400): sampled from (562, 2028) over
+    the 1944 px of room, drifting 235 px, then asked to start at (663, 1419). Clamped point by
+    point, the last third of the curve ran along the top margin, sideways only, and the drift
+    rose above the 0.15 cap of the vertical travel. Moved as a whole, it keeps its own angle."""
+    sampled = [[562 + round(235 * step / 10), 2028 - round(1944 * step / 10)] for step in range(11)]
+    host = _Host(_RawBare())
+    host.screen_width, host.screen_height = 1080, 2400
+
+    moved = host._prepare_gesture_path(sampled, start_point=(663, 1419))
+
+    assert moved[0] == [663, 1419]
+    rows = [y for _x, y in moved]
+    assert all(later < earlier for earlier, later in zip(rows, rows[1:]))
+    assert all(96 <= y <= 2304 and 43 <= x <= 1036 for x, y in moved)
+    drift = abs(moved[-1][0] - moved[0][0]) / abs(moved[-1][1] - moved[0][1])
+    assert abs(drift - 235 / 1944) < 0.01
+
+
 def test_missing_dump_uses_ratio_based_safe_band():
     host = _Host(_RawBare(), exclusions=None)
     path = [[200, 1800], [220, 600]]

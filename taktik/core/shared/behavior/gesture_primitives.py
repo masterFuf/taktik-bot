@@ -39,16 +39,31 @@ def _translate_path(
     screen_w: int,
     screen_h: int,
 ) -> List[List[int]]:
-    """Translate a sampled path to ``start`` while keeping every point on-screen."""
+    """Translate a sampled path to ``start`` while keeping every point on-screen.
+
+    A curve that would leave the screen envelope is shortened as a whole, drift and travel by the
+    same factor, so it keeps its sampled angle and shape. Clamping each point instead pinned the
+    end of a long drag moved up the screen to the top margin, where it slid sideways only.
+    """
     if not path:
         return []
-    dx, dy = int(start[0]) - int(path[0][0]), int(start[1]) - int(path[0][1])
     x_min, x_max = int(0.04 * screen_w), int(0.96 * screen_w)
     y_min, y_max = int(0.04 * screen_h), int(0.96 * screen_h)
-    return [
-        [min(max(int(x) + dx, x_min), x_max), min(max(int(y) + dy, y_min), y_max)]
-        for x, y in path
-    ]
+    sx = min(max(int(start[0]), x_min), x_max)
+    sy = min(max(int(start[1]), y_min), y_max)
+    x0, y0 = int(path[0][0]), int(path[0][1])
+    offsets = [(int(x) - x0, int(y) - y0) for x, y in path]
+
+    def room(origin: int, offset: int, low: int, high: int) -> float:
+        if offset > 0:
+            return (high - origin) / offset
+        if offset < 0:
+            return (low - origin) / offset
+        return 1.0
+
+    scale = min([1.0] + [min(room(sx, ox, x_min, x_max), room(sy, oy, y_min, y_max))
+                         for ox, oy in offsets])
+    return [[sx + int(round(scale * ox)), sy + int(round(scale * oy))] for ox, oy in offsets]
 
 
 def _normalise_bounds(bounds: Sequence[Sequence[int]]) -> List[_Bounds]:
