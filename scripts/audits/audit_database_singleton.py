@@ -26,13 +26,15 @@ import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List
+from typing import List
+
+from ratchet import UnreadableSource, parse_source, read_source, relative, source_files
 
 ROOT = Path(__file__).resolve().parents[2]
-SCAN_ROOTS = (ROOT / "taktik", ROOT / "bridges")
+SCAN_ROOTS = ("taktik", "bridges")
 
 #: The one module allowed to build it -- it is where the singleton lives.
-ACCESSOR_MODULE = ROOT / "taktik" / "core" / "database" / "local" / "service.py"
+ACCESSOR_MODULE = "taktik/core/database/local/service.py"
 
 CLASS_NAME = "LocalDatabaseService"
 
@@ -44,23 +46,14 @@ class Finding:
     snippet: str
 
 
-def _sources() -> Iterable[Path]:
-    for root in SCAN_ROOTS:
-        if not root.exists():
-            continue
-        for path in sorted(root.rglob("*.py")):
-            if path.resolve() == ACCESSOR_MODULE.resolve():
-                continue
-            yield path
+def _sources() -> List[Path]:
+    return [path for path in source_files(ROOT, SCAN_ROOTS, (".py",))
+            if relative(path, ROOT) != ACCESSOR_MODULE]
 
 
 def _findings_in(path: Path) -> List[Finding]:
-    try:
-        source = path.read_text(encoding="utf-8")
-        tree = ast.parse(source)
-    except (OSError, SyntaxError):
-        return []
-
+    source = read_source(path, ROOT)
+    tree = parse_source(path, ROOT, source)
     lines = source.splitlines()
     found: List[Finding] = []
     for node in ast.walk(tree):
@@ -71,8 +64,12 @@ def _findings_in(path: Path) -> List[Finding]:
         if name != CLASS_NAME:
             continue
         snippet = lines[node.lineno - 1].strip() if node.lineno <= len(lines) else ""
-        found.append(Finding(str(path.relative_to(ROOT)).replace("\\", "/"), node.lineno, snippet))
+        found.append(Finding(relative(path, ROOT), node.lineno, snippet))
     return found
+
+
+def collect() -> List[Finding]:
+    return [finding for path in _sources() for finding in _findings_in(path)]
 
 
 def main() -> int:
@@ -80,7 +77,11 @@ def main() -> int:
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     args = parser.parse_args()
 
-    findings = [f for path in _sources() for f in _findings_in(path)]
+    try:
+        findings = collect()
+    except UnreadableSource as exc:
+        print(f"Database singleton audit FAILED: {exc}")
+        return 1
 
     if args.json:
         print(json.dumps([f.__dict__ for f in findings], indent=2))

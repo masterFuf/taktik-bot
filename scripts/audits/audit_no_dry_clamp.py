@@ -36,7 +36,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Set, Tuple
 
-from ratchet import UnreadableSource, product_files, read_source, relative
+from ratchet import UnreadableSource, parse_source, product_files, relative
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -277,16 +277,15 @@ def _scopes(tree: ast.Module) -> Iterable[Tuple[str, ast.AST]]:
 
 
 def _scan_file(path: Path) -> List[Finding]:
-    rel = relative(path, ROOT)
-    try:
-        return scan_source(read_source(path, ROOT), rel)
-    except SyntaxError as exc:
-        raise UnreadableSource(f"{rel}: not valid Python ({exc.msg}, line {exc.lineno})") from exc
+    return scan_tree(parse_source(path, ROOT), relative(path, ROOT))
 
 
 def scan_source(source: str, rel: str = "<source>") -> List[Finding]:
     """Dry clamps in one module's source, allowed or not."""
-    tree = ast.parse(source)
+    return scan_tree(ast.parse(source), rel)
+
+
+def scan_tree(tree: ast.Module, rel: str) -> List[Finding]:
     findings: List[Finding] = []
     for name, scope in _scopes(tree):
         tainted = _tainted_names(scope)

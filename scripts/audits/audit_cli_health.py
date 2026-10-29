@@ -30,17 +30,16 @@ import subprocess
 import sys
 from pathlib import Path
 
+from ratchet import UnreadableSource, parse_source, relative, source_files
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-TARGETS = [ROOT / "taktik" / "cli"]
+TARGETS = ("taktik/cli",)
 
 
 def python_files() -> list[Path]:
-    out: list[Path] = []
-    for target in TARGETS:
-        out.extend(p for p in target.rglob("*.py") if "__pycache__" not in str(p))
-    return sorted(out)
+    return source_files(ROOT, TARGETS, (".py",))
 
 
 # --- check 1: undefined names ----------------------------------------------
@@ -49,7 +48,7 @@ def undefined_names() -> list[str]:
     """Delegate to pyflakes; absence of the tool is reported, never silently skipped."""
     try:
         proc = subprocess.run(
-            [sys.executable, "-m", "pyflakes", *[str(p) for p in TARGETS]],
+            [sys.executable, "-m", "pyflakes", *[str(ROOT / t) for t in TARGETS]],
             capture_output=True, text=True, cwd=ROOT,
         )
     except FileNotFoundError:  # pragma: no cover
@@ -113,23 +112,10 @@ def _dedent(source: str) -> str:
     return textwrap.dedent(source)
 
 
-def _display(path: Path) -> str:
-    """Repo-relative when possible, absolute otherwise — a path outside the tree must not raise."""
-    try:
-        return str(path.relative_to(ROOT))
-    except ValueError:
-        return str(path)
-
-
 def missing_attributes(path: Path) -> list[str]:
-    # utf-8-sig: several CLI modules start with a BOM, which ast.parse rejects outright — the
-    # audit would have reported a syntax error instead of scanning the largest file.
-    source = path.read_text(encoding="utf-8-sig", errors="replace")
-    try:
-        tree = ast.parse(source)
-    except SyntaxError as exc:
-        return [f"{_display(path)}: syntax error: {exc}"]
-
+    # Through ratchet: a BOM accepted (several CLI modules start with one), a file that is not
+    # UTF-8 or not valid Python raises UnreadableSource with its path.
+    tree = parse_source(path, ROOT)
     imports = _imported_classes(tree)
     findings: list[str] = []
     seen: set[tuple[str, str]] = set()
@@ -201,10 +187,14 @@ def missing_attributes(path: Path) -> list[str]:
                 continue
             seen.add(key)
             findings.append(
-                f"{_display(path)}:{node.lineno} "
+                f"{relative(path, ROOT)}:{node.lineno} "
                 f"{node.value.id}.{node.attr} does not exist on {cls.__name__}"
             )
     return findings
+
+
+def collect() -> list[str]:
+    return [finding for path in python_files() for finding in missing_attributes(path)]
 
 
 def main() -> int:
@@ -217,9 +207,11 @@ def main() -> int:
     for line in names:
         print(f"    {line}")
 
-    attribute_findings: list[str] = []
-    for path in python_files():
-        attribute_findings.extend(missing_attributes(path))
+    try:
+        attribute_findings = collect()
+    except UnreadableSource as exc:
+        print(f"  CLI health FAILED: {exc}")
+        return 1
 
     print(f"  attributs inexistants : {len(attribute_findings)}")
     for line in attribute_findings:

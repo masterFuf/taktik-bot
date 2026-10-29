@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Iterable, List, Optional
 
 # Tests and fixtures hold literals that are not device input: `product_files` leaves them out.
-from ratchet import UnreadableSource, product_files, read_source, relative
+from ratchet import UnreadableSource, parse_source, product_files
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -79,11 +79,7 @@ def _flatten(args: Iterable[ast.AST]) -> List[ast.AST]:
 
 
 def _scan_file(path: Path) -> List[Finding]:
-    try:
-        tree = ast.parse(read_source(path, ROOT), filename=str(path))
-    except SyntaxError as exc:
-        raise UnreadableSource(f"{relative(path, ROOT)}: not valid Python ({exc.msg}, line {exc.lineno})") from exc
-
+    tree = parse_source(path, ROOT)
     findings: List[Finding] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
