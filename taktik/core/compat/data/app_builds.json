@@ -16,50 +16,22 @@
           "version": "447.0.0.55.81",
           "status": "validated",
           "validation": {
-            "date": "2026-09-30",
-            "core_commit": "508919aa582f25da8b39d03aa180010ab98d17f8",
-            "decided_by": "maintainer",
+            "date": "2026-10-29",
+            "core_commit": "d963b3c4437ebd1db8cf48101f8ea37a87403fb3",
+            "decided_by": "Kevin",
             "runs": [
               {
                 "device": "Pixel 6a",
                 "version_code": 385311922,
                 "abi": "arm64-v8a",
                 "language": "fr",
-                "report_sha256": "4a23549a20fcd540aa697c8a8f88eb68d4f8f4d7efac06135197b21fe3ead47f",
-                "core_commit": "071fb85f76e324044cd8098a649569107ac515de",
-                "exception": {
-                  "reason": "Instagram account of a client: no DM thread opened, no typing in a field, no story viewed, no recent search left, and no answer to Instagram's contacts access dialog (so Discover people is never entered)",
-                  "skipped_actions": [
-                    "comment.open_and_type",
-                    "dm.list_unread",
-                    "dm.open_thread",
-                    "keyboard.press_enter",
-                    "keyboard.type_human",
-                    "keyboard.type_text",
-                    "navigation.open_hashtag",
-                    "navigation.open_profile",
-                    "notifications.reply_mention",
-                    "profile.click_message_button",
-                    "publish.type_caption",
-                    "story.go_to_next",
-                    "story.go_to_previous",
-                    "story.open_from_profile",
-                    "story.open_from_tray",
-                    "story.open_highlight",
-                    "suggestions.back_to_list",
-                    "suggestions.handle_contacts_dialog",
-                    "suggestions.is_discover_screen",
-                    "suggestions.open_profile",
-                    "suggestions.open_see_all",
-                    "suggestions.scan_rows",
-                    "suggestions.scroll_list"
-                  ]
-                }
+                "report_sha256": "703991ea33dca8c8bbfb68070aead9129a633574fbdd15390cd94b3bf6686b1d",
+                "core_commit": "d963b3c4437ebd1db8cf48101f8ea37a87403fb3"
               }
             ],
             "notes": {
-              "fr": "Un passage du Lab du 30/09 sur le Pixel 6a, Instagram en français, qui porte le compte d'un client : joué sans les 23 actions de son exception (aucun fil de messages ouvert, aucune frappe, aucune story vue, aucune recherche laissée, « Découvrir des personnes » jamais ouvert). Quatre échecs connus de la 447 : lecture des commentaires et de leurs auteurs, état et ouverture d'une ligne d'une liste d'abonnés. Aucun passage n'est vert au sens strict de lab:exit (fait sur le commit validé) : c'est la décision du mainteneur qui valide, avec ces preuves et ces limites. versionCode et ABI : ceux de l'APK tiré de ce téléphone le 26/09 ; le rapport ne les relevait pas encore.",
-              "en": "One Lab run of 2026-09-30 on the Pixel 6a, Instagram in French, which holds a client's account: played without the 23 actions of its exception (no message thread opened, no typing, no story viewed, no search left behind, Discover people never opened). Four known failures of 447: reading the comments and their authors, the state and the opening of a row of a followers list. No run is green in the strict sense of lab:exit (made on the validated commit): the maintainer's decision validates, with this evidence and these limits. versionCode and ABI: those of the APK pulled from this phone on 2026-09-26; the report did not record them yet."
+              "fr": "Passage complet du banc du Lab sur le Pixel 6a, Instagram en français, sans exception : 195 actions réussies, 0 échec, 0 bloquée, 29 non applicables. Comme tout auto-test, il laisse de côté les gestes visibles (like, follow, story aimée), les actions qui changent l'état du compte, la publication (jouée par son propre scénario) et les bancs de mesure : 89 actions. Limite connue : l'entrée dans les notifications depuis la liste des abonnés rate une fois, puis passe après relance de l'app.",
+              "en": "Full Lab bench pass on the Pixel 6a, Instagram in French, no exception: 195 actions passed, 0 failed, 0 blocked, 29 not applicable. Like every auto-test, it leaves out visible gestures (like, follow, liked story), actions that change the account state, publishing (played by its own scenario) and measurement benches: 89 actions. Known limit: entering notifications from the followers list misses once, then passes after the app restarts."
             }
           }
         },
