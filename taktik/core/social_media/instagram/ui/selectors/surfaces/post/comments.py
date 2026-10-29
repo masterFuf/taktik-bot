@@ -218,6 +218,10 @@ class PostCommentsSelectors:
         """Return the comments list selector from the catalog-owned resource id."""
         return f'//*[@resource-id="{self.comments_list_resource_id}"]'
 
+    def comments_list_nodes_selector(self) -> str:
+        """The comments list and every node under it, the list first (document order)."""
+        return f"{self.comments_list_selector()}/descendant-or-self::*"
+
     def sort_option_selector(self, label: str) -> str:
         """The sort menu's option carrying `label`, by content-desc or by text.
 

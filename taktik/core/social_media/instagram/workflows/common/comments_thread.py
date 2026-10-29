@@ -88,8 +88,25 @@ def _username_nodes(root) -> List[Tuple[str, Tuple[int, int, int, int]]]:
     reaches. The body itself is excluded by shape alone: it reads "<user> said <text>", which has
     spaces and is therefore not a handle.
     """
-    compose: List[Tuple[str, Tuple[int, int, int, int]]] = []
-    legacy: List[Tuple[str, Tuple[int, int, int, int]]] = []
+    compose, legacy = _username_label_nodes(root)
+    return [(handle, box) for handle, _node, box in (compose or legacy)]
+
+
+def compose_username_nodes(root) -> List[Tuple[str, Any]]:
+    """The username labels of the Compose shape (IG 442 and later) under `root`, as
+    ``(handle, node)`` in document order: the authors of the comments on screen, never a
+    @mention inside a body (a Button with an empty content-desc there). Empty on the older
+    layouts, whose authors are that Button shape. `read_visible_commenters` reads the people of
+    the thread with it, the like and the reply pair their rows with it (`_username_nodes`)."""
+    compose, _legacy = _username_label_nodes(root)
+    return [(handle, node) for handle, node, _box in compose]
+
+
+def _username_label_nodes(root):
+    """Both shapes of username label under `root`, ``(handle, node, bounds)`` each, document order:
+    the Compose ones and the legacy ones (see `_username_nodes`)."""
+    compose: List[Tuple[str, Any, Tuple[int, int, int, int]]] = []
+    legacy: List[Tuple[str, Any, Tuple[int, int, int, int]]] = []
     chrome = _chrome_nodes(root)
     for node in iter_widgets(root):
         handle = _handle_shape(node)
@@ -100,10 +117,10 @@ def _username_nodes(root) -> List[Tuple[str, Tuple[int, int, int, int]]]:
             continue
         desc = _normalise(node.get("content-desc"))
         if not desc:
-            legacy.append((handle, box))
+            legacy.append((handle, node, box))
         elif desc == handle and node.tag.endswith("TextView"):
-            compose.append((handle, box))
-    return compose or legacy
+            compose.append((handle, node, box))
+    return compose, legacy
 
 
 def _chrome_nodes(root) -> set:
@@ -287,6 +304,7 @@ def _username_anchors(root) -> List[Tuple[str, int, int]]:
 __all__ = [
     "parse_bounds",
     "center",
+    "compose_username_nodes",
     "find_comment_like_target",
     "find_comment_reply_target",
     "read_comment_texts",

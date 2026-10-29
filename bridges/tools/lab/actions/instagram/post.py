@@ -86,6 +86,35 @@ def read_commenters(a, p):
     }
 
 
+@action("post.open_commenter_profile")
+def open_commenter_profile(a, p):
+    """Open the profile of a person of the open comments thread, and come back to the thread, as
+    the commenters interaction loop does: its source (`make_commenters_source`) reads the authors,
+    taps the author's element, waits for the profile as the loop does, and its return goes back to
+    the thread. Param username (optional,
+    else the first author on screen). A thread with no author on screen is a failure."""
+    from types import SimpleNamespace
+
+    from taktik.core.social_media.instagram.workflows.common.list_sources import make_commenters_source
+
+    source = make_commenters_source(SimpleNamespace(device=a.device, logger=logger, scroll_actions=a.scroll))
+    rows = source.get_visible()
+    wanted = (p.get("username") or "").strip().lstrip("@").lower() if isinstance(p, dict) else ""
+    row = next((r for r in rows if not wanted or r["username"].lower() == wanted), None)
+    if row is None:
+        named = f" named @{wanted}" if wanted else ""
+        return {"success": False, "message": f"no author{named} on the thread",
+                "details": {"visible": [r["username"] for r in rows]}}
+    tapped = source.click(row["username"], row["element"])
+    # The loop's own wait: a profile still loading is not a profile missed.
+    on_profile = bool(tapped) and a.detection.wait_for_profile_screen(timeout=8.0)
+    back = source.ensure_open() if tapped else True
+    logger.info(f"post.open_commenter_profile @{row['username']}: profile={on_profile}, back on the thread={back}")
+    return {"success": on_profile and back,
+            "message": f"@{row['username']} profile opened={on_profile}, back on the thread={back}",
+            "details": {"username": row["username"], "profile_opened": on_profile, "back_on_thread": back}}
+
+
 @detection_action("post.is_liked")
 def is_liked(a, p):
     """Is the framed post liked? The production like's own reading before it likes
