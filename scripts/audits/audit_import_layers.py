@@ -50,6 +50,13 @@ imports what it may not:
   not rewritten when the tree moves, and nothing reads it until the line runs; an absolute import
   says where it goes. Ratchet (`scripts/audits/ratchet.py`): `scripts/audits/audit_import_layers_baseline.json`
   counts them per file, the counts only go down (`--update-baseline` records a decrease).
+- `no-facade-import`: a name is imported from its module (AGENTS.md), not through a package whose
+  `__init__.py` only re-exports it (`from taktik.core.social_media.tiktok import TikTokManager`: the owner is
+  `...tiktok.manager`). A submodule imported from its package is not one. Ratchet:
+  `scripts/audits/audit_import_layers_facade_baseline.json` counts them per file, in `taktik` and `bridges`; a
+  file above its count is red, each of its facade imports named by its line and the module to import from.
+  Blind spots, said: `import package` then `package.Name`; a module that is not a package re-exporting a name;
+  a re-exported name that the `__init__.py` rebinds afterwards is still counted as re-exported.
 
 An import is what `python_imports.py` reads: every `import` / `from ... import`, lazy or under
 `TYPE_CHECKING` included, relative ones resolved, and `import_module` / `__import__` with a literal
@@ -66,19 +73,19 @@ module `__getattr__` (such a module accepts any name).
 
     python scripts/audits/audit_import_layers.py                    # green / red
     python scripts/audits/audit_import_layers.py --self-test        # each kind of forbidden import turns it red
-    python scripts/audits/audit_import_layers.py --update-baseline  # record fewer deep relative imports
+    python scripts/audits/audit_import_layers.py --update-baseline  # record fewer deep relative or facade imports
 """
 
 from __future__ import annotations
 
 import ast
 import sys
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Callable, Mapping
 
-from python_imports import ImportStatement, defined_names, import_statements, module_name
-from ratchet import Ratchet, compare, enforce
+from python_imports import ImportStatement, defined_names, import_statements, module_name, reexports
+from ratchet import Ratchet, UnreadableSource, compare, enforce, load_baseline, read_source
 
 CORE = Path(__file__).resolve().parents[2]
 SCAN_ROOTS = ("taktik", "bridges")
@@ -97,6 +104,14 @@ DEEP_RELATIVE = Ratchet(
     remedy="Write the import absolute (`from taktik.core.social_media...`).",
     command="python scripts/audits/audit_import_layers.py",
     baseline=CORE / "scripts" / "audits" / "audit_import_layers_baseline.json",
+)
+
+FACADE_IMPORTS = Ratchet(
+    label="Facade imports",
+    noun="import(s) of a name through a package that re-exports it",
+    remedy="Import the name from its module (AGENTS.md: a name is imported from its module).",
+    command="python scripts/audits/audit_import_layers.py",
+    baseline=CORE / "scripts" / "audits" / "audit_import_layers_facade_baseline.json",
 )
 
 PLATFORMS = "social_media"
@@ -254,6 +269,18 @@ class SourceModule:
     defines: frozenset[str] | None = None
     #: Lines of the imports a test expects to fail (under `pytest.raises(ImportError)`).
     expected_to_fail: frozenset[int] = frozenset()
+    #: For a package (`__init__.py`): the names it re-exports, name -> the module that owns it.
+    reexports: Mapping[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class FacadeImport:
+    """`from <package> import <name>`, where the package only re-exports a name `owner` defines."""
+
+    line: int
+    name: str
+    package: str
+    owner: str
 
 
 def _lines_expected_to_fail(tree: ast.Module) -> frozenset[int]:
@@ -282,7 +309,8 @@ def read_module(path: str, source: str) -> SourceModule:
     except SyntaxError as exc:
         return SourceModule(path, name, (), f"does not parse ({exc.msg}, line {exc.lineno})")
     return SourceModule(path, name, tuple(import_statements(tree, name, is_package)),
-                        defines=defined_names(tree), expected_to_fail=_lines_expected_to_fail(tree))
+                        defines=defined_names(tree), expected_to_fail=_lines_expected_to_fail(tree),
+                        reexports=reexports(tree, name, is_package) if is_package else {})
 
 
 def read_tree() -> dict[str, SourceModule]:
@@ -292,7 +320,7 @@ def read_tree() -> dict[str, SourceModule]:
             if "__pycache__" in file.parts:
                 continue
             path = file.relative_to(CORE).as_posix()
-            modules[path] = read_module(path, file.read_text(encoding="utf-8-sig"))
+            modules[path] = read_module(path, read_source(file, CORE))
     return modules
 
 
@@ -350,6 +378,51 @@ def deep_relative_counts(modules: Mapping[str, SourceModule]) -> dict[str, int]:
         if deep:
             counts[path] = deep
     return counts
+
+
+def facade_imports(modules: Mapping[str, SourceModule]) -> dict[str, list[FacadeImport]]:
+    """`no-facade-import`: per file of `taktik` and `bridges`, each name it imports from a package of the
+    tree that does not own it but re-exports it. The owner is followed through chained facades."""
+    by_name = {module.name: module for module in modules.values()}
+    exists = importable_names(modules).__contains__
+
+    def owner_of(package: str, name: str) -> str:
+        seen = {package}
+        owner = by_name[package].reexports[name]
+        while owner in by_name and name in by_name[owner].reexports and owner not in seen:
+            seen.add(owner)
+            owner = by_name[owner].reexports[name]
+        return owner
+
+    found: dict[str, list[FacadeImport]] = {}
+    for path, module in sorted(modules.items()):
+        if module.error or not in_layers(path):
+            continue
+        for statement in module.statements:
+            for package in statement.modules:
+                facade = by_name.get(package)
+                if facade is None or not facade.reexports:
+                    continue
+                for name in statement.names:
+                    if name in facade.reexports and not exists(f"{package}.{name}"):
+                        found.setdefault(path, []).append(
+                            FacadeImport(statement.line, name, package, owner_of(package, name)))
+    return found
+
+
+def facade_import_counts(modules: Mapping[str, SourceModule]) -> dict[str, int]:
+    return {path: len(hits) for path, hits in facade_imports(modules).items()}
+
+
+def facade_import_findings(modules: Mapping[str, SourceModule]) -> list[str]:
+    """The line of each facade import of a file above its baseline: what to rewrite."""
+    found = facade_imports(modules)
+    counts = {path: len(hits) for path, hits in found.items()}
+    failures, _stale = compare(counts, load_baseline(FACADE_IMPORTS.baseline), FACADE_IMPORTS.noun)
+    above = {failure.partition(":")[0] for failure in failures}
+    return [f"{path}:{hit.line} imports {hit.name} from {hit.package}, which re-exports it: "
+            f"import it from {hit.owner} (no-facade-import)"
+            for path in sorted(above) for hit in found[path]]
 
 
 def crossings(module: SourceModule) -> dict[str, list[tuple[int, str]]]:
@@ -425,9 +498,18 @@ def check(modules: Mapping[str, SourceModule],
 
 def main() -> int:
     update = "--update-baseline" in sys.argv
-    modules = read_tree()
+    try:
+        modules = read_tree()
+    except UnreadableSource as exc:
+        print(f"FAIL: {exc}")
+        return 1
     failures = check(modules)
     verdict = enforce(deep_relative_counts(modules), DEEP_RELATIVE, update=update, other_failures=failures)
+    if not update:
+        for line in facade_import_findings(modules):
+            print(f"  {line}")
+    verdict = max(verdict, enforce(facade_import_counts(modules), FACADE_IMPORTS, update=update,
+                                   other_failures=failures if update else ()))
     if failures:
         print(f"Import layers: {len(failures)} finding(s). The rules are in this script's docstring; "
               f"a boundary crossed today is named in EXCEPTIONS with its reason.")
@@ -579,6 +661,14 @@ def deep_relative_caught(modules: Mapping[str, SourceModule]) -> bool:
     return any(path in failure for failure in failures)
 
 
+def facade_import_caught(modules: Mapping[str, SourceModule]) -> bool:
+    """A new import of a name through the TikTok package facade turns the ratchet red, against the real tree."""
+    path = "taktik/core/social_media/tiktok/workflows/cold_dm/fake.py"
+    fake = {**modules, path: read_module(path, "from taktik.core.social_media.tiktok import TikTokManager\n")}
+    failures, _stale = compare(facade_import_counts(fake), facade_import_counts(modules), FACADE_IMPORTS.noun)
+    return any(path in failure for failure in failures)
+
+
 def caught(fake: dict) -> bool:
     return any(fake["expect"] in failure for failure in check(fake["modules"], fake.get("exceptions", EXCEPTIONS)))
 
@@ -601,6 +691,8 @@ def self_test() -> int:
     missed = [name for name, fake in cases.items() if not caught(fake)]
     if not deep_relative_caught(modules):
         missed.append("a new relative import of 3 dots")
+    if not facade_import_caught(modules):
+        missed.append("a new import of a name through a package facade")
     if not shared_bridge_code_left_alone(modules):
         missed.append("a bridge that imports what the bridges share, left green")
     control = check(modules)
