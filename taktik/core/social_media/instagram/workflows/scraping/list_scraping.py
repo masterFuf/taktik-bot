@@ -285,10 +285,7 @@ class ScrapingListMixin(DeepQualifyMixin):
             if _dedup_db is not None:
                 try:
                     if _dedup_db.profile_exists_in_db(username, days=rescrape_after_days):
-                        skip_reason = (f"in DB, created < {rescrape_after_days}d ago"
-                                       if rescrape_after_days else "already in DB")
-                        self.logger.info(f"⏭️  @{username} — skipped ({skip_reason})")
-                        IPCEmitter.emit_profile_skipped(username, skip_reason)
+                        self._say_already_in_db(username, rescrape_after_days)
                         continue
                     profile_preexisted = _dedup_db.profile_exists_in_db(username, days=None)
                 except Exception as _dedup_err:
@@ -313,7 +310,7 @@ class ScrapingListMixin(DeepQualifyMixin):
                 )
             except Exception as e:
                 self.logger.warning(f"Failed to qualify @{username}: {e}")
-                IPCEmitter.emit_profile_skipped(username, 'navigation failed')
+                IPCEmitter.emit_profile_skipped(username, 'navigation_failed')
                 continue
 
             if filter_reason:
@@ -353,6 +350,12 @@ class ScrapingListMixin(DeepQualifyMixin):
                 return
             self.logger.debug(f"⚠️ Not on target list after {_back_attempt + 1} back press(es), retrying...")
         self.logger.warning("⚠️ Could not return to target list after 5 back presses")
+
+    def _say_already_in_db(self, username: str, rescrape_after_days: Any) -> None:
+        """A profile the base knows: the app words the code, and its days when the run re-reads old ones."""
+        days = str(rescrape_after_days) if rescrape_after_days else None
+        self.logger.info(f"⏭️  @{username} — skipped (in the base{f', younger than {days} days' if days else ''})")
+        IPCEmitter.emit_profile_skipped(username, "already_in_db", detail=days)
 
     def _get_profile_filter_reason(self, profile: Dict[str, Any]) -> Optional[str]:
         min_followers = self.config.get('minFollowers')
@@ -565,12 +568,7 @@ class ScrapingListMixin(DeepQualifyMixin):
                     if _dedup_db is not None:
                         try:
                             if _dedup_db.profile_exists_in_db(username, days=rescrape_after_days):
-                                if rescrape_after_days:
-                                    skip_reason = f"in DB, created < {rescrape_after_days}d ago"
-                                else:
-                                    skip_reason = "already in DB"
-                                self.logger.info(f"⏭️  @{username} — skipped ({skip_reason})")
-                                IPCEmitter.emit_profile_skipped(username, skip_reason)
+                                self._say_already_in_db(username, rescrape_after_days)
                                 continue
                             # Profile passed dedup: check if it pre-existed (for AI rescrape mode)
                             _profile_preexisted = _dedup_db.profile_exists_in_db(username, days=None)

@@ -114,7 +114,7 @@ class IPCEmitter:
             log.debug(f"IPC profile_captured event error: {exc}")
 
     @staticmethod
-    def emit_profile_skipped(username: str, reason: str = "already in DB", detail: Optional[str] = None) -> None:
+    def emit_profile_skipped(username: str, reason: str = "already_in_db", detail: Optional[str] = None) -> None:
         """Emit a profile_skipped event to the Taktik Agent panel.
 
         ``detail`` carries an optional human hint the desktop appends to the localized
