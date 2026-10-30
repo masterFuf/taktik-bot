@@ -45,6 +45,11 @@ _LANGUAGE_NAMES = {
     'it': 'Italian', 'de': 'German', 'nl': 'Dutch', 'ar': 'Arabic',
 }
 
+# What a writer may answer, for both generators. The smart comment answers four JSON fields
+# (anchor, reasoning, comment, safe_comment): Sonnet 5.5 writes them in 200 to 250 tokens and was
+# cut at 220 one answer in two (model benchmark, 2026-10-25). Only the tokens written are billed.
+_WRITER_MAX_TOKENS = 600
+
 # The writing rules validated during the model benchmark. Shared by the two
 # generators (a comment on a post, a reply to a comment) so a rule proven on one is never
 # silently missing from the other — which is exactly how the sparkle-emoji tic reached
@@ -359,7 +364,7 @@ Respond with ONLY a JSON object, on a single line, nothing else:
             parts.append(f'They were reacting to this post: "{post_caption[:600]}"')
         user_prompt = "\n\n".join(parts) + "\n\nWrite the reply."
 
-        result = self.text_completion(system_prompt, user_prompt, temperature=0.9, max_tokens=220,
+        result = self.text_completion(system_prompt, user_prompt, temperature=0.9, max_tokens=_WRITER_MAX_TOKENS,
                                       model=self.model_generation,
                                       label=f"generate_comment_reply @{username or '?'}",
                                       kind=AI_SPEND_COMMENT)
@@ -583,7 +588,7 @@ Respond with ONLY a JSON object, on a single line, nothing else:
             parts.append(thread_block)
         user_prompt = "\n\n".join(parts) + "\n\nGenerate a natural, engaging comment."
 
-        result = self.text_completion(system_prompt, user_prompt, temperature=0.9, max_tokens=220,
+        result = self.text_completion(system_prompt, user_prompt, temperature=0.9, max_tokens=_WRITER_MAX_TOKENS,
                                       model=self.model_generation,
                                       label=f"generate_smart_comment @{username or '?'}",
                                       kind=AI_SPEND_COMMENT)
@@ -594,14 +599,18 @@ Respond with ONLY a JSON object, on a single line, nothing else:
                 self.ipc.ai_error(result.get("error", "Comment generation failed"), username)
             return result
 
-        # Parse the {reasoning, comment} JSON. Robust fallback: if the model didn't return valid
-        # JSON, treat the whole text as the comment (prior behaviour) with no reasoning.
+        # Parse the {reasoning, comment} JSON. A bare sentence is a model that ignored the format:
+        # it is published as the comment (prior behaviour), with no reasoning. A JSON that does
+        # not parse, or parses without a comment, is an answer cut short or broken: publishing the
+        # text would put `{"anchor": ...` under somebody's post, so it fails closed.
         raw = result["text"].strip()
         reasoning = ""
         anchor = ""
         safe_comment = ""
-        comment = raw if not require_relevance_decision else ""
-        should_comment = not require_relevance_decision
+        answered_json = raw.startswith("{") or '"comment"' in raw
+        publish_raw = not (require_relevance_decision or answered_json)
+        comment = raw if publish_raw else ""
+        should_comment = publish_raw
         try:
             start, end = raw.find("{"), raw.rfind("}")
             if start != -1 and end != -1 and end > start:
@@ -616,10 +625,15 @@ Respond with ONLY a JSON object, on a single line, nothing else:
                     )
                     comment = parsed_comment if should_comment else ""
                 else:
-                    comment = parsed_comment or raw
-        except Exception:
-            if not require_relevance_decision:
-                comment = raw
+                    should_comment = bool(parsed_comment)
+                    comment = parsed_comment
+        except Exception as exc:
+            logger.warning(f"[comment] unparseable JSON answer for @{username or '?'}: {exc}")
+        if answered_json and not comment:
+            logger.warning(
+                f"[comment] @{username or '?'}: the answer is a JSON without a readable comment "
+                f"(finish={result.get('finish_reason')}), nothing published: {raw[:120]!r}"
+            )
         comment = comment.strip().strip('"').strip("'")
 
         # THE ANCHOR CHECK — a backstop on a claim the model makes about its own answer.
