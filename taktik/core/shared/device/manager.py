@@ -90,6 +90,15 @@ class DeviceManager:
             logger.error(f"Failed to connect to device {self.device_id}: {e}")
             return False
     
+    def disconnect(self) -> None:
+        """Let the phone go: this manager no longer hands out its device, and verifies it again at the next connect.
+
+        Nothing to close on the phone: uiautomator2 talks HTTP call by call and holds no socket, and its
+        server stays up on purpose, restarting it is what costs at the next run (`server_restart.py`).
+        """
+        self.device = None
+        self._atx_verified = False
+
     def _connect_u2(self):
         """Every uiautomator2 device this manager hands out, first connection or repair."""
         from taktik.core.shared.telemetry.device_io import instrument_device_io

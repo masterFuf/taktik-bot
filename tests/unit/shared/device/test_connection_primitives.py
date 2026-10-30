@@ -273,3 +273,25 @@ def test_a_base_is_connected_on_the_phone_of_its_host():
 def test_a_host_without_device_cannot_connect_a_base():
     with pytest.raises(RuntimeError, match="No connected device for SERIAL"):
         connected_device.on_connected_device(_Base(), SimpleNamespace(), "SERIAL")
+
+
+def test_the_real_manager_lets_the_phone_go_without_a_warning(monkeypatch):
+    """`DeviceManager.disconnect` did not exist: every end of run logged a warning, behind the fakes of these tests."""
+    from taktik.core.shared.device import connection
+    from taktik.core.shared.device.manager import DeviceManager
+
+    warnings = []
+    monkeypatch.setattr(connection.logger, 'warning', warnings.append)
+    manager = DeviceManager('SERIAL')
+    manager.device = object()
+    manager._atx_verified = True
+    service = connection.ConnectionService('SERIAL')
+    service._device_manager = manager
+    service._device = manager.device
+    service._connected = True
+
+    service.disconnect()
+
+    assert warnings == []
+    assert manager.device is None and manager._atx_verified is False
+    assert service.is_connected is False
