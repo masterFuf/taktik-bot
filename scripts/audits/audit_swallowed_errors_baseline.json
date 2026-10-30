@@ -17,7 +17,7 @@
   "bridges/tools/lab/actions/tiktok/profile.py": 2,
   "bridges/tools/lab/workflow_test/execution/lifecycle.py": 2,
   "bridges/tools/lab/workflow_test/platforms/instagram/observability_hooks.py": 2,
-  "taktik/core/ai/comments/generation.py": 2,
+  "taktik/core/ai/comments/generation.py": 1,
   "taktik/core/ai/providers/openrouter.py": 4,
   "taktik/core/compat/selectors/tracer.py": 2,
   "taktik/core/database/local/service.py": 1,
