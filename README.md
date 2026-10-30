@@ -73,7 +73,7 @@ Every row runs from the command line (`taktik workflows run <id>`) unless it say
 | **Home feed** | `instagram.automation.feed` |
 | **Unfollow** | `instagram.automation.unfollow` |
 | **Sync of the following and followers lists** | `instagram.automation.sync_following`, `sync_followers_following` |
-| **Scraping**: followers or following of an account, a hashtag, the likers and commenters of a post, a list of usernames, the posts of accounts | `instagram.scraping.target`, `hashtag`, `post_url`, `usernames`, `profile_posts` |
+| **Scraping**: followers or following of an account, a hashtag, the likers and commenters of a post, a list of usernames, the posts of accounts; the profiles are written to a CSV file at the end | `instagram.scraping.target`, `hashtag`, `post_url`, `usernames`, `profile_posts` |
 | **Cold DM**: a list of accounts, fixed messages or one message written by AI per recipient | `instagram.engagement.coldDm` |
 | **DM inbox**: read the inbox or the requests folder, reply in a conversation | `instagram.engagement.dm_read`, `dm_send` |
 | **Notifications**: scan the activity feed, accept follow requests, like, follow back, reply, batches | `instagram.engagement.notifications` |
@@ -89,7 +89,7 @@ Every row runs from the command line (`taktik workflows run <id>`) unless it say
 | Feature | Workflow ids |
 |---------|--------------|
 | **For You feed** | `tiktok.automation.for_you` |
-| **Hashtags, account search** | `tiktok.automation.hashtag`, `search` |
+| **Hashtags** | `tiktok.automation.hashtag` |
 | **Followers of target accounts, a list of target profiles** | `tiktok.automation.followers`, `target_profiles` |
 | **Commenters of a video** | `tiktok.automation.post_url` |
 | **Sync of the following and followers lists** | `tiktok.automation.sync_lists`, `sync_following`, `sync_followers` |
@@ -140,7 +140,7 @@ at launch when a run uses AI; a manual run needs no key).
 | **Decision mode**: the app plans the actions on each profile | The engine refuses to act without the app's plan. |
 | **AI replies to DMs**, AI-written welcome messages on Instagram, AI replies to comments | Replies are typed at the terminal. |
 | **AI content for publishing**: images, captions, hashtags | Publishing takes your own media and text. |
-| **Target Search** (explore the local database), world map, audience insights, CSV/XLSX export | The database is a local SQLite file you can query yourself. |
+| **Target Search** (explore the local database), world map, audience insights | The database is a local SQLite file you can query yourself. |
 | **Cartography Lab** (test bench of atomic actions), screen mirroring, device wall, device groups | - |
 | **Multi-PC sync** | - |
 
