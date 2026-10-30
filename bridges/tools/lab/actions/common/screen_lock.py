@@ -7,6 +7,8 @@ a phone whose lock behaves differently shows it here before a run meets it.
 
 from typing import Any, Dict
 
+from loguru import logger
+
 from bridges.tools.lab.action_test.action_bundle import bundle_device_id
 from taktik.core.shared.device.screen import phone_locked_after_lift, read_keyguard_showing
 
@@ -17,6 +19,10 @@ def lift_screen_lock(a, _p) -> Dict[str, Any]:
     `lockedBefore` / `lockedAfter`: True, False, or None when `dumpsys window` does not say.
     """
     serial = bundle_device_id(a)
+    if not serial:
+        msg = "app.lift_screen_lock: no phone serial for this session, nothing was read"
+        logger.error(msg)
+        return {"success": False, "message": msg}
     locked_before = read_keyguard_showing(serial)
     locked_after = phone_locked_after_lift(serial)
     return {
