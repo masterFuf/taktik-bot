@@ -212,6 +212,7 @@ def load_lab_actions() -> dict[str, list[tuple[str, int]]]:
     finding which of the two survived needs the file position.
     """
     per_platform: dict[str, list[tuple[str, int]]] = {}
+    sharing_platforms: set[str] = set()
     for path in sorted(LAB_ACTIONS_ROOT.rglob("*.py")):
         if "__pycache__" in str(path):
             continue
@@ -220,9 +221,15 @@ def load_lab_actions() -> dict[str, list[tuple[str, int]]]:
             continue  # a module sitting directly in actions/ is shared plumbing
         platform = parts[0]  # actions/<platform>/**  ->  <platform>
         text = path.read_text(encoding="utf-8-sig", errors="replace")
+        if "register_shared_actions(action)" in text:
+            sharing_platforms.add(platform)
         for match in ACTION_RE.finditer(text):
             line = text.count("\n", 0, match.start()) + 1
             per_platform.setdefault(platform, []).append((match.group(1), line))
+    # actions/common/ holds the actions each platform registers under the same id: they are its own.
+    shared = per_platform.pop("common", [])
+    for platform in sharing_platforms:
+        per_platform.setdefault(platform, []).extend(shared)
     return per_platform
 
 
