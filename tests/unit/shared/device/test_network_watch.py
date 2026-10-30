@@ -236,3 +236,23 @@ def test_une_veille_arretee_pendant_sa_mesure_ne_pose_rien(telephone, horloge_ra
 
     assert not veille.is_alive()
     assert run_halt.arret_demande() is None
+
+
+def test_a_phone_that_locks_during_the_run_stops_it_with_its_motive(monkeypatch):
+    """Nothing keeps the screen on during a run: a long wait or the power button lock the phone, and
+    the run would go on tapping on the lock screen. Lifted when it can be, the latch when it stays."""
+    monkeypatch.setattr(network_watch, "phone_locked_after_lift", lambda device_id: True)
+    monkeypatch.setattr(network_watch, "measure_network_baseline", lambda device_id: dict(DEPART_EN_LIGNE))
+
+    assert network_watch.NetworkWatch("SERIAL", DEPART_EN_LIGNE).tick() is True
+
+    halt = run_halt.arret_demande()
+    assert halt["code"] == run_halt.PHONE_LOCKED and halt["device_id"] == "SERIAL"
+
+
+def test_a_lock_lifted_during_the_run_does_not_stop_it(monkeypatch):
+    monkeypatch.setattr(network_watch, "phone_locked_after_lift", lambda device_id: False)
+    monkeypatch.setattr(network_watch, "measure_network_baseline", lambda device_id: dict(DEPART_EN_LIGNE))
+
+    assert network_watch.NetworkWatch("SERIAL", DEPART_EN_LIGNE).tick() is False
+    assert run_halt.arret_demande() is None

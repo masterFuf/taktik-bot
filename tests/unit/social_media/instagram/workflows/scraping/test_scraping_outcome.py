@@ -12,6 +12,7 @@ from taktik.core.social_media.instagram.workflows.scraping.outcome import (
     NOTHING_TO_SCRAPE,
     TARGET_NEVER_REACHED,
     scraping_outcome,
+    settled_by_halt,
 )
 
 
@@ -71,3 +72,31 @@ def test_le_nombre_collecte_ne_decide_jamais_du_succes(collectes):
         sources_reached=1, sources_skipped=0, sources_failed=0, total_scraped=collectes
     )
     assert verdict["success"] is True
+
+
+def test_the_latch_gives_its_motive_to_a_scraping_that_found_profiles():
+    """A scraping whose phone locked after 12 profiles: its profiles stay, its motive is the latch's."""
+    done = {**scraping_outcome(sources_reached=1, sources_skipped=0, sources_failed=0, total_scraped=12), "total_scraped": 12}
+
+    settled = settled_by_halt(done, {"code": "phone_locked"})
+
+    assert settled["success"] is False
+    assert settled["completion_reason"] == "phone_locked"
+    assert settled["total_scraped"] == 12
+
+
+def test_a_scraping_the_latch_did_not_stop_keeps_its_verdict():
+    done = scraping_outcome(sources_reached=1, sources_skipped=0, sources_failed=0, total_scraped=12)
+
+    assert settled_by_halt(done, None) == done
+
+
+def test_the_scraping_loops_stop_on_the_latch(monkeypatch):
+    from datetime import datetime
+
+    from taktik.core.shared.diagnostics import run_halt
+    from taktik.core.social_media.instagram.workflows.scraping.session import should_continue_session
+
+    assert should_continue_session(datetime.now(), 60) is True
+    run_halt.demander_arret(run_halt.PHONE_LOCKED, "locked")
+    assert should_continue_session(datetime.now(), 60) is False

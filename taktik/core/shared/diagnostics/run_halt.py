@@ -43,6 +43,11 @@ ended `completed`. The network watch the door starts (`shared/device/network_wat
 phone again from a thread of its own and sets `NETWORK_LOST` once a lost network is confirmed; the
 screen is never read for it, since a profile without network and a deleted account look the same.
 
+**Seventh case: the phone locked itself** (2026-10-30). Nothing keeps the screen on during a run: a
+long wait or the power button lock it, and the run goes on tapping on the lock screen. The network
+watch reads the lock with its network (`shared/device/screen.py`), and sets `PHONE_LOCKED` when the
+lock stays once asked to go. At the start of a run, the door refuses instead (`RunRefused`, below).
+
 **The witness.** The runtime that knows the operated account installs a listener
 (`configurer_temoin`), told once when the latch is set: that is where a block becomes one entry
 of the account's health history, whoever saw it. This module stays blind to accounts and SQLite.
@@ -81,6 +86,27 @@ ACCOUNT_CHALLENGE = "account_challenge"
 #: Le telephone n'a plus de reseau, constate deux fois de suite par la veille du reseau : sans
 #: reseau, les profils s'ouvrent vides et les gestes partent dans le cache.
 NETWORK_LOST = "network_lost"
+
+#: L'ecran du telephone s'est verrouille pendant le run, et le verrou reste (un code, ou un verrou que
+#: la demande n'a pas leve) : plus aucun geste n'atteint l'application.
+PHONE_LOCKED = "phone_locked"
+
+
+class RunRefused(RuntimeError):
+    """A run's door refused it: the phone is in a state a run cannot start from, nothing was touched.
+
+    The latch says why a run under way stops; this says why a run did not start. `error_code` is the
+    motive the desktop translates (`contract/error_codes.py`), `device_id` the phone: every host
+    catches this one class and says the motive its way, a bridge on its `error` line, the CLI on its
+    console. The doors: `shared/diagnostics/run_door.py`, `shared/device/network_door.py`.
+    """
+
+    error_code: str
+
+    def __init__(self, device_id: str, message: str):
+        self.device_id = device_id
+        super().__init__(f"{self.error_code}: {message}")
+
 
 _arret: Optional[Dict[str, Any]] = None
 
@@ -136,5 +162,5 @@ def arret_demande() -> Optional[Dict[str, Any]]:
 __all__ = [
     "demander_arret", "arret_demande", "reinitialiser", "configurer_temoin",
     "DEVICE_DISCONNECTED", "TARGET_APP_CRASHED", "ACTION_BLOCKED", "DESKTOP_GONE", "ACCOUNT_CHALLENGE",
-    "NETWORK_LOST",
+    "NETWORK_LOST", "PHONE_LOCKED", "RunRefused",
 ]

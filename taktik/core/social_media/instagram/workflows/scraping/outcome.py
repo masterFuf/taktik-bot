@@ -23,7 +23,7 @@ divergent — le défaut que ce lot corrige, à l'échelle du dessus.
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 #: La surface a été ouverte et des profils en sont sortis.
 COMPLETED = "completed"
@@ -70,8 +70,21 @@ def scraping_outcome(
     return {"success": True, "completion_reason": NOTHING_TO_SCRAPE}
 
 
+def settled_by_halt(result: Dict[str, Any], halt: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Le verdict d'un run, une fois le verrou d'arret lu : le verrou a vu la cause.
+
+    Un run qui a perdu son telephone en route (reseau, verrou d'ecran) finissait sur ce que la boucle
+    avait eu le temps de voir : `completed` s'il avait deja collecte, `target_never_reached` sinon.
+    Ses profils restent comptes ; le motif est celui du verrou, comme pour les autres workflows.
+    """
+    if not halt or "completion_reason" not in result:
+        return result
+    return {**result, "success": False, "completion_reason": halt["code"]}
+
+
 __all__ = [
     "scraping_outcome",
+    "settled_by_halt",
     "COMPLETED",
     "NOTHING_TO_SCRAPE",
     "TARGET_NEVER_REACHED",

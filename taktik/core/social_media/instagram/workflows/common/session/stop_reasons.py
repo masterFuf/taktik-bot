@@ -309,6 +309,7 @@ _FAMILY_BY_CODE = {
     "desktop_gone": FAMILY_FAILED,
     "account_challenge": FAMILY_FAILED,
     "network_lost": FAMILY_FAILED,
+    "phone_locked": FAMILY_FAILED,
 }
 
 
@@ -561,6 +562,15 @@ def network_lost(detail: Any = None) -> StopReason:
     )
 
 
+def phone_locked() -> StopReason:
+    """The screen locked during the run and the lock stayed once asked to go (a code, on most phones).
+
+    Told apart from `navigation_lost`, which it would end as: on a lock screen every selector misses
+    and every tap lands nowhere. The operator unlocks the phone, or keeps it from locking, and launches again.
+    """
+    return _reason("phone_locked", FAMILY_FAILED, "The phone locked during the run")
+
+
 def for_halt(halt: Dict[str, Any]) -> StopReason:
     """The motive for a run stopped by the shared halt latch (``shared/diagnostics/run_halt``).
 
@@ -580,6 +590,8 @@ def for_halt(halt: Dict[str, Any]) -> StopReason:
         return account_challenge()
     if code == "network_lost":
         return network_lost(halt.get("detail"))
+    if code == "phone_locked":
+        return phone_locked()
     return target_app_crashed(halt.get("detail"))
 
 

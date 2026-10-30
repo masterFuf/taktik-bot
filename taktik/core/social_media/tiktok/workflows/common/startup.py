@@ -17,7 +17,7 @@ from typing import Any, Optional
 
 from loguru import logger
 
-from taktik.core.shared.device.network_door import open_network_door
+from taktik.core.shared.diagnostics.run_door import open_run_door
 from taktik.core.social_media.tiktok.workflows.common.notifier import LoggingWorkflowNotifier
 
 
@@ -78,8 +78,8 @@ def start_tiktok_session(manager, *, notifier: Any = None, fetch_profile: bool =
     logger.info("📱 Connecting to device...")
     _emit(notifier, "status", "connecting", "Connecting to device")
 
-    # A phone without network does not start its run, from any host (`NetworkUnreachableError`).
-    open_network_door(manager.device_id)
+    # A locked phone or a phone without network does not start its run, from any host (`RunRefused`).
+    open_run_door(manager.device_id)
 
     logger.info("📱 Restarting TikTok (clean state)...")
     _emit(notifier, "status", "launching", "Restarting TikTok app")

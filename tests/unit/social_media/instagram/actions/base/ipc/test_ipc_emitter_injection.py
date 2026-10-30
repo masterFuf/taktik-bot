@@ -24,7 +24,7 @@ class RecordingAdapter:
     def send_post_skipped(self, **payload):
         self.calls.append(("post_skipped", payload))
 
-    def send_profile_skipped(self, username, reason="already in DB", detail=None):
+    def send_profile_skipped(self, username, reason="already_in_db", detail=None):
         self.calls.append(("profile_skipped", username, reason, detail))
 
     def send_feed_decision(self, author, action, reason=None, comment=None, visit_profile=False):
@@ -151,3 +151,13 @@ def test_emit_profile_classification_is_noop_without_bridge_adapter():
     IPCEmitter.clear_bridge_adapter()
     # Must not raise when no bridge is injected (standalone/CLI runs).
     IPCEmitter.emit_profile_classification("carol", {"niche": "x"})
+
+
+def test_a_skip_says_a_code_the_app_translates_never_english_words():
+    """« already in DB » stayed in English in the French Activity: the app words a code, not a sentence."""
+    from unit.paths import CORE
+
+    for root in (CORE / "taktik", CORE / "bridges"):
+        for source in root.rglob("*.py"):
+            text = source.read_text(encoding="utf-8-sig")
+            assert '"already in DB"' not in text and "'navigation failed'" not in text, source

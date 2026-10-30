@@ -185,7 +185,7 @@ class LikersWorkflowBase(BaseBusinessAction):
                         username, account_id, skip_reason
                     )
                     IPCEmitter.emit_profile_skipped(
-                        username, reason=skip_reason or "already in DB", detail=skip_detail
+                        username, reason=skip_reason or "already_in_db", detail=skip_detail
                     )
 
                     if (

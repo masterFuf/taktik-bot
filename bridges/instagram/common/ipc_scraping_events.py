@@ -34,7 +34,7 @@ def send_profile_captured(username: str, profile_data: dict = None, profile_pic_
     _ipc.send("profile_captured", **data)
 
 
-def send_profile_skipped(username: str, reason: str = "already in DB", detail: str = None):
+def send_profile_skipped(username: str, reason: str = "already_in_db", detail: str = None):
     """Send profile skipped (dedup) event to Taktik Agent panel.
 
     ``detail`` is an optional human hint the desktop appends to the localized reason

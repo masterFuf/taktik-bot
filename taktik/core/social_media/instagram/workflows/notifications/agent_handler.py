@@ -23,7 +23,7 @@ from loguru import logger
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.handler_params import merge_invocation_payload, package_name_from_payload
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
-from taktik.core.shared.device.network_door import open_network_door
+from taktik.core.shared.diagnostics.run_door import open_run_door
 from taktik.core.social_media.instagram.workflows.notifications import commands
 from taktik.core.social_media.instagram.workflows.notifications.payload import (
     NOTIFICATIONS_COMMANDS,
@@ -63,8 +63,8 @@ def run_instagram_notifications(
 
     def connect_through_the_door(restart: bool):
         runtime = connect(package_name)
-        # A phone without network does not start its run, from any host (`NetworkUnreachableError`).
-        open_network_door(config.get("deviceId"))
+        # A locked phone or a phone without network does not start its run, from any host (`RunRefused`).
+        open_run_door(config.get("deviceId"))
         if restart:
             runtime.restart_instagram()
         return runtime

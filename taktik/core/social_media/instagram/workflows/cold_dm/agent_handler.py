@@ -34,7 +34,7 @@ from taktik.core.ai.dm_rules import AiDmRules
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.handler_params import merge_invocation_payload, package_name_from_payload
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
-from taktik.core.shared.device.network_door import open_network_door
+from taktik.core.shared.diagnostics.run_door import open_run_door
 from taktik.core.social_media.instagram.workflows.cold_dm.payload import cold_dm_request_from_payload
 from taktik.core.social_media.instagram.workflows.cold_dm.results import validate_cold_dm_inputs
 from taktik.core.social_media.instagram.workflows.cold_dm.session import (
@@ -106,8 +106,8 @@ def run_instagram_cold_dm(
     logger.info(f"Cold DM config: {len(recipients)} recipients, {len(messages)} messages, mode: {message_mode}")
 
     runtime = connect(package_name_from_payload(config))
-    # A phone without network does not start its run, from any host (`NetworkUnreachableError`).
-    open_network_door(config.get("deviceId"))
+    # A locked phone or a phone without network does not start its run, from any host (`RunRefused`).
+    open_run_door(config.get("deviceId"))
     workflow = (workflow_factory or _default_workflow_factory())(
         runtime.device,
         runtime.device_manager,

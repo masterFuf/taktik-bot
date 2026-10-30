@@ -242,6 +242,15 @@ def _network_door_never_reaches_adb(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _screen_lock_never_reaches_adb(monkeypatch):
+    """The door of a run and the watch read the lock of the screen with the real adb: in a test, its
+    state is unreadable, which never blocks a run. A test of the lock puts its own reading in place."""
+    from taktik.core.shared.device import screen
+
+    monkeypatch.setattr(screen, "_dumpsys_window", lambda serial: None)
+
+
+@pytest.fixture(autouse=True)
 def _network_watch_never_starts(monkeypatch):
     """The door starts the run's network watch (`network_watch.start_network_watch`), a thread that
     pings the phone with the real adb every few seconds: in a test, the door starts none, even on a

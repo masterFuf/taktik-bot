@@ -9,6 +9,7 @@ Neither path read the app language at the start, as the automation does (`runtim
 
 import pytest
 
+from taktik.core.shared.device import screen
 from instagram_scraping_rig import (
     AI_KEY,
     INSTAGRAM,
@@ -175,6 +176,26 @@ def test_a_refused_scraping_touches_no_phone_from_either_path(igs_rig, payload, 
 
 def _error_codes(events):
     return [fields.get("error_code") for kind, fields in events if kind == "error"]
+
+
+def test_a_locked_phone_scrapes_nothing_from_either_path(igs_rig, monkeypatch):
+    """The run of a C57S on its lock screen (2026-10-30): a minute of misses, `target_never_reached`.
+    Both paths now refuse it at the launcher's door, with its motive, before Instagram restarts."""
+    monkeypatch.setattr(screen, "_dumpsys_window", lambda serial: "    mDreamingLockscreen=true isKeyguardShowing=true")
+    monkeypatch.setattr(screen, "_tell_phone", lambda serial, command: None)
+    monkeypatch.setattr(screen, "LIFT_CHECK_DELAY_S", 0)
+
+    assert igs_rig.run_bridge(target_payload()) == 1
+    assert _error_codes(igs_rig.events)[-1] == "PHONE_LOCKED"
+    assert igs_rig.stdout_lines[-1]["error_code"] == "PHONE_LOCKED"
+    assert "run_scraping" not in igs_rig.calls and "detect_language" not in igs_rig.calls
+    igs_rig.reset()
+
+    result = igs_rig.run_cli(target_payload())
+
+    assert result.exit_code == 1, result.output
+    assert "PHONE_LOCKED" in result.output
+    assert "run_scraping" not in igs_rig.calls and f"stop {INSTAGRAM}" not in igs_rig.calls
 
 
 def test_a_phone_without_network_scrapes_nothing_from_either_path(igs_rig):

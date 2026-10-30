@@ -59,3 +59,10 @@ def test_without_a_halt_every_motive_stays():
     reason = stop_reasons.completed(3)
 
     assert stop_reasons.settled_by_halt(reason, None) is reason
+
+
+def test_a_phone_locked_during_the_run_is_a_failure_with_its_motive():
+    settled = stop_reasons.settled_by_halt(stop_reasons.navigation_lost(), {"code": "phone_locked"})
+
+    assert settled.code == "phone_locked"
+    assert stop_reasons.terminal_status(settled) == stop_reasons.STATUS_INTERRUPTED

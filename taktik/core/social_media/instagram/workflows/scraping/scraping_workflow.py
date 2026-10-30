@@ -20,7 +20,8 @@ Internal structure (SRP split):
 import json
 import sys
 import time
-from taktik.core.social_media.instagram.workflows.scraping.outcome import scraping_outcome
+from taktik.core.shared.diagnostics import run_halt
+from taktik.core.social_media.instagram.workflows.scraping.outcome import scraping_outcome, settled_by_halt
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from loguru import logger
@@ -180,9 +181,10 @@ class ScrapingWorkflow(
             self._display_final_stats()
             
             # Complete scraping session
-            self._complete_scraping_session()
-            
-            return result
+            halt = run_halt.arret_demande()
+            self._complete_scraping_session(error_message=halt["code"] if halt else None)
+
+            return settled_by_halt(result, halt)
             
         except Exception as e:
             self.logger.error(f"Scraping error: {e}")
