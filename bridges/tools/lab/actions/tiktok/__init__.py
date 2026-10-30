@@ -29,9 +29,11 @@ def register_actions() -> None:
     from bridges.tools.lab.actions.tiktok import unfollow  # noqa: F401
     from bridges.tools.lab.actions.tiktok import video  # noqa: F401
 
-    # The actions every platform registers, same id, one implementation.
-    from bridges.tools.lab.actions.common.shared_actions import register_shared_actions
-    register_shared_actions(action)
+    # Shared by every platform, same id, one implementation: the id stays a literal for the source scan.
+    from bridges.tools.lab.actions.common.capture import capture_surface as _capture
+    from bridges.tools.lab.actions.common.screen_lock import lift_screen_lock as _lift_screen_lock
+    action("app.capture_surface")(_capture)
+    action("app.lift_screen_lock")(_lift_screen_lock)
 
 
 __all__ = ["ACTION_REGISTRY", "DETECTIONS", "action", "detection_action", "register_actions"]
