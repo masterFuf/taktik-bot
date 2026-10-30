@@ -11,13 +11,13 @@ from __future__ import annotations
 from loguru import logger
 
 from bridges.common import signal_handler
-from bridges.common.network import send_network_refusal
+from bridges.common.network import send_run_refusal
 from bridges.instagram.agent.ai import build_agent_ai_service
 from bridges.instagram.agent.bridge import TaktikAgentBridge
 from bridges.instagram.agent.session import configure_agent_database, connect_agent_bridge
 from bridges.instagram.agent.stop_listener import start_agent_stop_listener
 from bridges.instagram.common.ipc import _ipc
-from taktik.core.shared.device.network_door import NetworkUnreachableError
+from taktik.core.shared.diagnostics.run_halt import RunRefused
 from taktik.core.social_media.instagram.workflows.agent.agent_handler import AgentRuntime, run_instagram_agent
 
 
@@ -54,9 +54,9 @@ def run_taktik_agent(config: dict) -> int:
         )
     except NotConnected:
         return 1
-    except NetworkUnreachableError as refused:
-        # The launcher's network door, before Instagram restarts: the session did not start.
-        send_network_refusal(refused, "Taktik Agent")
+    except RunRefused as refused:
+        # The launcher's door, before Instagram restarts: the session did not start.
+        send_run_refusal(refused, "Taktik Agent")
         return 1
     except ValueError as refused:
         # Refused by the launcher before Instagram was touched; it said why on stdout.

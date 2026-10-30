@@ -36,9 +36,9 @@ def register_actions() -> None:
     from bridges.tools.lab.actions.instagram import suggestions  # noqa: F401
     from bridges.tools.lab.actions.instagram import tap  # noqa: F401
 
-    # Shared with Instagram, same id, one implementation — see actions/common/capture.py.
-    from bridges.tools.lab.actions.common.capture import capture_surface as _capture
-    action("app.capture_surface")(_capture)
+    # The actions every platform registers, same id, one implementation.
+    from bridges.tools.lab.actions.common.shared_actions import register_shared_actions
+    register_shared_actions(action)
 
 
 __all__ = ["ACTION_REGISTRY", "DETECTIONS", "action", "detection_action", "register_actions"]

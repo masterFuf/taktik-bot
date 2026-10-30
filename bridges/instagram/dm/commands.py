@@ -12,10 +12,10 @@ from __future__ import annotations
 
 import sys
 
-from bridges.common.network import send_network_refusal
+from bridges.common.network import send_run_refusal
 from bridges.instagram.dm.events import emit_dm_error, emit_dm_json, emit_dm_result
 from taktik.core.ai.dm_rules import AiDmTextRefused
-from taktik.core.shared.device.network_door import NetworkUnreachableError
+from taktik.core.shared.diagnostics.run_halt import RunRefused
 from taktik.core.social_media.instagram.workflows.dm.agent_handler import run_instagram_dm
 from taktik.core.social_media.instagram.workflows.dm.payload import DmCommandError
 from taktik.core.social_media.instagram.workflows.dm.runtime import InstagramDMRuntime
@@ -59,9 +59,9 @@ def run_dm_command(config: dict) -> None:
         result = run_instagram_dm(config, connect=lambda package_name: _connect(device_id, package_name),
                                   emit=lambda payload: emit_dm_json(payload, flush=True))
 
-    except NetworkUnreachableError as refused:
-        # The launcher's network door, once the phone is connected: nothing was read nor typed.
-        send_network_refusal(refused, "DM")
+    except RunRefused as refused:
+        # The launcher's door, once the phone is connected: nothing was read nor typed.
+        send_run_refusal(refused, "DM")
         emit_dm_error(str(refused), error_code=refused.error_code)
         sys.exit(1)
     except AiDmTextRefused as refused:

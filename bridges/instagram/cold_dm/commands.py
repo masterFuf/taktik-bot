@@ -12,8 +12,8 @@ from __future__ import annotations
 import json
 import sys
 
-from bridges.common.network import enforce_pre_session_ip_rotation, send_network_refusal
-from taktik.core.shared.device.network_door import NetworkUnreachableError
+from bridges.common.network import enforce_pre_session_ip_rotation, send_run_refusal
+from taktik.core.shared.diagnostics.run_halt import RunRefused
 from bridges.common.entrypoint import MISSING_CONFIG
 from bridges.instagram.cold_dm.progress import emit_cold_dm_progress, emit_cold_dm_sent, emit_cold_dm_text_refused
 from taktik.core.social_media.instagram.workflows.common.device import InstagramDeviceBase
@@ -101,9 +101,9 @@ def run_cold_dm(config: dict) -> None:
             **({"stopReason": result["stop_reason"]} if result.get("stop_reason") else {}),
         )
 
-    except NetworkUnreachableError as refused:
-        # The launcher's network door, once the phone is connected: nobody was written to.
-        send_network_refusal(refused, "Cold DM")
+    except RunRefused as refused:
+        # The launcher's door, once the phone is connected: nobody was written to.
+        send_run_refusal(refused, "Cold DM")
         print_cold_dm_result(False, error=str(refused))
         sys.exit(1)
     except AiDmTextRefused as refused:

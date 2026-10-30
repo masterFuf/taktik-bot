@@ -67,7 +67,8 @@ def test_the_instagram_codes_are_the_catalogue_factories():
 
 def test_the_instagram_scraping_reasons_are_its_outcome_constants():
     outcome = CORE / "taktik/core/social_media/instagram/workflows/scraping/outcome.py"
-    assert set(INSTAGRAM_SCRAPING_COMPLETION_REASON.values) == _module_constants(outcome)
+    # A scraping stopped by the latch ends on the latch's code (`outcome.settled_by_halt`).
+    assert set(INSTAGRAM_SCRAPING_COMPLETION_REASON.values) == _module_constants(outcome) | set(RUN_HALT_CODE.values)
 
 
 def _reason_target(node, names: Iterable[str]) -> bool:

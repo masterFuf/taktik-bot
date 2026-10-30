@@ -11,6 +11,7 @@ from taktik.core.shared.device.network_door import (
     NetworkUnreachableError,
     open_network_door,
 )
+from taktik.core.shared.diagnostics.run_halt import RunRefused
 from taktik.core.shared.device.network_probe import (
     get_device_external_ip,
     read_public_ip,
@@ -180,8 +181,8 @@ def perform_network_reset(device_id: str, method: str = "data", ipc=None) -> Net
     return outcome
 
 
-def send_network_refusal(refused: NetworkUnreachableError, label: str) -> None:
-    """The `error` line of a run the network door refused: its motive, for the desktop to translate."""
+def send_run_refusal(refused: RunRefused, label: str) -> None:
+    """The `error` line of a run a door refused: its motive, for the desktop to translate."""
     send_error(f"{label} aborted: {refused}.", error_code=refused.error_code)
 
 
@@ -215,7 +216,7 @@ def enforce_pre_session_ip_rotation(
     try:
         open_network_door(device_id, moment=BEFORE_IP_ROTATION)
     except NetworkUnreachableError as refused:
-        send_network_refusal(refused, label)
+        send_run_refusal(refused, label)
         return False
 
     outcome = perform_network_reset(
@@ -239,7 +240,7 @@ __all__ = [
     "enforce_pre_session_ip_rotation",
     "get_device_external_ip",
     "perform_network_reset",
-    "send_network_refusal",
+    "send_run_refusal",
     "reset_airplane_cell",
     "reset_airplane_mode",
     "reset_mobile_data",

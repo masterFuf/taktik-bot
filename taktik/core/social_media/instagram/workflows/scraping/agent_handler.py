@@ -31,7 +31,7 @@ from taktik.core.ai.credential import AICredentialProvider
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.handler_params import merge_invocation_payload, package_name_from_payload
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
-from taktik.core.shared.device.network_door import open_network_door
+from taktik.core.shared.diagnostics.run_door import open_run_door
 from taktik.core.social_media.instagram.workflows.common.startup import InstagramConnect
 from taktik.core.social_media.instagram.workflows.scraping.payload import (
     INSTAGRAM_SCRAPING_TYPES,
@@ -81,8 +81,8 @@ def run_instagram_scraping(
     # Instagram launcher reads it.
     package_name = package_name_from_payload(payload)
     phone = connect(package_name)
-    # A phone without network does not start its run, from any host (`NetworkUnreachableError`).
-    open_network_door(payload.get("deviceId"))
+    # A locked phone or a phone without network does not start its run, from any host (`RunRefused`).
+    open_run_door(payload.get("deviceId"))
 
     if phone.start is not None and not phone.start():
         raise InstagramStartError("Instagram did not start cleanly; the scraping was not started")

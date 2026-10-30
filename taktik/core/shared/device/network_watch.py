@@ -16,6 +16,13 @@ In TypeScript terms: a `setInterval` that calls `controller.abort('network_lost'
 `signal.aborted` before each profile. In Symfony terms: Messenger's restart signal, a flag set
 elsewhere that the worker reads between two messages.
 
+**The lock of the screen, on the same clock.** Nothing keeps the screen on during a run: a long wait
+or the power button lock the phone (`phone_locked_after_lift`), and a locked phone takes the gestures
+of the run on its lock screen. Each tick, before the network, the watch lifts a lock without code as
+the door does; a lock that stays sets `run_halt.PHONE_LOCKED`. A second thread would ask the same
+adb the same way on the same life. A run whose door could not read the network has no watch, so
+no reading of the lock either.
+
 **What a measure says.**
 
 - No route at all (`unreachable`: airplane mode, no data, no Wi-Fi): lost.
@@ -53,6 +60,7 @@ from typing import Any, Dict, Optional
 from loguru import logger
 
 from taktik.core.shared.device.network_probe import measure_network_baseline
+from taktik.core.shared.device.screen import phone_locked_after_lift
 from taktik.core.shared.diagnostics import run_halt
 
 #: How often the phone's network is measured. The one place to change it: the phone proof sets it.
@@ -108,6 +116,16 @@ class NetworkWatch(threading.Thread):
     def tick(self) -> bool:
         """Measure once and decide. True once the watch has nothing left to do (the latch is set)."""
         if run_halt.arret_demande() is not None:
+            return True
+        locked = phone_locked_after_lift(self.device_id)
+        if self.stop_requested:
+            return True
+        if locked:
+            run_halt.demander_arret(
+                run_halt.PHONE_LOCKED,
+                "the screen locked during the run and the lock stayed once asked to go",
+                device_id=self.device_id,
+            )
             return True
         measure = measure_network_baseline(self.device_id)
         self.measures += 1

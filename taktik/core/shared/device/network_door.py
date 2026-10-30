@@ -5,7 +5,8 @@ measures (Pixel 3, 2026-09-28). The door measures the phone's network once its h
 the phone (the connection, the desktop's IP rotation) and before the app starts, and refuses the run
 when ping answers « Network is unreachable ».
 
-The door is opened by the core, not by a host: the Instagram launchers (automation, cold DM, scraping,
+The launchers open it through the door of the run (`diagnostics/run_door.py`), which reads the lock
+of the screen first. The door is opened by the core, not by a host: the Instagram launchers (automation, cold DM, scraping,
 a DM read or reply, notifications, the Taktik Agent) open it once their host hands them the phone, the TikTok
 session start (`start_tiktok_session`) and the TikTok DM outreach launcher before TikTok is touched. The desktop bridges and the CLI cross the same call, so
 both refuse a phone without network, with the same motive. Each host only says it its way: the
@@ -27,6 +28,7 @@ from loguru import logger
 
 from taktik.core.shared.device.network_probe import measure_network_baseline
 from taktik.core.shared.device.network_watch import start_network_watch
+from taktik.core.shared.diagnostics.run_halt import RunRefused
 
 #: The moment of a run the measure is the baseline of: the network the run starts on.
 SESSION_BASELINE = "session_baseline"
@@ -34,7 +36,7 @@ SESSION_BASELINE = "session_baseline"
 BEFORE_IP_ROTATION = "before_ip_rotation"
 
 
-class NetworkUnreachableError(RuntimeError):
+class NetworkUnreachableError(RunRefused):
     """The phone has no route to the Internet: the run did not start.
 
     `error_code` is the motive the desktop translates (`contract/error_codes.py`); the message names
@@ -44,10 +46,7 @@ class NetworkUnreachableError(RuntimeError):
     error_code = "NETWORK_UNREACHABLE"
 
     def __init__(self, device_id: str):
-        self.device_id = device_id
-        super().__init__(
-            f"{self.error_code}: the phone {device_id} has no network (ping: network is unreachable)"
-        )
+        super().__init__(device_id, f"the phone {device_id} has no network (ping: network is unreachable)")
 
 
 def open_network_door(device_id: Optional[str], *, moment: str = SESSION_BASELINE) -> Optional[dict]:

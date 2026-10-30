@@ -143,8 +143,8 @@ class DesktopBridge:
             self.close()
 
     def _run(self) -> int:
-        from bridges.common.network import send_network_refusal
-        from taktik.core.shared.device.network_door import NetworkUnreachableError
+        from bridges.common.network import send_run_refusal
+        from taktik.core.shared.diagnostics.run_halt import RunRefused
         from taktik.core.social_media.instagram.workflows.common.startup import InstagramStartError
 
         send_status("starting", "TAKTIK Desktop Bridge starting...")
@@ -170,9 +170,9 @@ class DesktopBridge:
             self.run_workflow()
         except _PhoneNotReady as not_ready:
             return not_ready.exit_code
-        except NetworkUnreachableError as refused:
-            # The launcher's network door: the same exit as a refusal at the IP rotation.
-            send_network_refusal(refused, "Session")
+        except RunRefused as refused:
+            # The launcher's door: the same exit as a refusal at the IP rotation.
+            send_run_refusal(refused, "Session")
             return 6
         except InstagramStartError:
             stop_at_end = False

@@ -29,7 +29,7 @@ from taktik.core.ai.credential import AICredential
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.kernel.handler_params import merge_invocation_payload
-from taktik.core.shared.device.network_door import open_network_door
+from taktik.core.shared.diagnostics.run_door import open_run_door
 from taktik.core.social_media.tiktok.workflows.common.agent_runtime import (
     notify,
 )
@@ -251,8 +251,8 @@ def run_tiktok_dm_outreach(
         workflow_hook(workflow)
     if not workflow.connect():
         raise RuntimeError("Failed to connect to device")
-    # A phone without network does not start its run, from any host (`NetworkUnreachableError`).
-    open_network_door(device_id)
+    # A locked phone or a phone without network does not start its run, from any host (`RunRefused`).
+    open_run_door(device_id)
 
     message_provider = None
     if request.wants_ai:

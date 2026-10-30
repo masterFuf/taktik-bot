@@ -31,6 +31,7 @@ from .schema import OneOf
 BRIDGE_ERROR_PHRASES: Mapping[str, str] = {
     # The start of a run: the phone, its network, the app.
     "NETWORK_UNREACHABLE": "errorNetworkUnreachable",
+    "PHONE_LOCKED": "errorPhoneLocked",
     "NETWORK_RESET_FAILED": "errorNetworkResetFailed",
     "DEVICE_CONNECTION_FAILED": "errorDeviceConnectionFailed",
     "DEVICE_CONNECTION_TIMEOUT": "errorDeviceConnectionTimeout",
@@ -103,7 +104,7 @@ BRIDGE_ERROR_PHRASES: Mapping[str, str] = {
     "SCHEMA_MIGRATION_FAILED": "errorSchemaMigrationFailed",
 }
 
-#: The expected refusals: the phone has no network (the network door), the app the run needs is not
+#: The expected refusals: the phone has no network (the network door), it stays locked (the door of the run), the app the run needs is not
 #: on the phone, the run asks for the AI and no key is saved (the same code the app's launch gate gives).
 #: The remedy is the operator's, not a fix of the bot; the app's reading of a dead bridge
 #: (`crashErrorCode.ts`) files no crash report for an exit on one of them. Not here: what may be the
@@ -111,6 +112,7 @@ BRIDGE_ERROR_PHRASES: Mapping[str, str] = {
 #: not start), and what is decided mid-run (a publication Instagram refuses).
 BRIDGE_REFUSAL_CODES: Tuple[str, ...] = (
     "NETWORK_UNREACHABLE",
+    "PHONE_LOCKED",
     "INSTAGRAM_NOT_INSTALLED",
     "APP_NOT_INSTALLED",
     "missing_ai_key",

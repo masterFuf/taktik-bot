@@ -6,9 +6,9 @@ so the CLI runs the same one; the bridge builds the manager and prints the event
 
 import sys
 
-from bridges.common.network import send_network_refusal
+from bridges.common.network import send_run_refusal
 from bridges.tiktok.common.ipc import _ipc
-from taktik.core.shared.device.network_door import NetworkUnreachableError
+from taktik.core.shared.diagnostics.run_halt import RunRefused
 
 
 def tiktok_startup(device_id: str, fetch_profile: bool = True):
@@ -28,8 +28,8 @@ def tiktok_startup(device_id: str, fetch_profile: bool = True):
     manager = TikTokManager(device_id=device_id)
     try:
         bot_username = start_tiktok_session(manager, notifier=_ipc, fetch_profile=fetch_profile)
-    except NetworkUnreachableError as refused:
-        send_network_refusal(refused, "Workflow")
+    except RunRefused as refused:
+        send_run_refusal(refused, "Workflow")
         sys.exit(1)
     return manager, bot_username
 

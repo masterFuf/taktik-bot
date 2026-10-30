@@ -10,7 +10,7 @@ import json
 
 from loguru import logger
 
-from bridges.common.network import send_network_refusal
+from bridges.common.network import send_run_refusal
 from bridges.instagram.scraping.session import (
     configure_scraping_database,
     connect_scraping_device,
@@ -19,7 +19,7 @@ from bridges.instagram.scraping.session import (
     scraping_app,
 )
 from bridges.instagram.scraping.workflow import run_scraping_workflow
-from taktik.core.shared.device.network_door import NetworkUnreachableError
+from taktik.core.shared.diagnostics.run_halt import RunRefused
 
 
 def print_scraping_result(success: bool, **fields) -> None:
@@ -75,9 +75,9 @@ def run_scraping_bridge(config: dict) -> int:
         print_scraping_result(**result)
         return 0
 
-    except NetworkUnreachableError as refused:
-        # The launcher's network door, once the phone is connected: nothing was scraped.
-        send_network_refusal(refused, "Scraping")
+    except RunRefused as refused:
+        # The launcher's door, once the phone is connected: nothing was scraped.
+        send_run_refusal(refused, "Scraping")
         print_scraping_result(False, error=str(refused), error_code=refused.error_code)
         return 1
     except Exception as e:

@@ -25,7 +25,7 @@ exit code 1 and nothing connected, as from the desktop bridges. A key the workfl
 not have (`maxProfiles` at the root, where the feed reads `limits.maxProfiles`) is refused before
 that, dry run included, with exit code 2: the key, and where the declaration has it
 (`taktik/core/contract/settings_keys.py`, the declaration the app's tools are checked against). So does a phone without network:
-the launcher's network door refuses it (`NETWORK_UNREACHABLE` in the message) before the app starts.
+the launcher's door refuses it (`NETWORK_UNREACHABLE` or `PHONE_LOCKED` in the message) before the app starts.
 """
 from __future__ import annotations
 

@@ -12,12 +12,12 @@ from __future__ import annotations
 
 import sys
 
-from bridges.common.network import send_network_refusal
+from bridges.common.network import send_run_refusal
 from bridges.instagram.notifications.ai import notifications_ai_service
 from bridges.instagram.notifications.events import emit_notif_error, emit_notif_json
 from bridges.instagram.common.ipc import logger
 from taktik.core.database import configure_db_service
-from taktik.core.shared.device.network_door import NetworkUnreachableError
+from taktik.core.shared.diagnostics.run_halt import RunRefused
 from taktik.core.social_media.instagram.workflows.common.device import InstagramDeviceBase
 from taktik.core.social_media.instagram.workflows.notifications.agent_handler import (
     NotificationsCommandError,
@@ -73,9 +73,9 @@ def run_notifications_command(config: dict) -> None:
         )
     except NotificationsCommandError as exc:
         _fail(str(exc))
-    except NetworkUnreachableError as refused:
-        # The launcher's network door, once the phone is connected: nothing was read or tapped.
-        send_network_refusal(refused, "Notifications")
+    except RunRefused as refused:
+        # The launcher's door, once the phone is connected: nothing was read or tapped.
+        send_run_refusal(refused, "Notifications")
         _fail(str(refused), error_code=refused.error_code)
     except SystemExit:
         raise
