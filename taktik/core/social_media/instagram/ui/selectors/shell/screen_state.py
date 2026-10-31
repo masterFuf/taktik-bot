@@ -124,10 +124,12 @@ class DetectionSelectors:
     })
 
     # === Post state (liked) ===
-    # A liked post exposes several possible markers depending on version and language:
-    # - localized content-desc variants of the already-liked state
-    # - EN: content-desc = "Unlike" ou "Liked"
-    # - universal: selected = "true" on the like button
+    # A liked post's like button says so in one of two ways, and neither belongs to a version:
+    # - selected = "true" (Instagram 410; the Reel viewer's heart, below);
+    # - its content-desc turns to a liked label while selected stays "false" (« J’aime déjà » on
+    #   Instagram 447 in French, 2026-10-31, on phones that showed a like the usual way days before
+    #   with the same app: Instagram decides it on its servers; same form on 452).
+    # `ui/labels.is_liked_heart` reads the same two signs on a node of a dump.
     _liked_button_indicators_base: List[str] = field(default_factory=lambda: [
         # === WAY 1: the selected attribute (most reliable, language-independent) ===
         '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and @selected="true"]',
@@ -142,9 +144,20 @@ class DetectionSelectors:
     ])
 
     @property
+    def liked_heart_labels(self) -> List[str]:
+        """The whole content-desc of a like button whose post is liked, in the active language: the
+        one list of these labels. Compared whole, never with `contains`."""
+        return L("detection.liked_heart_labels")
+
+    @property
     def liked_button_indicators(self) -> List[str]:
-        # === WAY 2: multilingual content-desc fallback (locales overlay) ===
-        return self._liked_button_indicators_base + L("detection.liked_button_indicators")
+        # === WAY 2: the liked label of a like button, in the active language ===
+        return self._liked_button_indicators_base + [
+            '//*[(@resource-id="com.instagram.android:id/row_feed_button_like"'
+            ' or @resource-id="com.instagram.android:id/like_button")'
+            f' and @content-desc="{label}"]'
+            for label in self.liked_heart_labels
+        ]
 
     # === Navigation - Search bars ===
     _search_bar_selectors_base: List[str] = field(default_factory=lambda: [

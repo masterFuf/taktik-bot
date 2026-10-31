@@ -228,8 +228,14 @@ STRINGS: Dict[str, List[str]] = {
     "detection.home_screen_indicators": [
         "//*[@resource-id=\"com.instagram.android:id/tab_bar\"]//*[contains(@content-desc, \"Home\") and @selected=\"true\" and @package=\"com.instagram.android\"]",
     ],
-    "detection.liked_button_indicators": [
-        "//*[contains(@content-desc, \"Ne plus aimer\")]",
+    # The whole content-desc of a post's like button when the post is liked, with both apostrophes,
+    # compared WHOLE: « J’aime » lies inside « J’aime déjà », and « Nombre de J'aime » exists. The
+    # one list of these labels (`DETECTION_SELECTORS.liked_heart_labels`). « J’aime déjà » with its
+    # `selected` false: Instagram 447.0.0.55.81, Pixel 6a and Nokia 4.2, 2026-10-31.
+    "detection.liked_heart_labels": [
+        "J'aime déjà",
+        "J’aime déjà",
+        "Ne plus aimer",
     ],
     "detection.likes_count_selectors": [
         "//*[(contains(@content-desc, \"Nombre de J'aime\") or contains(@content-desc, \"Nombre de J’aime\"))]",
@@ -372,10 +378,6 @@ STRINGS: Dict[str, List[str]] = {
         "Decouvrir des personnes",
     ],
     # --- feed ---
-    "feed.already_liked_indicators": [
-        "//*[@resource-id=\"com.instagram.android:id/row_feed_button_like\" and contains(@content-desc, \"Ne plus aimer\")]",
-        "//*[contains(@content-desc, \"Ne plus aimer\")]",
-    ],
     "feed.comment_button": [
         "//*[contains(@content-desc, \"Commenter\")]",
     ],

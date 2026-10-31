@@ -15,6 +15,7 @@ from typing import Iterable, Optional
 
 from taktik.core.shared.text import normalize_ui_label
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import BUTTON_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.support.text_reading import TEXT_READING_SELECTORS
 
 
@@ -53,6 +54,20 @@ def is_like_button(content_desc: str) -> bool:
 def is_comment_button(content_desc: str) -> bool:
     """True when this action button is the COMMENT one, in any supported language."""
     return classify_action_button(content_desc) == 'comment'
+
+
+def is_liked_heart(selected: Optional[str], content_desc: Optional[str]) -> bool:
+    """Does this like button, read in a dump, say its post is liked? `selected` true, or a
+    content-desc that IS a liked label of the active language (`liked_heart_labels`).
+
+    An EXACT match on the folded form: the label of a heart not liked (« J’aime ») lies inside the
+    label of a liked one (« J’aime déjà »). The same two signs as `liked_button_indicators`, the
+    xpaths `DetectionActions.is_post_liked` reads off a list."""
+    if selected == "true":
+        return True
+    folded = normalize_ui_label(content_desc)
+    return bool(folded) and any(folded == normalize_ui_label(label)
+                                for label in DETECTION_SELECTORS.liked_heart_labels)
 
 
 def is_ui_label(text: str) -> bool:
