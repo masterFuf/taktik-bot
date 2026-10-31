@@ -22,6 +22,9 @@ from taktik.core.database.local.schemas.messaging import (
 from taktik.core.social_media.tiktok.services.welcome.decision import WelcomePolicy
 
 
+pytestmark = pytest.mark.usefixtures("engine_runs_installed")
+
+
 class _FakeOutreach:
     instances = []
 
