@@ -6,7 +6,9 @@ test hands another). The list content moves by the distance the gestures really 
 stay; each gesture loses the touch slop before the content follows the finger. A flick can leave
 the list coasting on its measured curve: it goes on moving until it comes to rest, or until a
 finger touches it down. A tap or a double tap on a post can like it, as Instagram does: its heart
-turns selected. Nothing here writes a screen: every tree is the capture, moved.
+turns selected, or with `liked_label` its label changes and `selected` stays false, the form
+measured on Instagram 447 on 2026-10-31. A tap on the heart of a liked post takes the like back.
+Nothing here writes a screen: every tree is the capture, moved.
 
 `like_on_phone` builds the production like of a list (`LikeOrchestration`) on such a phone, with
 the production scroll owner's readers and drags (`ReplayScroll`).
@@ -84,12 +86,14 @@ class ProfilePostsPhone:
     `further` is a second real capture of the same list, (xml, offset): taken on the phone once its
     content had gone `offset` px further up (the distance its headers moved between the two). What
     the first one holds nothing of, under its bottom, the second shows: it is served, moved the
-    same way, once the list is nearer to it than to the first."""
+    same way, once the list is nearer to it than to the first.
+
+    `liked_label`: what a liked heart then says (its content-desc), its `selected` staying false."""
 
     wait_timeout = 1.0
 
     def __init__(self, obeys_back_swipes=True, back_swipe_coast=1.0, screen=None,
-                 height=SCREEN_H, dump_s=0.0, likes_on_tap=False, further=None):
+                 height=SCREEN_H, dump_s=0.0, likes_on_tap=False, further=None, liked_label=None):
         self.screen = screen if screen is not None else capture("ig447_fr_profile_posts_list.xml")
         self.further = further
         self.height = height
@@ -102,6 +106,7 @@ class ProfilePostsPhone:
         self.clock = 0.0
         self.dump_s = dump_s
         self.likes_on_tap = likes_on_tap
+        self.liked_label = liked_label
         #: (clock at the flick, [(seconds after it, px still to travel), ...]) while it coasts.
         self._coast = None
         self._liked_hearts = set()
@@ -154,7 +159,10 @@ class ProfilePostsPhone:
         root = etree.fromstring(screen.encode("utf-8"))
         for node in root.iter():
             if node.get("resource-id") == HEART_ID and node.get("bounds") in liked:
-                node.set("selected", "true")
+                if self.liked_label is None:
+                    node.set("selected", "true")
+                else:
+                    node.set("content-desc", self.liked_label)
         return etree.tostring(root, encoding="unicode")
 
     def dump_hierarchy(self, *_a, **_k):
@@ -196,7 +204,7 @@ class ProfilePostsPhone:
             hit = [n for n in hearts
                    if bounds_of(n)[0] <= x <= bounds_of(n)[2] and bounds_of(n)[1] <= captured_y <= bounds_of(n)[3]]
             if hit:
-                liked.add(hit[0].get("bounds"))
+                liked.symmetric_difference_update({hit[0].get("bounds")})
             return
         above = [top for top in header_tops if top <= captured_y]
         start = above[-1] if above else -10 ** 6
