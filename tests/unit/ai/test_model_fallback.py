@@ -270,6 +270,18 @@ def test_the_cost_and_the_model_column_are_the_served_model(monkeypatch, shot):
     assert result["cost_usd"] == 0.00015
 
 
+def test_the_ledger_names_the_model_the_provider_says_it_served(monkeypatch, shot):
+    """Not the slug that was asked for: the provider's word is the one the bill is under."""
+    dated = f"{FALLBACK}-20260922"
+    _Network(monkeypatch, {PRIMARY: [_refusal(404)], FALLBACK: [_served(dated)]})
+    ledger = _Ledger()
+
+    result = _classify(ledger, shot)
+
+    assert [line["model"] for line in ledger.spend] == [dated]
+    assert result["model"] == dated
+
+
 def test_a_billed_empty_answer_is_counted_on_its_model_then_the_fallback_on_its_own(monkeypatch, shot):
     _Network(monkeypatch, {
         PRIMARY: [_served(PRIMARY, text="", cost=0.0001)],
