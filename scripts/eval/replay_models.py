@@ -323,6 +323,8 @@ def service_on(model: str, credential: AICredential, spend: SpendCapture, taxono
                                niche_taxonomy=taxonomy)
     service.model_analysis = model
     service.model_classification = model
+    # A bench measures the model it names: Luna answering in its place would be scored as that model.
+    service.fallback_classification = None
     service.model_generation = model
     # Display aliases some call sites read for their labels — kept in step so a log line never
     # names a model that was not called.
