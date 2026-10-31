@@ -27,9 +27,8 @@ def opened(monkeypatch, tmp_path):
 def test_the_path_it_opens_is_on_stderr(opened, monkeypatch):
     monkeypatch.setenv("TAKTIK_DB_PATH", opened)
 
-    result = CliRunner().invoke(main.cli, ["--lang", "en", "device", "--help"])
+    result = CliRunner().invoke(main.cli, ["--lang", "en", "device", "--not-an-option"])
 
-    assert result.exit_code == 0, result.output
     assert opened in result.stderr
     assert opened not in result.stdout
 
@@ -37,7 +36,7 @@ def test_the_path_it_opens_is_on_stderr(opened, monkeypatch):
 def test_without_taktik_db_path_it_says_it_is_the_app_database(opened, monkeypatch):
     monkeypatch.delenv("TAKTIK_DB_PATH", raising=False)
 
-    result = CliRunner().invoke(main.cli, ["--lang", "en", "device", "--help"])
+    result = CliRunner().invoke(main.cli, ["--lang", "en", "device", "--not-an-option"])
 
     assert opened in result.stderr
     assert "TAKTIK_DB_PATH" in result.stderr
@@ -49,6 +48,6 @@ def test_the_tiktok_entry_point_says_it_too(opened, monkeypatch):
     monkeypatch.setattr(database, "db_service", None)
     monkeypatch.setenv("TAKTIK_DB_PATH", opened)
 
-    result = CliRunner().invoke(main.tiktok, ["launch", "--help"])
+    result = CliRunner().invoke(main.tiktok, ["launch", "--not-an-option"])
 
     assert opened in result.stderr

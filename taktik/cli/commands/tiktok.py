@@ -6,7 +6,7 @@ from rich.panel import Panel
 from taktik.core.social_media.instagram.manager import InstagramManager
 from taktik.core.social_media.tiktok.manager import TikTokManager
 from taktik.cli.support import language
-from taktik.cli.support.database import open_database
+from taktik.cli.support.database import OpensNoDatabaseForHelp, open_database
 
 console = Console()
 
@@ -23,7 +23,7 @@ def _serial(device_id):
     return phone.device_id
 
 
-@click.group()
+@click.group(cls=OpensNoDatabaseForHelp)
 def tiktok():
     """TikTok automation.
 

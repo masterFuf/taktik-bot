@@ -19,6 +19,11 @@ TRANSLATIONS = {
     "goodbye": "Thank you for using TAKTIK. Goodbye!",
     "database_in_use": "Database: {}",
     "database_is_app_default": "This is the desktop app's database; set TAKTIK_DB_PATH to use another file.",
+    "database_upgrade_needs_consent": (
+        "The database {path} is at schema {current}, this code expects schema {target}. Nothing was changed. "
+        "After the upgrade, an older installed TAKTIK app can no longer open it. "
+        "To upgrade it (a backup is made first), start again with {consent_env}={target}."
+    ),
     "website": "Website",
     "github": "GitHub",
     
