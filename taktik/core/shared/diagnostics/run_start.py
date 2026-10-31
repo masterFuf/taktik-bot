@@ -5,7 +5,8 @@ A bridge process serves one run. Two hosts serve several in one process: the CLI
 (one run after another) and the Cartography Lab session (one action after another). What a run keeps
 at module level belongs to that run: the stop latch (`run_halt`), the network watch its door started
 (`shared/device/network_watch.py`), the cap and the series of the failure captures (`miss_capture`),
-the screens of the black box (`screen_ring`), the clock of the foreground check (`foreground_guard`).
+the screens of the black box (`screen_ring`), the clock of the foreground check (`foreground_guard`),
+the likes not seen in a row (`like_confirmation`).
 Left in place, the next run of the menu started with the latch of the run before and stopped before
 its first gesture, under a motive that was not its own, while the watch went on pinging the phone.
 
@@ -31,7 +32,7 @@ from contextlib import contextmanager
 from typing import Iterator
 
 from taktik.core.shared.device import network_watch
-from taktik.core.shared.diagnostics import foreground_guard, miss_capture, run_halt, screen_ring
+from taktik.core.shared.diagnostics import foreground_guard, like_confirmation, miss_capture, run_halt, screen_ring
 
 
 def begin_run() -> None:
@@ -44,6 +45,7 @@ def begin_run() -> None:
     miss_capture.reinitialiser()
     foreground_guard.reinitialiser()
     screen_ring.reinitialiser()
+    like_confirmation.reinitialiser()
 
 
 def end_run() -> None:
