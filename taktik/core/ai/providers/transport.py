@@ -20,7 +20,9 @@ The answer of `complete`, a dict, the same for both providers:
                  the tokens at the public prices of the policy);
   finish_reason  why the model stopped, in the provider's words;
   upstream       the backend a gateway routed to (OpenRouter only), else None;
-  rate_limited   the failure is the provider's rate limit (429).
+  rate_limited   the failure is the provider's rate limit (429);
+  model_unavailable  the failure says the model did not respond (`model_unavailable_status`, no
+                 answer at all, an empty answer): a task with a declared fallback moves to it.
 
 A billed call that answered nothing is a failure that still carries its `cost_usd`: the ledger
 reports on "were we charged", not on "did it work".
@@ -36,6 +38,8 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional, Protocol, Sequence
 
 from loguru import logger
+
+from ..openrouter_policy import MODEL_UNAVAILABLE_400_WORD, MODEL_UNAVAILABLE_HTTP_STATUSES
 
 # urllib's timeout is a socket-inactivity timeout, not a total request deadline: a provider can
 # drip bytes and hold a profile for ever. The total deadline is `AIService`'s.
@@ -139,15 +143,23 @@ def post_json(
             return HttpOutcome(error=str(exc), form=form)
 
 
+def model_unavailable_status(status: int, body: str) -> bool:
+    """Whether a refusal says the model did not respond, not that the request or the key is at fault."""
+    if status == 400:
+        return MODEL_UNAVAILABLE_400_WORD in body.lower()
+    return status in MODEL_UNAVAILABLE_HTTP_STATUSES
+
+
 def refusal_answer(outcome: HttpOutcome) -> Dict[str, Any]:
     """The failure of a call that got no answer: a refusal (its status and body) or none at all."""
     if outcome.status is None:
-        return {"success": False, "error": outcome.error or "no answer"}
+        return {"success": False, "error": outcome.error or "no answer", "model_unavailable": True}
     return {
         "success": False,
         "error": f"HTTP {outcome.status}: {outcome.body[:200]}",
         # Distinguishable from a real failure, so a caller can fall back rather than drop the work.
         "rate_limited": outcome.status == 429,
+        "model_unavailable": model_unavailable_status(outcome.status, outcome.body),
     }
 
 
@@ -158,6 +170,7 @@ __all__ = [
     "MODEL_SOCKET_TIMEOUT_SECONDS",
     "ModelCall",
     "ModelTransport",
+    "model_unavailable_status",
     "post_json",
     "refusal_answer",
 ]

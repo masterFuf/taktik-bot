@@ -7,8 +7,11 @@ of imports.
 """
 
 # Models by task. Each task keeps its own constant, so one can move on its own measurement.
-MODEL_GENERATION = "qwen/qwen3.7-flash"      # comment / DM / persona / scheduler
-MODEL_CLASSIFICATION = "qwen/qwen3.7-flash"  # classify a profile from its screenshot
+MODEL_GENERATION = "qwen/qwen3.7-flash"  # comment / DM / persona / scheduler
+# Classify a profile from its screenshot. Benched on 100 real profiles against Opus: agreement on
+# the sub-niche 61 %, category 81 %, age 67 %, country 89 %, median 1.6 s, 0 errors, against 51, 74,
+# 52, 77 and 6.8 s for qwen, at three times its price (0.63 $ against 0.21 $ per account per month).
+MODEL_CLASSIFICATION = "particle-ai/particle-1"
 # Post description. qwen was benched on 30 real posts and wrote the description in English
 # on 20 of them, against 0 for this model: the switch was refused on that measurement.
 MODEL_ANALYSIS = "google/gemini-3.1-flash-lite"
@@ -28,7 +31,8 @@ REASONING_OFF = {"enabled": False}
 REASONING_MINIMAL = {"effort": "minimal"}
 
 # Preferred upstream, for the prompt cache; fallbacks allowed so a renamed or saturated
-# backend never fails a whole run.
+# backend never fails a whole run. Moves between the backends of ONE model only (the fallback of a
+# task, below, moves between models). A model these do not host skips them.
 PROVIDER_PREFERENCE = {
     "order": ["google-ai-studio", "google-vertex"],
     "allow_fallbacks": True,
@@ -70,6 +74,28 @@ MODEL_STATUS_BY_TASK = {
     TASK_CLASSIFICATION: {PROVIDER_OPENROUTER: MODEL_MEASURED, PROVIDER_ANTHROPIC: MODEL_PROPOSED},
     TASK_ANALYSIS: {PROVIDER_OPENROUTER: MODEL_MEASURED, PROVIDER_ANTHROPIC: MODEL_PROPOSED},
 }
+
+# The model a task falls back on when its own did not respond, by task and by provider. A task or
+# a provider absent here never moves: one model failing its call must not change what writes to a
+# person. Luna agreed with Opus as well as Particle-1 on the niche (sub-niche 63 %, category 82 %) and
+# less on age and country (49 %, 72 %), at 0.66 $ per account per month, 0 errors on the same profiles.
+MODEL_CLASSIFICATION_FALLBACK = "openai/gpt-6-luna"
+FALLBACK_MODELS_BY_TASK = {
+    TASK_CLASSIFICATION: {PROVIDER_OPENROUTER: MODEL_CLASSIFICATION_FALLBACK},
+}
+
+# What says a model did not respond, once its retries are spent: it does not exist (404), it did
+# not answer in time (408, 504), it is rate limited, down or has no backend left (429, 500, 502,
+# 503). A 400 says so only when it names the model, OpenRouter's refusal of an id it does not know;
+# any other 400, the key (401), the credits (402) or a moderation flag (403) would fail the same on
+# the fallback, or hide what the user has to fix. No answer at all and an empty answer count too.
+MODEL_UNAVAILABLE_HTTP_STATUSES = (404, 408, 429, 500, 502, 503, 504)
+MODEL_UNAVAILABLE_400_WORD = "model"
+
+# The total deadline of one model's call, whoever answers, its retries included: a socket timeout is
+# an inactivity timeout, and a provider dripping bytes would otherwise hold a profile run
+# indefinitely. A fallback has its own: the model before it may have spent all of this one.
+MODEL_TOTAL_TIMEOUT_SECONDS = 45.0
 
 # ------------------------------------------------------------------------------- anthropic
 

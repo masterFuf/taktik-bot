@@ -32,9 +32,19 @@ def test_the_provider_reads_the_policy():
     assert openrouter.PROVIDER_PREFERENCE == policy.PROVIDER_PREFERENCE
 
 
-def test_generation_and_classification_run_on_the_same_model():
+def test_each_task_runs_on_the_model_its_measure_chose():
+    """Particle-1 replaced qwen for the classification only (100 real profiles, 2026-10-31)."""
+    assert policy.MODEL_CLASSIFICATION == "particle-ai/particle-1"
     assert policy.MODEL_GENERATION == "qwen/qwen3.7-flash"
-    assert policy.MODEL_CLASSIFICATION == policy.MODEL_GENERATION
+    assert policy.MODEL_ANALYSIS == "google/gemini-3.1-flash-lite"
+    assert policy.ANTHROPIC_MODEL == policy.MODELS_BY_TASK[policy.TASK_CLASSIFICATION][policy.PROVIDER_ANTHROPIC]
+
+
+def test_only_the_classification_at_openrouter_has_a_fallback():
+    assert policy.FALLBACK_MODELS_BY_TASK == {
+        policy.TASK_CLASSIFICATION: {policy.PROVIDER_OPENROUTER: "openai/gpt-6-luna"},
+    }
+    assert policy.MODEL_CLASSIFICATION_FALLBACK != policy.MODEL_CLASSIFICATION
 
 
 def test_only_transient_statuses_are_retried():

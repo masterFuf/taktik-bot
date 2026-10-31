@@ -37,9 +37,11 @@ from ..comments.generation import CommentGenerationMixin
 # Models, retry schedule, reasoning and routing: declared once in `openrouter_policy.py`, which
 # the desktop app's copy is generated from.
 from ..openrouter_policy import (
+    FALLBACK_MODELS_BY_TASK,
     MODEL_ANALYSIS,
     MODEL_CLASSIFICATION,
     MODEL_GENERATION,
+    MODEL_TOTAL_TIMEOUT_SECONDS,
     MODELS_BY_TASK,
     PROVIDER_ANTHROPIC,
     PROVIDER_OPENROUTER,
@@ -60,21 +62,24 @@ from .transport import COST_BILLED, ModelCall, ModelTransport, post_json, refusa
 # MODEL_ANALYSIS: analyse / describe / text (post analysis).
 #
 # MODEL_CLASSIFICATION: the profile classifier, and ONLY it. A third constant is a deliberate exception to the
-# two-fixed-models rule, and it exists because the two tasks stopped having the same evidence
-# behind them on 2026-09-09:
+# two-fixed-models rule, and it exists because the tasks do not have the same evidence behind them:
 #
-#   - Profile classification was BENCHED on 60 real cases against the model it replaces:
-#     41 µ$ against 590 (-93 %), better on gender (91 % vs 87 %) and on cities (83 % vs 79 %),
-#     never a WRONG country (0 % against 5 %), and its category spread sits inside the noise our
-#     own model shows against its own stored answers (66 % vs 61 %). It carries 84 % of the bill.
-#   - Post analysis was NOT benched, and it is not a field-by-field answer a bench can score: it
-#     is free text, and that text is fed to the comment writer as `post_description`. Switching it
-#     blind would let a worse description degrade comments through the back door — the one part of
-#     the product where being wrong is visible to a real person.
+#   - Profile classification is benched against a reference, field by field. On 2026-09-09 it left
+#     the analysis model for qwen on 60 real cases; on 2026-10-31 it left qwen for Particle-1 on 100
+#     real profiles against Opus (the figures are in `openrouter_policy.py`), and Luna, close behind,
+#     became its fallback.
+#   - Post analysis is not a field-by-field answer a bench can score: it is free text, and that text
+#     is fed to the comment writer as `post_description`. Switching it blind would let a worse
+#     description degrade comments through the back door, the one part of the product where being
+#     wrong is visible to a real person. It was measured on 2026-09-10 and qwen was refused
+#     (language contract broken on 20 posts out of 30).
 #
-# So the classifier moves and the describer stays, until a bench says otherwise. Collapse this
-# back into MODEL_ANALYSIS the day post analysis is measured too. It was measured on
-# 2026-09-10 and refused (language contract broken on 20 posts out of 30).
+# FALLBACK_MODELS_BY_TASK: `_call_model` calls the model, its transport spends the retries, and when
+# the answer says the model did not respond (`model_unavailable`), the fallback takes the call. Done
+# here and not with OpenRouter's `models` parameter: its documentation (read on 2026-10-31) says
+# neither how it treats an id it no longer knows, the case this exists for, nor anything of an empty
+# answer or of our total deadline; it moves on the first rate limit, without the waits; and its one
+# request carries one `reasoning` for both models, when each model accepts its own form.
 #
 # MODEL_GENERATION: comment / DM / persona / scheduler.
 # Switched from gemini-3-flash on 2026-09-10, after the determiner check made it safe.
@@ -89,11 +94,6 @@ DEFAULT_TEXT_MODEL = MODEL_ANALYSIS
 DEFAULT_VISION_MODEL = MODEL_ANALYSIS
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-# The total deadline of one call, whoever answers: the socket timeout of the transports
-# (`MODEL_SOCKET_TIMEOUT_SECONDS`) is an inactivity timeout, and a provider dripping bytes would
-# otherwise hold a profile run indefinitely.
-MODEL_TOTAL_TIMEOUT_SECONDS = 45.0
-
 # Vision models (Gemini) bill images by 768px tiles — a QUANTIZED step, not a continuous
 # cost/quality dial: any long edge in (768, 1536] costs the SAME 2 tiles as 1536 itself
 # (ceil(edge/768) doesn't change until you cross a multiple of 768). Raw device screenshots
@@ -121,6 +121,11 @@ VISION_IMAGE_MAX_EDGE = 768
 # `allow_fallbacks` stays TRUE on purpose, and the measurement above is the argument FOR leaving it
 # alone rather than against: a hard pin to a slug that is renamed, saturated or down fails EVERY
 # call in a run, and we are already getting the routing we want without paying that risk.
+#
+# The order names Google for the Gemini model. It does nothing for a model Google does not host:
+# OpenRouter skips those names (documentation read on 2026-10-31). Particle-1 has one backend, Luna
+# seven; on the 100 profiles of 2026-10-31, the prefix came from the cache on 87 and 99 calls. A manual
+# order also turns off OpenRouter's sticky routing, which Luna's cache did not need on that bench.
 #
 # RATE_LIMIT_BACKOFF_SECONDS: waits before retrying a transient failure. Two, growing: the
 # upstream says "retry shortly", and a burst typically clears within seconds.
@@ -282,9 +287,13 @@ class OpenRouterTransport:
                 f"[AIService] {model} returned an empty answer "
                 f"(finish_reason={finish_reason}){detail}"
             )
+            # OpenRouter can answer 200 with its failure in the body, once every backend failed.
+            failure = data.get("error")
+            said = f": {failure.get('message')}" if isinstance(failure, dict) and failure.get("message") else ""
             return {
                 "success": False,
-                "error": f"empty answer from {model} (finish_reason={finish_reason})",
+                "error": f"empty answer from {model} (finish_reason={finish_reason}){said}",
+                "model_unavailable": True,
                 "model": data.get("model", model),
                 "provider": PROVIDER_OPENROUTER,
                 "usage": usage,
@@ -341,6 +350,8 @@ class AIService(CommentGenerationMixin):
         self.model_generation = MODELS_BY_TASK[TASK_GENERATION][provider]
         # The profile classifier — see MODEL_CLASSIFICATION for why it is not model_analysis.
         self.model_classification = MODELS_BY_TASK[TASK_CLASSIFICATION][provider]
+        # Who takes its call when it did not respond; None where the policy declares no one.
+        self.fallback_classification = FALLBACK_MODELS_BY_TASK[TASK_CLASSIFICATION].get(provider)
         policy_models = {self.model_analysis, self.model_classification, self.model_generation}
         for parameter, requested in (("text_model", text_model), ("vision_model", vision_model)):
             if requested and requested not in policy_models:
@@ -369,8 +380,25 @@ class AIService(CommentGenerationMixin):
 
     def _call_model(self, model: str, messages: list, temperature: float = 0.7,
                     max_tokens: int = 2000, label: str = "",
-                    kind: str = AI_SPEND_OTHER) -> Dict[str, Any]:
-        """Call the model through the service's transport. Returns the transport's answer
+                    kind: str = AI_SPEND_OTHER, fallback_model: Optional[str] = None) -> Dict[str, Any]:
+        """Call `model`; when the answer says it did not respond, call `fallback_model`, if the
+        task has one. Each is one `_call_one_model`, so each has its deadline and its log line, and
+        what each was billed reaches the ledger under the model that served it."""
+        result = self._call_one_model(model, messages, temperature, max_tokens, label, kind)
+        if result.get("success") or not fallback_model or not result.get("model_unavailable"):
+            return result
+        logger.warning(
+            f"[AIService] {label or 'call'}: {model} did not respond ({result.get('error')}), "
+            f"falling back to {fallback_model}"
+        )
+        fallback = self._call_one_model(fallback_model, messages, temperature, max_tokens, label, kind)
+        if fallback.get("success"):
+            return fallback
+        return {**fallback, "error": f"{model}: {result.get('error')}; {fallback_model}: {fallback.get('error')}"}
+
+    def _call_one_model(self, model: str, messages: list, temperature: float, max_tokens: int,
+                        label: str, kind: str) -> Dict[str, Any]:
+        """Call one model through the service's transport. Returns the transport's answer
         (`providers/transport.py`): success, text, model, usage, cost...
 
         This is the single point every paid call passes through, whoever answers: the total
@@ -401,7 +429,7 @@ class AIService(CommentGenerationMixin):
                 f"{MODEL_TOTAL_TIMEOUT_SECONDS:.0f}s total deadline"
             )
             logger.error(f"[AIService] {message}")
-            return {"success": False, "error": message}
+            return {"success": False, "error": message, "model_unavailable": True}
         if bounded.error is not None:
             logger.error(f"[AIService] {transport.label} worker error: {bounded.error}")
             return {"success": False, "error": str(bounded.error)}
@@ -710,14 +738,14 @@ class AIService(CommentGenerationMixin):
     def vision_completion(self, system_prompt: Union[str, list], user_prompt: str, image_path: str,
                           temperature: float = 0.3, max_tokens: int = 1500,
                           label: str = "vision", kind: str = AI_SPEND_OTHER,
-                          model: str = None) -> Dict[str, Any]:
+                          model: str = None, fallback_model: str = None) -> Dict[str, Any]:
         """Vision completion — sends an image + prompt to a vision model.
 
         `system_prompt` is either a plain string or the block list built by
         `cacheable_system()` when the prefix is worth caching.
 
         `model` defaults to the describer; the profile classifier passes its own, which is a
-        different model since 2026-09-09 (see MODEL_CLASSIFICATION)."""
+        different model since 2026-09-09 (see MODEL_CLASSIFICATION), and its `fallback_model`."""
         # Downscaled + JPEG (see _image_for_vision): device screenshots are huge PNGs and
         # the image dominates each vision call's token cost. Never sends more than the raw.
         image_url = self._image_for_vision(image_path)
@@ -732,13 +760,13 @@ class AIService(CommentGenerationMixin):
             ]},
         ]
         return self._call_model(model or self.vision_model, messages, temperature, max_tokens,
-                                     kind=kind, label=label)
+                                     kind=kind, label=label, fallback_model=fallback_model)
 
     def vision_json_completion(self, system_prompt: Union[str, list], user_prompt: str, image_path: str,
                                temperature: float = 0.3, max_tokens: int = 1500,
                                label: str = "vision",
                                kind: str = AI_SPEND_OTHER,
-                               model: str = None) -> Dict[str, Any]:
+                               model: str = None, fallback_model: str = None) -> Dict[str, Any]:
         """Vision completion whose answer must be JSON — retried once if it comes back unusable.
 
         Upstream truncation is rare but real: replaying the exact production call 9 times in a
@@ -753,7 +781,8 @@ class AIService(CommentGenerationMixin):
         for attempt in (1, 2):
             last = self.vision_completion(system_prompt, user_prompt, image_path,
                                           temperature=temperature, max_tokens=max_tokens,
-                                          label=label, kind=kind, model=model)
+                                          label=label, kind=kind, model=model,
+                                          fallback_model=fallback_model)
             if not last.get("success"):
                 return last  # transport/HTTP failure: retrying here would just double the wait
 
@@ -773,6 +802,10 @@ class AIService(CommentGenerationMixin):
                     "error": f"JSON parse error: {exc}",
                     "raw": last.get("text", ""),
                     "finish_reason": finish,
+                    # Who wrote it and what it cost: a partial extraction still records them.
+                    "model": last.get("model"),
+                    "provider": last.get("provider"),
+                    "cost_usd": last.get("cost_usd"),
                 }
         return last
 
@@ -1502,7 +1535,8 @@ class AIService(CommentGenerationMixin):
                                              max_tokens=1100 if include_engagement else 900,
                                              label=f"classify_profile_niche @{username}",
                                              kind=AI_SPEND_PROFILE,
-                                             model=self.model_classification)
+                                             model=self.model_classification,
+                                             fallback_model=self.fallback_classification)
         duration_ms = int((time.time() - t0) * 1000)
         # What was SENT, beside what came back. Built here and carried on the result rather than
         # written from this file: a provider that writes to SQLite is the layering this codebase
