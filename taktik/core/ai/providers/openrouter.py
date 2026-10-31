@@ -738,7 +738,7 @@ class AIService(CommentGenerationMixin):
     def vision_completion(self, system_prompt: Union[str, list], user_prompt: str, image_path: str,
                           temperature: float = 0.3, max_tokens: int = 1500,
                           label: str = "vision", kind: str = AI_SPEND_OTHER,
-                          model: str = None, fallback_model: str = None) -> Dict[str, Any]:
+                          model: str = None, fallback_model: Optional[str] = None) -> Dict[str, Any]:
         """Vision completion — sends an image + prompt to a vision model.
 
         `system_prompt` is either a plain string or the block list built by
@@ -766,7 +766,7 @@ class AIService(CommentGenerationMixin):
                                temperature: float = 0.3, max_tokens: int = 1500,
                                label: str = "vision",
                                kind: str = AI_SPEND_OTHER,
-                               model: str = None, fallback_model: str = None) -> Dict[str, Any]:
+                               model: str = None, fallback_model: Optional[str] = None) -> Dict[str, Any]:
         """Vision completion whose answer must be JSON — retried once if it comes back unusable.
 
         Upstream truncation is rare but real: replaying the exact production call 9 times in a
