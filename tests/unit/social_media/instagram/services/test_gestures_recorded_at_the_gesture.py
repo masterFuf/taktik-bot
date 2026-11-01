@@ -142,10 +142,13 @@ def _like_action(monkeypatch, *, already_liked=False, button_ok=True):
     act.session_manager = _Session()
     act.rows = []
     act._record_action = lambda u, k, c=1, **kw: act.rows.append((u, k, c))
+    # The heart read before the gesture, then after it: the like path looks at it to count the like.
+    hearts = iter([already_liked, True])
     act.detection_actions = types.SimpleNamespace(
-        is_on_post_screen=lambda: True, is_post_liked=lambda: already_liked,
+        is_on_post_screen=lambda: True, is_post_liked=lambda: next(hearts),
     )
     act.click_actions = types.SimpleNamespace(like_post=lambda: button_ok)
+    act._human_like_delay = lambda *_a, **_k: None
     return act
 
 

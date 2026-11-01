@@ -122,7 +122,8 @@ def test_the_feed_records_through_the_function_the_hashtag_pass_uses():
     """One way of liking a post of a list and filing it: the Feed has neither gesture nor ledger
     of its own."""
     assert "like_framed_post" in inspect.getsource(FeedPostActionsMixin._like_current_post)
-    assert "record_post_like" in inspect.getsource(LikeOrchestration._like_framed_post)
+    assert "_like_outcome" in inspect.getsource(LikeOrchestration._like_framed_post)
+    assert "record_post_like" in inspect.getsource(LikeOrchestration._like_outcome)
     assert "_like_framed_post" in inspect.getsource(LikeOrchestration.like_current_post)
 
 

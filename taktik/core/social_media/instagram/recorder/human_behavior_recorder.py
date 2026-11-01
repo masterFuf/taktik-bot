@@ -148,7 +148,6 @@ class ContentSampler:
     _REEL_AUTHOR = POST_REELS_SELECTORS.reel_author_username_selectors
     _STORY_AUTHOR = STORY_SELECTORS.story_author_selectors
     _PROFILE_USERNAME = PROFILE_SELECTORS.username
-    _LIKED = FEED_SELECTORS.already_liked_indicators[:3]
 
     def __init__(self, device):
         self._device = device
@@ -181,7 +180,9 @@ class ContentSampler:
         return False
 
     def _is_liked(self) -> bool:
-        for selector in self._LIKED:
+        # Read when asked, in the language of the moment: the whole screen, a heart of the post above
+        # included. This recorder only writes what it saw of a human's session: it never taps.
+        for selector in DETECTION_SELECTORS.liked_button_indicators:
             if _exists(self._device, selector):
                 return True
         return False

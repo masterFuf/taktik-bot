@@ -48,6 +48,11 @@ long wait or the power button lock it, and the run goes on tapping on the lock s
 watch reads the lock with its network (`shared/device/screen.py`), and sets `PHONE_LOCKED` when the
 lock stays once asked to go. At the start of a run, the door refuses instead (`RunRefused`, below).
 
+**Eighth case: the likes of the run no longer show** (2026-10-31). Instagram changed, on its servers,
+how a heart says it is liked (« J’aime déjà », `selected` false): a like given was not seen, the run
+tapped its heart to retry and took it back, 168 likes in one evening, with no alert. The screen says
+nothing the run can act on, so it stops after a few in a row (`like_confirmation.py`).
+
 **The witness.** The runtime that knows the operated account installs a listener
 (`configurer_temoin`), told once when the latch is set: that is where a block becomes one entry
 of the account's health history, whoever saw it. This module stays blind to accounts and SQLite.
@@ -90,6 +95,9 @@ NETWORK_LOST = "network_lost"
 #: L'ecran du telephone s'est verrouille pendant le run, et le verrou reste (un code, ou un verrou que
 #: la demande n'a pas leve) : plus aucun geste n'atteint l'application.
 PHONE_LOCKED = "phone_locked"
+
+#: Plusieurs likes de suite dont l'effet n'a pas ete vu sur leur coeur (`like_confirmation.py`).
+LIKE_UNCONFIRMED = "like_unconfirmed"
 
 
 class RunRefused(RuntimeError):
@@ -162,5 +170,5 @@ def arret_demande() -> Optional[Dict[str, Any]]:
 __all__ = [
     "demander_arret", "arret_demande", "reinitialiser", "configurer_temoin",
     "DEVICE_DISCONNECTED", "TARGET_APP_CRASHED", "ACTION_BLOCKED", "DESKTOP_GONE", "ACCOUNT_CHALLENGE",
-    "NETWORK_LOST", "PHONE_LOCKED", "RunRefused",
+    "NETWORK_LOST", "PHONE_LOCKED", "LIKE_UNCONFIRMED", "RunRefused",
 ]

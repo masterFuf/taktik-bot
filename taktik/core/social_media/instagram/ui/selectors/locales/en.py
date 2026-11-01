@@ -242,8 +242,12 @@ STRINGS: Dict[str, List[str]] = {
     "detection.home_screen_indicators": [
         "//*[contains(@content-desc, \"Home\") and @selected=\"true\"]",
     ],
-    "detection.liked_button_indicators": [
-        "//*[contains(@content-desc, \"Unlike\")]",
+    # The whole content-desc of a post's like button when the post is liked, compared WHOLE. The one
+    # list of these labels (`DETECTION_SELECTORS.liked_heart_labels`). « Liked » with its `selected`
+    # true: Instagram 410, the fixture `ig410_en_likers_sheet_own_account_c57s.xml`.
+    "detection.liked_heart_labels": [
+        "Liked",
+        "Unlike",
     ],
     "detection.likes_count_selectors": [
         "//*[contains(@content-desc, \"likes\")]",
@@ -380,10 +384,6 @@ STRINGS: Dict[str, List[str]] = {
         "Discover people",
     ],
     # --- feed ---
-    "feed.already_liked_indicators": [
-        "//*[@resource-id=\"com.instagram.android:id/row_feed_button_like\" and contains(@content-desc, \"Unlike\")]",
-        "//*[contains(@content-desc, \"Unlike\")]",
-    ],
     "feed.comment_button": [
         "//*[contains(@content-desc, \"Comment\")]",
     ],

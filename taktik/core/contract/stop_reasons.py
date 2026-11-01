@@ -16,7 +16,7 @@ from .schema import OneOf
 RUN_HALT_CODE = OneOf(
     (
         "device_disconnected", "target_app_crashed", "action_blocked", "desktop_gone", "account_challenge",
-        "network_lost", "phone_locked",
+        "network_lost", "phone_locked", "like_unconfirmed",
     ),
     name="RunHaltCode",
     doc="Why the stop latch stopped the run (`run_halt`).",
@@ -41,7 +41,7 @@ INSTAGRAM_STOP_REASON_CODE = OneOf(
         "stuck_at_top", "navigation_lost",
         "list_unavailable", "empty_plan", "no_targets", "daily_budget_unreadable", "crashed",
         "device_disconnected", "target_app_crashed", "desktop_gone", "account_challenge", "network_lost",
-        "phone_locked",
+        "phone_locked", "like_unconfirmed",
         # manual
         "manual_stop",
     ),

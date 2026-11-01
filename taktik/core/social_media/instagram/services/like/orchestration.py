@@ -10,7 +10,7 @@ from taktik.core.social_media.instagram.actions.base.base_business import BaseBu
 from taktik.core.social_media.instagram.services.profile import ProfileBusiness
 from taktik.core.social_media.instagram.services.like.post_navigation import PostNavigationMixin
 from taktik.core.shared.behavior.like_method import should_double_tap_like
-from taktik.core.shared.diagnostics import run_halt
+from taktik.core.shared.diagnostics import like_confirmation, run_halt
 from taktik.core.shared.behavior.engagement_sequence import plan_engagement_sequence
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.support.debug import DEBUG_SELECTORS
@@ -31,7 +31,7 @@ class FramedLike(Enum):
 
     LIKED = "liked"                  # the heart of its own row turned after our gesture
     ALREADY_LIKED = "already_liked"  # that heart was on already: no gesture
-    NOT_LIKED = "not_liked"          # no gesture, or one that did not turn that heart
+    NOT_LIKED = "not_liked"          # no gesture, or one whose effect that heart did not show
 
 
 class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
@@ -445,30 +445,16 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
 
             # Alternate like methods like a human (telemetry showed the profile-posts
             # path always used the button): ~45% an image double-tap, else the button.
-            # Off a list, the single post is the Reels/clips player's: the double-tap is
-            # verified via the like button's @selected state (liked_button_indicators covers
-            # the reel like_button), so a successful tap is recognised instead of falling
-            # through to the button (which would toggle the like back off).
+            # Off a list, the single post is the Reels/clips player's: one gesture, then its heart
+            # says what it did (`liked_button_indicators` covers the reel like_button).
             if should_double_tap_like():
-                double_tap_liked = self._double_tap_like_image()
-                if double_tap_liked is None:
-                    self.logger.warning(
-                        "Whether the double tap liked the post is unknown: its heart is not tapped, "
-                        "which would take back a like the double tap gave"
-                    )
-                    return FramedLike.NOT_LIKED
-                if double_tap_liked:
-                    self.logger.debug("Post liked via image double-tap")
-                    self.record_post_like(record_as)
-                    return FramedLike.LIKED
+                return self._like_outcome(self._double_tap_like_image(), "image double-tap", record_as)
 
-            if self.click_actions.like_post():
-                self.logger.debug("Post liked successfully (button)")
-                self.record_post_like(record_as)
-                return FramedLike.LIKED
-            else:
-                self.logger.warning("Failed to like")
+            if not self.click_actions.like_post():
+                self.logger.warning("Failed to like: no heart to tap")
                 return FramedLike.NOT_LIKED
+            self._human_like_delay('click')
+            return self._like_outcome(self.detection_actions.is_post_liked(), "button", record_as)
 
         except Exception as e:
             self.logger.error(f"Error liking current post: {e}")
@@ -504,8 +490,8 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
         the heart of its own row, the gesture a human alternates (`should_double_tap_like`). The
         heart is what says whether the like took, so it must be on screen: when the row runs under
         the bottom, a short drag brings it up first (`_show_framed_post_heart`), and no like when
-        it cannot, or when the post is no longer the same. After a double tap that did not take,
-        the same row's heart, as off a list."""
+        it cannot, or when the post is no longer the same. One gesture per like: what its heart then
+        says is the answer (`_like_outcome`)."""
         identity = target.get("identity")
         if target.get("heart") is None:
             shown = self._show_framed_post_heart(identity)
@@ -518,24 +504,31 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
 
         if should_double_tap_like() and target.get("media") is not None:
             self.device.human_double_tap(self._double_tap_region(target["media"]))
-            self._human_like_delay('click')
-            after = self._framed_like_target()
-            if self._framed_post_liked(after, identity):
-                self.logger.debug("Post liked via image double-tap")
-                self.record_post_like(record_as)
-                return FramedLike.LIKED
-            if not after or after.get("identity") != identity or after.get("heart") is None:
-                self.logger.warning("Framed post changed after the double tap: no like")
-                return FramedLike.NOT_LIKED
-            target = after
-
-        self.device.human_tap(target["heart"])
+            how = "image double-tap"
+        else:
+            self.device.human_tap(target["heart"])
+            how = "button"
         self._human_like_delay('click')
-        if self._framed_post_liked(self._framed_like_target(), identity):
-            self.logger.debug("Post liked successfully (button)")
+        return self._like_outcome(self._framed_post_liked(self._framed_like_target(), identity), how, record_as)
+
+    def _like_outcome(self, seen: Optional[bool], how: str, record_as: Optional[str]) -> FramedLike:
+        """What a like gesture, once played, did: the one answer of every like, on a list or off it.
+
+        `seen`: its heart says the post is liked (None: it could not be read). Not seen, the heart is
+        NOT tapped to try again: a tap on a heart that does not say it is liked but is takes the like
+        back, which cost 168 likes in one evening. The post stays as the gesture left it, not counted,
+        and `like_confirmation` stops the run after a few of those in a row."""
+        if seen:
+            self.logger.debug(f"Post liked ({how})")
+            like_confirmation.like_seen()
             self.record_post_like(record_as)
             return FramedLike.LIKED
-        self.logger.warning("Failed to like: the framed post's heart did not turn")
+        self.logger.warning(
+            f"Like not confirmed: after the {how}, its heart "
+            f"{'could not be read' if seen is None else 'does not say liked'}. Not counted, "
+            "and its heart is not tapped, which could take back a like the gesture gave"
+        )
+        like_confirmation.like_not_seen()
         return FramedLike.NOT_LIKED
 
     def _show_framed_post_heart(self, identity: Optional[str]) -> Optional[Dict[str, Any]]:
@@ -723,11 +716,9 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
 
     def _double_tap_like_image(self) -> Optional[bool]:
         """Off a list (the full-screen viewer, its single post), double-tap a varied point in
-        the image band of the screen to like it, then confirm the like registered (a double-tap
-        can miss). Returns False so the caller falls back to the like button if it didn't take,
-        None when that cannot be told (the check could not read the screen, or the gesture
-        failed): the heart is then not tapped, since it would take back a like the double tap gave.
-        On a list, `_like_framed_post` aims at the framed post's own media instead."""
+        the image band of the screen to like it, then read whether the like registered: True,
+        False, or None when that cannot be told (the check could not read the screen, or the
+        gesture failed). On a list, `_like_framed_post` aims at the framed post's own media instead."""
         try:
             width, height = self.device.get_screen_size()
             image_region = (

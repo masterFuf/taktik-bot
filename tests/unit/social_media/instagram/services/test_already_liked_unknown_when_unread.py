@@ -177,13 +177,15 @@ class _ViewerPhone(ProfilePostsPhone):
     """The Reel viewer replayed. Its heart turns on with a double tap on the video or a tap on it,
     and off with a tap on it when on, as Instagram does. `fail_next_dumps` dumps fail, as when the
     uiautomator2 server stops answering for a moment; `stops_after_double_tap` makes it so right
-    after a double tap."""
+    after a double tap. `shows_likes=False`: the heart keeps saying « not liked » whatever happens,
+    the like being there or not."""
 
-    def __init__(self, liked=False, stops_after_double_tap=False):
+    def __init__(self, liked=False, stops_after_double_tap=False, shows_likes=True):
         super().__init__(screen=REEL_VIEWER, height=PIXEL_3A_H)
         self.liked = liked
         self.fail_next_dumps = 0
         self.stops_after_double_tap = stops_after_double_tap
+        self.shows_likes = shows_likes
 
     def dump_hierarchy(self, *_args, **_kwargs):
         if self.fail_next_dumps:
@@ -192,7 +194,7 @@ class _ViewerPhone(ProfilePostsPhone):
         root = etree.fromstring(REEL_VIEWER.encode("utf-8"))
         for node in root.iter():
             if node.get("resource-id") == VIEWER_HEART_ID:
-                node.set("selected", "true" if self.liked else "false")
+                node.set("selected", "true" if self.liked and self.shows_likes else "false")
         return etree.tostring(root, encoding="unicode")
 
     def click(self, x, y):
@@ -256,6 +258,37 @@ def test_off_a_list_a_double_tap_whose_check_fails_is_not_undone_by_a_heart_tap(
     assert [kind for kind, _x, _y in phone.taps] == ["double_tap"], phone.taps
     assert phone.liked is True, "the heart tap took back the like the double tap gave"
     assert any("unknown" in line for line in warnings), warnings
+
+
+def test_off_a_list_a_double_tap_not_seen_is_not_undone_by_a_heart_tap(monkeypatch, warnings):
+    # The double tap gave the like and the heart does not show it: the old fall back on the button
+    # was the tap that took it back, whatever the reason the heart said nothing.
+    set_active_locale("fr")
+    monkeypatch.setattr(orchestration, "should_double_tap_like", lambda: True)
+    phone = _ViewerPhone(liked=False, shows_likes=False)
+    like = like_on_phone(phone)
+
+    assert like.like_current_post(record_as="author_one") is orchestration.FramedLike.NOT_LIKED
+
+    assert [kind for kind, _x, _y in phone.taps] == ["double_tap"], phone.taps
+    assert phone.liked is True, "the heart tap took back the like the double tap gave"
+    assert like.rows == [] and like.session_actions == []
+    assert any("not confirmed" in line for line in warnings), warnings
+
+
+def test_off_a_list_a_tap_not_seen_is_not_counted(monkeypatch, warnings):
+    # The tap counted as a like without a look at its heart: a like not seen also cleared the count
+    # of likes not seen, which could never stop a run on this viewer.
+    set_active_locale("fr")
+    monkeypatch.setattr(orchestration, "should_double_tap_like", lambda: False)
+    phone = _ViewerPhone(liked=False, shows_likes=False)
+    like = like_on_phone(phone)
+
+    assert like.like_current_post(record_as="author_one") is orchestration.FramedLike.NOT_LIKED
+
+    assert [kind for kind, _x, _y in phone.taps] == ["tap"], phone.taps
+    assert like.rows == [] and like.session_actions == []
+    assert any("not confirmed" in line for line in warnings), warnings
 
 
 def test_off_a_list_a_readable_screen_still_likes_and_reads_liked():

@@ -44,11 +44,6 @@ class FeedSelectors:
     # read by `FeedScrollSelectors`), never to the first like button of the screen: no like button
     # list here.
 
-    # === Already-liked detection — language-dependent (locales overlay) ===
-    @property
-    def already_liked_indicators(self) -> List[str]:
-        return L("feed.already_liked_indicators")
-
     # === Comment button in the feed — neutral base + locales overlay ===
     _comment_button_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_feed_button_comment"]',

@@ -310,6 +310,7 @@ _FAMILY_BY_CODE = {
     "account_challenge": FAMILY_FAILED,
     "network_lost": FAMILY_FAILED,
     "phone_locked": FAMILY_FAILED,
+    "like_unconfirmed": FAMILY_FAILED,
 }
 
 
@@ -571,6 +572,17 @@ def phone_locked() -> StopReason:
     return _reason("phone_locked", FAMILY_FAILED, "The phone locked during the run")
 
 
+def like_unconfirmed() -> StopReason:
+    """Several likes in a row whose effect the screen did not show (`shared/diagnostics/like_confirmation.py`).
+
+    A gesture was played each time, and its heart did not say liked: Instagram refused it in silence,
+    or a heart now says it another way. Either way the counters no longer hold what the run did, and
+    nobody would have known: 168 likes taken back in one evening, on no alert. The operator looks at
+    the last posts by hand before launching again.
+    """
+    return _reason("like_unconfirmed", FAMILY_FAILED, "Several likes in a row not confirmed by the screen")
+
+
 def for_halt(halt: Dict[str, Any]) -> StopReason:
     """The motive for a run stopped by the shared halt latch (``shared/diagnostics/run_halt``).
 
@@ -592,6 +604,8 @@ def for_halt(halt: Dict[str, Any]) -> StopReason:
         return network_lost(halt.get("detail"))
     if code == "phone_locked":
         return phone_locked()
+    if code == "like_unconfirmed":
+        return like_unconfirmed()
     return target_app_crashed(halt.get("detail"))
 
 

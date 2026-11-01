@@ -23,6 +23,7 @@ import random
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, cast
 
 from taktik.core.social_media.instagram.ui.extractors import count_from_counter_label, username_from_author_header
+from taktik.core.social_media.instagram.ui.labels import is_liked_heart
 from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
 from taktik.core.shared.behavior.dwell import content_dwell, caption_prose_chars, MIN_DWELL_S
 from taktik.core.shared.behavior.gesture import SWIPE_FLOOR_H
@@ -585,7 +586,7 @@ class PostReadingMixin:
                 buttons.append(bounds)
                 continue
             if short == FS.like_button_id:
-                hearts.append((bounds, node.get("selected") == "true"))
+                hearts.append((bounds, is_liked_heart(node.get("selected"), node.get("content-desc"))))
                 continue
             text = node.get("text") or ""
             if node.tag == FS.caption_layout_class:
@@ -636,7 +637,7 @@ class PostReadingMixin:
             "row_counters": row_counters,
             "captions": [c for c in captions if _in_window(c[0])],
             "heart_bounds": heart[0] if heart else None,
-            "heart_selected": heart[1] if heart else None,
+            "heart_liked": heart[1] if heart else None,
             "media_bounds": media_bounds,
         }
 
@@ -714,7 +715,7 @@ class PostReadingMixin:
             "row": window["buttons_bounds"],
             "media": window["media_bounds"],
             "heart": window["heart_bounds"],
-            "liked": window["heart_selected"],
+            "liked": window["heart_liked"],
         }
 
     def show_framed_post_buttons(self) -> Dict[str, Any]:

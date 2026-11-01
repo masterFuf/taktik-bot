@@ -20,8 +20,13 @@ import taktik.core.social_media.instagram.actions.atomic.scroll.feed_scroll as f
 import taktik.core.social_media.instagram.actions.atomic.scroll.post_reading as post_reading
 import taktik.core.social_media.instagram.services.like.orchestration as orchestration
 import taktik.core.social_media.instagram.actions.base.device.facade as facade_module
+from bridges.tools.lab.actions.instagram import ACTION_REGISTRY as INSTAGRAM_ACTIONS
+from bridges.tools.lab.actions.instagram import register_actions as register_instagram
+from bridges.tools.lab.action_test.bundles.instagram import build_instagram_action_bundle
 from bridges.tools.lab.actions.instagram.post import is_liked
-from profile_posts_phone import HEADER_ID, HEART_ID, ProfilePostsPhone, bounds_of, capture, like_on_phone
+from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
+from profile_posts_phone import HEADER_ID, HEART_ID, PKG, ProfilePostsPhone, bounds_of, capture, like_on_phone
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 
 ROW_ON_SCREEN = capture("ig447_fr_profile_posts_next_header_mid_screen.xml")
@@ -72,3 +77,34 @@ def test_the_framed_post_liked_is_liked(monkeypatch):
     assert lab.like.like_current_post() is orchestration.FramedLike.LIKED
 
     assert is_liked(lab, {}) is True
+
+
+# --- a heart that says it by its label, its `selected` false (Instagram 447, 2026-10-31) -----------
+
+LIKED_BY_ITS_LABEL = capture("ig447_fr_720p_profile_posts_framed_heart_liked.xml")
+NOT_LIKED_YET = capture("ig447_fr_720p_profile_posts_framed_heart_not_liked.xml")
+NOKIA_H = 1520
+
+
+def _production_bundle(phone):
+    register_instagram()
+    return build_instagram_action_bundle(DeviceFacade(CloneAwareDeviceProxy(phone, PKG)))
+
+
+def test_the_lab_reads_a_heart_liked_by_its_label():
+    result = INSTAGRAM_ACTIONS["post.is_liked"](_production_bundle(ProfilePostsPhone(screen=LIKED_BY_ITS_LABEL, height=NOKIA_H)), {})
+
+    assert result["details"]["found"] is True, result
+
+
+def test_the_lab_like_says_what_the_production_like_saw(monkeypatch):
+    monkeypatch.setattr(orchestration, "should_double_tap_like", lambda: True)
+
+    seen = ProfilePostsPhone(screen=NOT_LIKED_YET, height=NOKIA_H, likes_on_tap=True, liked_label="J\u2019aime d\u00e9j\u00e0")
+    result = INSTAGRAM_ACTIONS["engagement.like_current_post"](_production_bundle(seen), {})
+    assert (result["success"], result["details"]["outcome"]) == (True, "liked"), result
+
+    not_seen = ProfilePostsPhone(screen=NOT_LIKED_YET, height=NOKIA_H, likes_on_tap=False)
+    result = INSTAGRAM_ACTIONS["engagement.like_current_post"](_production_bundle(not_seen), {})
+    assert (result["success"], result["details"]["outcome"]) == (False, "not_liked"), result
+    assert [kind for kind, _x, _y in not_seen.taps] == ["double_tap"], not_seen.taps

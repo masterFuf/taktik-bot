@@ -17,7 +17,7 @@ from typing import Iterator, List, Set, Tuple
 import pytest
 
 from taktik.core.shared.device import network_probe, network_watch
-from taktik.core.shared.diagnostics import foreground_guard, miss_capture, run_halt, screen_ring
+from taktik.core.shared.diagnostics import foreground_guard, like_confirmation, miss_capture, run_halt, screen_ring
 from taktik.core.shared.diagnostics.run_start import begin_run, end_run, run_scope
 from unit.paths import CORE
 from unit.ping_outputs import PING_INJOIGNABLE
@@ -57,6 +57,7 @@ def test_the_counters_of_the_run_before_start_again(monkeypatch):
     monkeypatch.setattr(miss_capture, "_blocage_signale", True)
     monkeypatch.setattr(foreground_guard, "_dernier_controle", 1.0e9)
     screen_ring._anneau.append({"fingerprint": "a run before"})
+    monkeypatch.setattr(like_confirmation, "_not_seen_in_a_row", like_confirmation.UNCONFIRMED_LIKES_BEFORE_HALT - 1)
 
     begin_run()
 
@@ -64,6 +65,7 @@ def test_the_counters_of_the_run_before_start_again(monkeypatch):
             miss_capture._blocage_signale) == (0, None, 0, False)
     assert foreground_guard._dernier_controle == 0.0
     assert screen_ring._anneau == []
+    assert like_confirmation._not_seen_in_a_row == 0
 
 
 def test_a_run_that_raises_still_stops_its_watch(monkeypatch):
