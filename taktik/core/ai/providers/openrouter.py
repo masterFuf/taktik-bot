@@ -851,6 +851,10 @@ class AIService(CommentGenerationMixin):
     # High-level AI operations
     # ------------------------------------------------------------------
 
+    # How a free sub-niche label looks in the prompt. Labels no list holds on purpose: an example
+    # that names a real sub-niche, or one the list could gain, contradicts the rule around it.
+    _FREE_LABEL_EXAMPLES = "'Beekeeping & Honey', 'Falconry & Birds of Prey'"
+
     # Fallback list for the STANDALONE bot, which receives no injected taxonomy.
     #
     # It used to be the only list, under a comment asking the next editor to keep it in step with
@@ -862,10 +866,6 @@ class AIService(CommentGenerationMixin):
     #
     # When a taxonomy IS injected, `_niche_categories` derives the buckets from its keys and this
     # list is not consulted — a copy that cannot drift because it is no longer the source.
-    # How a free sub-niche label looks in the prompt. Labels no list holds on purpose: an example
-    # that names a real sub-niche, or one the list could gain, contradicts the rule around it.
-    _FREE_LABEL_EXAMPLES = "'Beekeeping & Honey', 'Falconry & Birds of Prey'"
-
     NICHE_CATEGORIES = [
         "lifestyle", "travel", "fitness_sports", "food_drink", "fashion",
         "beauty_wellness", "tech_education", "business_marketing", "music_entertainment",
