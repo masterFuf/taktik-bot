@@ -2,11 +2,13 @@
 
     schema_bridge <config.json>
 
-    {"command": "status" | "migrate", "db"?: PATH, "backupDir"?: PATH, "afterLegacyApp"?: bool}
+    {"command": "status" | "migrate", "db"?: PATH, "backupDir"?: PATH, "afterLegacyApp"?: bool,
+     "upgradeConsent"?: bool}
 
-`backupDir` and `afterLegacyApp` apply to `migrate`. `afterLegacyApp` says the 1.9.8 app has just
-migrated the base: only then may the bot's own old steps run on a base that is not the 1.9.8
-schema.
+`backupDir`, `afterLegacyApp` and `upgradeConsent` apply to `migrate`. `afterLegacyApp` says the 1.9.8
+app has just migrated the base: only then may the bot's own old steps run on a base that is not the
+1.9.8 schema. `upgradeConsent` says the operator agreed to raise an existing base from source: without
+it, such a run writes nothing and exits 4. The environment gives no consent here: the app's window does.
 
 `status` never writes, not even the -wal/-shm side files of a closed base. Events are JSON lines
 on stdout: `schema_status`, `schema_progress`, `schema_result`, and `error` with an
@@ -29,6 +31,7 @@ EXIT_OK = 0
 EXIT_FAILED = 1
 EXIT_REFUSED = 2
 EXIT_NEEDS_LEGACY_APP = 3
+EXIT_NEEDS_UPGRADE_CONSENT = 4
 
 MAX_DIFFERENCES = 50
 
@@ -59,7 +62,7 @@ def _trim(differences: List[str]) -> dict:
     return {"differences": differences[:MAX_DIFFERENCES], "difference_count": len(differences)}
 
 
-USAGE = 'schema_bridge <config.json>: {"command": "status"|"migrate", "db"?, "backupDir"?, "afterLegacyApp"?}'
+USAGE = 'schema_bridge <config.json>: {"command": "status"|"migrate", "db"?, "backupDir"?, "afterLegacyApp"?, "upgradeConsent"?}'
 COMMANDS = ("status", "migrate")
 
 
@@ -85,6 +88,7 @@ def run(config: dict, ipc=None) -> int:
         return EXIT_REFUSED
 
     from taktik.core.database.local.versions import TOO_NEW, inspect_database, migrate_database
+    from taktik.core.database.local.versions.runner import NEEDS_UPGRADE_CONSENT
 
     status = inspect_database(db_path)
     status_payload = status.to_dict()
@@ -102,6 +106,7 @@ def run(config: dict, ipc=None) -> int:
         applied_by="schema_bridge",
         on_progress=progress,
         legacy_app_done=bool(config.get("afterLegacyApp")),
+        upgrade_consented=config.get("upgradeConsent") is True,
     )
     payload = result.to_dict()
     payload.update(_trim(result.differences))
@@ -112,6 +117,8 @@ def run(config: dict, ipc=None) -> int:
         return EXIT_OK
     if result.action == "needs_legacy_app":
         return EXIT_NEEDS_LEGACY_APP
+    if result.action == NEEDS_UPGRADE_CONSENT:
+        return EXIT_NEEDS_UPGRADE_CONSENT
     if result.action == "refused":
         ipc.error(result.message, error_code="SCHEMA_REFUSED")
         return EXIT_REFUSED

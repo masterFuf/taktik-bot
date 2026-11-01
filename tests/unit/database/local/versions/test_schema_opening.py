@@ -24,6 +24,8 @@ from taktik.core.database.local.versions.upkeep import run_data_upkeep
 
 TARGET = schema_version()
 
+pytestmark = pytest.mark.usefixtures("engine_runs_installed")
+
 
 @pytest.fixture(autouse=True)
 def _fresh_checks(monkeypatch):

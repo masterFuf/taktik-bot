@@ -5,6 +5,10 @@ before it starts any bridge: a bot that finds another version refuses instead of
 schema behind the app's back. On its own (CLI), the bot creates a new base at this build's version,
 stamps or migrates a base it recognises, and keeps its old un-numbered steps for a version-0 base it
 does not recognise (built by the bot's old steps alone, or older than 1.9.8).
+
+Run from source, it raises an existing base only when TAKTIK_ALLOW_SCHEMA_UPGRADE_TO names the version
+this code expects: an older installed app could no longer open that base. Naming the version keeps a
+variable left in a shell from raising the base at the next migration.
 """
 
 from __future__ import annotations
@@ -16,6 +20,7 @@ from typing import Dict, Mapping, Optional
 
 from loguru import logger
 
+from .catalog import schema_version
 from .runner import (
     ABSENT,
     BEHIND,
@@ -24,11 +29,15 @@ from .runner import (
     LEGACY_RECOGNIZED,
     LEGACY_UNRECOGNIZED,
     TOO_NEW,
+    SchemaStatus,
     inspect_database,
     migrate_database,
+    read_user_version,
+    upgrade_needs_consent,
 )
 
 UNDER_APP_ENV = "TAKTIK_DESKTOP_PID"
+UPGRADE_CONSENT_ENV = "TAKTIK_ALLOW_SCHEMA_UPGRADE_TO"
 
 NUMBERED = "numbered"
 LEGACY = "legacy"
@@ -41,8 +50,27 @@ class SchemaNotReady(RuntimeError):
     """The base is not at this build's schema version and this process may not change it."""
 
 
+class SchemaUpgradeNeedsConsent(SchemaNotReady):
+    """Run from source, on an existing base behind this code, and nobody agreed to raise it."""
+
+    def __init__(self, status: SchemaStatus):
+        super().__init__(
+            f"the database {status.db_path} is at schema version {status.user_version}, this code expects "
+            f"{status.target_version}, and nothing was changed: an older installed app could no longer "
+            f"open it after the upgrade. To upgrade it (a backup is made first), start again with "
+            f"{UPGRADE_CONSENT_ENV}={status.target_version}."
+        )
+        self.db_path = status.db_path
+        self.user_version = status.user_version
+        self.target_version = status.target_version
+
+
 def _key(db_path) -> str:
     return os.path.normcase(os.path.abspath(str(db_path)))
+
+
+def _upgrade_consented(status: SchemaStatus, env: Mapping[str, str]) -> bool:
+    return env.get(UPGRADE_CONSENT_ENV) == str(status.target_version)
 
 
 def ensure_schema(db_path, env: Optional[Mapping[str, str]] = None) -> str:
@@ -54,8 +82,11 @@ def ensure_schema(db_path, env: Optional[Mapping[str, str]] = None) -> str:
     with _lock:
         if key in _checked:
             return _checked[key]
-        status = inspect_database(db_path, leave_no_side_file=False)
+        # The number alone first: a base this process may refuse comes out without a side file.
+        at_this_version = read_user_version(db_path) == schema_version()
+        status = inspect_database(db_path, leave_no_side_file=not at_this_version)
         under_app = bool(env.get(UNDER_APP_ENV))
+        consented = _upgrade_consented(status, env)
         if status.state == CURRENT:
             for warning in status.warnings:
                 logger.warning(f"database schema: {warning}")
@@ -70,11 +101,13 @@ def ensure_schema(db_path, env: Optional[Mapping[str, str]] = None) -> str:
                 f"the database is at schema version {status.user_version} ({status.state}), this bot "
                 f"expects {status.target_version}: restart the desktop app, which updates it first"
             )
+        elif upgrade_needs_consent(status, consented):
+            raise SchemaUpgradeNeedsConsent(status)
         elif status.state in (ABSENT, EMPTY, LEGACY_RECOGNIZED, BEHIND):
             # A new base gets the numbered schema too, as when the app creates it: the bot's old
             # steps alone built a schema of their own, without the columns the app adds to the
             # bot's tables, that nothing could stamp afterwards.
-            result = migrate_database(db_path, applied_by="bot")
+            result = migrate_database(db_path, applied_by="bot", upgrade_consented=consented)
             if not result.success:
                 raise SchemaNotReady(f"schema migration failed: {result.message}")
             mode = NUMBERED
@@ -86,12 +119,13 @@ def ensure_schema(db_path, env: Optional[Mapping[str, str]] = None) -> str:
         return mode
 
 
-def stamp_if_recognized(db_path) -> str:
+def stamp_if_recognized(db_path, env: Optional[Mapping[str, str]] = None) -> str:
     """After the old steps ran on their own: stamp the base if it now is the 1.9.8 schema."""
+    env = os.environ if env is None else env
     status = inspect_database(db_path, leave_no_side_file=False)
     if status.state != LEGACY_RECOGNIZED:
         return LEGACY
-    result = migrate_database(db_path, applied_by="bot")
+    result = migrate_database(db_path, applied_by="bot", upgrade_consented=_upgrade_consented(status, env))
     if not result.success:
         logger.warning(f"database schema left un-numbered: {result.message}")
         return LEGACY
@@ -119,7 +153,9 @@ __all__ = [
     "LEGACY",
     "NUMBERED",
     "SchemaNotReady",
+    "SchemaUpgradeNeedsConsent",
     "UNDER_APP_ENV",
+    "UPGRADE_CONSENT_ENV",
     "ensure_schema",
     "forget_checks",
     "open_connection",

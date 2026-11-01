@@ -29,6 +29,9 @@ from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOut
 import taktik.core.social_media.instagram.workflows.notifications.welcome_dm as welcome_dm
 
 
+pytestmark = pytest.mark.usefixtures("engine_runs_installed")
+
+
 class _Workflow:
     def __init__(self):
         self.calls = []

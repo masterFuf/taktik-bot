@@ -186,6 +186,16 @@ def real_database_guard():
     return _GUARD
 
 
+@pytest.fixture
+def engine_runs_installed(monkeypatch):
+    """For a test whose base exists at an older version and whose subject is not the consent to
+    raise it: the engine behaves as the installer's build, which raises it without asking. A test
+    run from source would otherwise be refused (`versions/runner.py`, `upgrade_needs_consent`)."""
+    from taktik.core.database.local.versions import runner
+
+    monkeypatch.setattr(runner, "running_from_source", lambda: False)
+
+
 @pytest.fixture(autouse=True)
 def _database_singletons_start_empty():
     """A singleton left by an earlier test would serve its base here and hide an unguarded path."""

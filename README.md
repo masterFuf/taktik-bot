@@ -177,7 +177,9 @@ python -m taktik workflows run instagram.automation.feed --dry-run
 
 At startup the command line says which database it writes to. Without `TAKTIK_DB_PATH` it is the
 desktop app's own database (`%APPDATA%/taktik-desktop/taktik-data.db` on Windows); set
-`TAKTIK_DB_PATH` to use another file.
+`TAKTIK_DB_PATH` to use another file. Run from its folder, it creates a new database but does not upgrade
+an existing older one, which an older installed app could then no longer open: it stops and says how to
+agree (`TAKTIK_ALLOW_SCHEMA_UPGRADE_TO=<version>`, a backup is made first).
 
 The command line reference (parameters, AI key, one example per workflow) is in the documentation.
 

@@ -19,6 +19,11 @@ TRANSLATIONS = {
     "goodbye": "Merci d'avoir utilisé TAKTIK. À bientôt !",
     "database_in_use": "Base de données : {}",
     "database_is_app_default": "C'est la base de l'application desktop ; TAKTIK_DB_PATH en désigne une autre.",
+    "database_upgrade_needs_consent": (
+        "La base {path} est au schéma {current}, ce code attend le schéma {target}. Rien n'a été modifié. "
+        "Après la montée, une application TAKTIK installée plus ancienne ne pourra plus l'ouvrir. "
+        "Pour la faire monter (une sauvegarde est faite avant), relancez avec {consent_env}={target}."
+    ),
     "website": "Site web",
     "github": "GitHub",
     

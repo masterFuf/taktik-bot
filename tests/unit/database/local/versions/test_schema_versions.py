@@ -46,6 +46,8 @@ sys.path.insert(0, str(CORE / "scripts/generate"))
 import build_schema_baseline  # noqa: E402
 
 TARGET = schema_version()
+
+pytestmark = pytest.mark.usefixtures("engine_runs_installed")
 BASELINE_TEXT = (VERSIONS_DIR / "m0001_baseline.sql").read_text(encoding="utf-8")
 
 
@@ -521,7 +523,7 @@ def test_a_process_killed_mid_migration_leaves_the_base_untouched(tmp_path):
         "    conn.execute('INSERT INTO accounts (platform, username) VALUES (\\'instagram\\', \\'x\\')')\n"
         "    os._exit(9)\n"
         "catalog = (MIGRATIONS[0], Migration(2, 'dies', ADDITIVE, apply_fn=die))\n"
-        "migrate_database(sys.argv[1], backup_dir=sys.argv[2], catalog=catalog)\n",
+        "migrate_database(sys.argv[1], backup_dir=sys.argv[2], catalog=catalog, upgrade_consented=True)\n",
         encoding="utf-8",
         newline="",
     )

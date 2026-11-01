@@ -21,6 +21,9 @@ ACCOUNT_ID = 11
 PARTNER = "partner_one"
 
 
+pytestmark = pytest.mark.usefixtures("engine_runs_installed")
+
+
 @pytest.fixture
 def database(tmp_path, monkeypatch):
     """A real SQLite file: the direction rule is a property of what is stored, not of a mock."""

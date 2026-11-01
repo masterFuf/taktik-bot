@@ -4,11 +4,15 @@
 numbered migrations in one transaction, checks the result against the catalog before committing,
 and stamps a recognised 1.9.8 base without rewriting any of its tables. The desktop app's objects
 are never compared, and a migration that creates, changes or drops one is rolled back.
+
+An older installed app refuses a base newer than it knows. So code run from source raises an existing
+base only with consent (`upgrade_consented`); the engine the installer ships raises it as it always did.
 """
 
 from __future__ import annotations
 
 import sqlite3
+import sys
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
@@ -41,6 +45,11 @@ BEHIND = "behind"
 TOO_NEW = "too_new"
 LEGACY_RECOGNIZED = "legacy_recognized"
 LEGACY_UNRECOGNIZED = "legacy_unrecognized"
+
+# The states of an existing base the catalog would raise. Absent and empty are new bases.
+EXISTING_BASE_BEHIND = (BEHIND, LEGACY_RECOGNIZED, LEGACY_UNRECOGNIZED)
+
+NEEDS_UPGRADE_CONSENT = "needs_upgrade_consent"
 
 ProgressCallback = Callable[[str, str], None]
 
@@ -84,6 +93,16 @@ class MigrationResult:
 
     def to_dict(self) -> Dict:
         return asdict(self)
+
+
+def running_from_source() -> bool:
+    """False only in the PyInstaller build the installer ships; anything else runs from its code."""
+    return not getattr(sys, "frozen", False)
+
+
+def upgrade_needs_consent(status: SchemaStatus, consented: bool) -> bool:
+    """The one rule: from source, an existing base stays where it is until someone agrees."""
+    return status.state in EXISTING_BASE_BEHIND and running_from_source() and not consented
 
 
 def _schema_of(kind: str, catalog: Sequence[Migration]) -> Dict:
@@ -171,6 +190,18 @@ def _object_count(conn: sqlite3.Connection) -> int:
     return conn.execute(
         "SELECT COUNT(*) FROM sqlite_master WHERE name NOT LIKE 'sqlite\\_%' ESCAPE '\\'"
     ).fetchone()[0]
+
+
+def read_user_version(db_path) -> Optional[int]:
+    """`PRAGMA user_version`; None when the file does not exist. No side file on a closed base."""
+    path = Path(db_path)
+    if not path.exists():
+        return None
+    conn = connect_read_only(path)
+    try:
+        return conn.execute("PRAGMA user_version").fetchone()[0]
+    finally:
+        conn.close()
 
 
 def inspect_database(db_path, catalog: Sequence[Migration] = MIGRATIONS, *,
@@ -372,8 +403,12 @@ def migrate_database(
     legacy_steps: Optional[Callable[[str], None]] = None,
     clock: Optional[Callable[[], datetime]] = None,
     legacy_app_done: bool = False,
+    upgrade_consented: bool = False,
 ) -> MigrationResult:
     """Bring the base to the catalog's version. A base newer than the catalog is never written.
+
+    From source, an existing base behind the catalog comes back `needs_upgrade_consent` without a
+    write, not even a backup, unless `upgrade_consented` says someone agreed.
 
     A version-0 base that is not the 1.9.8 schema is first handed back to the 1.9.8 app
     (`needs_legacy_app`): the bot's own old steps crash on bases the app has not migrated yet,
@@ -404,6 +439,10 @@ def migrate_database(
     if before.state == TOO_NEW:
         return done(False, "refused",
                     f"the base is at version {before.user_version}, this build knows up to {target}")
+    if upgrade_needs_consent(before, upgrade_consented):
+        return done(False, NEEDS_UPGRADE_CONSENT,
+                    f"running from source: version {before.user_version} -> {target} needs consent, "
+                    "an older installed app could no longer open this base; nothing was changed")
 
     backup: Optional[BackupReport] = None
     try:
@@ -456,15 +495,20 @@ __all__ = [
     "BEHIND",
     "CURRENT",
     "EMPTY",
+    "EXISTING_BASE_BEHIND",
     "LEGACY_RECOGNIZED",
     "LEGACY_UNRECOGNIZED",
     "MigrationFailed",
     "MigrationResult",
+    "NEEDS_UPGRADE_CONSENT",
     "SchemaStatus",
     "TOO_NEW",
     "baseline_fingerprint",
     "foreign_objects",
     "inspect_database",
     "migrate_database",
+    "read_user_version",
+    "running_from_source",
     "target_fingerprint",
+    "upgrade_needs_consent",
 ]

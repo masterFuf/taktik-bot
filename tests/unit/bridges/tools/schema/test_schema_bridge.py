@@ -17,6 +17,8 @@ from unit.paths import CORE
 
 TARGET = schema_version()
 
+pytestmark = pytest.mark.usefixtures("engine_runs_installed")
+
 
 class FakeIpc:
     def __init__(self):

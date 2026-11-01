@@ -17,7 +17,7 @@ import logging
 from taktik.cli.commands.instagram.management import management
 from taktik.cli.menus.main_menu import run_main_menu
 from taktik.cli.support.banner import display_banner
-from taktik.cli.support.database import open_database
+from taktik.cli.support.database import OpensNoDatabaseForHelp, open_database
 from taktik.cli.support.language import select_language, set_language
 from taktik.cli.hosts.selector_platforms import register_selector_platforms
 
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 register_selector_platforms()
 
 
-@click.group(invoke_without_command=True)
+@click.group(cls=OpensNoDatabaseForHelp, invoke_without_command=True)
 @click.option('--lang', '-l', type=click.Choice(['fr', 'en']), help='Language (fr/en)')
 @click.pass_context
 def cli(ctx, lang=None):

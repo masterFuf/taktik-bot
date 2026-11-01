@@ -28,6 +28,9 @@ ACCOUNT_ID = 11
 OTHER_ACCOUNT_ID = 12
 
 
+pytestmark = pytest.mark.usefixtures("engine_runs_installed")
+
+
 @pytest.fixture
 def database(tmp_path, monkeypatch):
     path = tmp_path / "taktik.db"
