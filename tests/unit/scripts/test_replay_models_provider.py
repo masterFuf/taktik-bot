@@ -36,6 +36,16 @@ def test_every_task_of_the_replayed_service_runs_on_the_candidate(bench):
     assert service.model_classification == service.model_analysis == service.model_generation == "claude-sonnet-5-5"
 
 
+def test_the_replayed_classifier_never_falls_back(bench):
+    """What the bench scores is the model it names: another model answering would be scored as it."""
+    openrouter = AICredential(provider="openrouter", api_key="sk-or-v1-" + "a" * 40)
+
+    service = bench.service_on("test/candidate", openrouter, bench.SpendCapture(), None)
+
+    assert service.model_classification == "test/candidate"
+    assert service.fallback_classification is None
+
+
 def test_an_anthropic_call_counts_against_the_budget(bench):
     spend = bench.SpendCapture()
 
