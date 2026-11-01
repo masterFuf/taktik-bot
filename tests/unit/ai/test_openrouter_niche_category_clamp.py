@@ -1,4 +1,4 @@
-"""niche_category must always land on one of the 16 canonical buckets.
+"""niche_category must always land on one of the canonical buckets.
 
 The classification prompt lists the allowed keys, but the model's answer was never validated:
 real runs persisted free-text slugs into the INDEXED

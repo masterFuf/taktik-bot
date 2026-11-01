@@ -671,7 +671,7 @@ class AIService(CommentGenerationMixin):
             "Base your inference solely on the username (words, patterns, name cues, brand signals).\n"
             "IMPORTANT: always try to match an existing sub-niche first. "
             "Only if the account genuinely doesn't fit ANY listed sub-niche, pick the closest niche_category "
-            "and write a short descriptive sub-niche label freely (e.g. 'Associative & Non-Profit', 'Motorsport & Racing'). "
+            f"and write a short descriptive sub-niche label freely (e.g. {self._FREE_LABEL_EXAMPLES}). "
             "Do NOT invent a new sub-niche just to be more specific — use the existing one whenever reasonable.\n"
             "Use 'other' / 'Other' / 'unknown' only when no category applies at all.\n"
             "Respond ONLY with a valid JSON object, keys are usernames:\n"
@@ -851,6 +851,10 @@ class AIService(CommentGenerationMixin):
     # High-level AI operations
     # ------------------------------------------------------------------
 
+    # How a free sub-niche label looks in the prompt. Labels no list holds on purpose: an example
+    # that names a real sub-niche, or one the list could gain, contradicts the rule around it.
+    _FREE_LABEL_EXAMPLES = "'Beekeeping & Honey', 'Falconry & Birds of Prey'"
+
     # Fallback list for the STANDALONE bot, which receives no injected taxonomy.
     #
     # It used to be the only list, under a comment asking the next editor to keep it in step with
@@ -905,12 +909,20 @@ class AIService(CommentGenerationMixin):
         "wellness": "beauty_wellness",
         "cosmetics": "beauty_wellness",
         "fashion_and_beauty": "beauty_wellness",
+        # spirituality and personal growth: a niche of the app only. The standalone bot has no
+        # such bucket and no fallback for these, so they stay `other` there, as before.
+        "spiritual": "spirituality_growth",
+        "spirituality": "spirituality_growth",
+        "esoteric": "spirituality_growth",
+        "esotericism": "spirituality_growth",
+        "personal_growth": "spirituality_growth",
+        "personal_development": "spirituality_growth",
         # lifestyle
-        # Business / commerce. `real_estate` is a deliberate call: an estate agent's
-        # account sells a service, so it belongs with business.
-        "real_estate": "business_marketing",
-        "realestate": "business_marketing",
-        "property": "business_marketing",
+        # Real estate lives with the home, next to construction and interior design.
+        "real_estate": "home_interior",
+        "realestate": "home_interior",
+        "property": "home_interior",
+        # Business / commerce.
         "shopping": "business_marketing",
         "retail": "business_marketing",
         "ecommerce": "business_marketing",
@@ -1440,7 +1452,7 @@ class AIService(CommentGenerationMixin):
             + niche_map + "\n"
             "IMPORTANT: always match an existing sub-niche when possible. "
             "Only if the account genuinely doesn't fit any listed sub-niche, pick the closest niche_category "
-            "and write a short descriptive sub-niche label freely (e.g. 'Associative & Non-Profit', 'Motorsport & Racing'). "
+            f"and write a short descriptive sub-niche label freely (e.g. {self._FREE_LABEL_EXAMPLES}). "
             "Do NOT invent a new sub-niche just to be more specific — use the existing one whenever reasonable.\n"
             "Extract all cities explicitly mentioned in the bio (e.g. 'Paris - Metz' → both cities). Use empty array if none.\n"
             "If the person has a clear professional trade (Actor, Director, Screenwriter, Photographer, Chef, Coach, Tattoo Artist, Musician, Model, etc.), set profession to that trade in the profile language. "
