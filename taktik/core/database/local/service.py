@@ -451,6 +451,20 @@ class LocalDatabaseService:
         """
         return self.profiles.exists_by_username(username, days)
 
+    def profile_visited_in_db(self, username: str, days: int = None) -> bool:
+        """
+        Check if the bot already went to this profile's page. Used for per-username dedup by a
+        scraping run that opens profiles: a row holding a handle only is still to visit.
+
+        Args:
+            username: Instagram username to check
+            days: If None, any visit. If > 0, only a profile CREATED within the last N days.
+
+        Returns:
+            True if the profile was visited (within the time window if days is set)
+        """
+        return self.profiles.was_visited(username, days)
+
     def get_recently_scraped_usernames(self, days: int = None, limit: int = 10000) -> set:
         """
         Get a set of known profile usernames for dedup during scraping.
