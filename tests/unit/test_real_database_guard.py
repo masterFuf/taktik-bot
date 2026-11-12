@@ -13,10 +13,12 @@ tests trigger refusals on purpose, only on throwaway paths, and `take()` them.
 
 import os
 import sqlite3
+import sys
 
 import pytest
 
 from taktik.core.database.local.paths import get_default_database_path
+from taktik.core.shared.app_paths import platform_data_dir
 from taktik.core.database.local.service import get_local_database
 from taktik.core.database.profile_qualification import ProfileQualification
 
@@ -30,6 +32,14 @@ def test_the_default_base_is_a_throwaway_one():
     assert "TAKTIK_DATA_DIR" not in os.environ
     assert os.path.basename(os.environ["APPDATA"]).startswith("taktik-tests-appdata-")
     assert _norm(get_default_database_path()).startswith(_norm(os.environ["APPDATA"]))
+
+
+@pytest.mark.parametrize("platform", ["win32", "linux", "darwin"])
+def test_the_default_folder_is_a_throwaway_one_on_every_platform(monkeypatch, platform):
+    """Under APPDATA on Windows, under the home folder on Linux and macOS: in the throwaway folder each time."""
+    monkeypatch.setattr(sys, "platform", platform)
+    throwaway = _norm(os.environ["APPDATA"])
+    assert _norm(platform_data_dir()).startswith(throwaway + os.sep)
 
 
 def test_the_default_base_is_refused_before_sqlite_touches_it(real_database_guard):
