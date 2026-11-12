@@ -8,6 +8,11 @@
 # frida-tools injects native code into Android processes.
 # mitmproxy acts as a TLS-terminating HTTP proxy.
 # Only install if you know what you are doing and on devices you own or control.
+#
+# Exact versions: scripts/audits/audit_type_errors.py measures its baseline with requirements.lock
+# plus these packages (pyright reads their types), so another version could move the counts.
+# A version changed here goes with the baseline measured again, in the same change.
 
-mitmproxy>=10.0.0
-frida-tools>=12.0.0
+mitmproxy==11.0.2
+frida-tools==14.13.1
+frida==17.26.2

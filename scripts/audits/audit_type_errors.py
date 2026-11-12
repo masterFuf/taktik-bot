@@ -16,7 +16,9 @@ PATH. It is never a requirement of the bot. Without it the gate is red and says 
 ``INSTALL``): a gate that passes because its tool is missing guards nothing.
 
 Imports are resolved with the Python that runs the gate (``--pythonpath``), which must have the
-engine's requirements. An absolute import that pyright cannot resolve is not counted: it is
+packages of ``requirements.lock`` and ``requirements-media.txt``, at their exact versions: the
+baseline is measured with them, and another version of a package types its API differently
+(SQLAlchemy 1.4 and 2.0 did not give the same counts). An absolute import that pyright cannot resolve is not counted: it is
 reported as an incomplete environment and the gate is red, because a module without types hides
 every misuse of it and would lower the counts silently. A relative import that does not resolve is
 an error of the code and is counted.
@@ -54,6 +56,7 @@ BASELINE = ROOT / "scripts" / "audits" / "audit_type_errors_baseline.json"
 PYRIGHT_VERSION = "1.1.414"
 NOUN = "type error(s)"
 INSTALL = (f"python -m venv .venv, then .venv/Scripts/python -m pip install pyright=={PYRIGHT_VERSION} "
+           "-r requirements.lock -r requirements-media.txt "
            "(.venv/bin/python outside Windows), from the root of the engine; or TAKTIK_PYRIGHT=<path to "
            "pyright>. Never in the bot's requirements.")
 
