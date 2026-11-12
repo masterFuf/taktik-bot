@@ -1,5 +1,6 @@
 ﻿from pathlib import Path
 
+import os
 import re
 
 from bridges.tools.lab.action_test import runner as action_runner
@@ -354,7 +355,7 @@ def test_execute_action_captures_lab_artifacts(monkeypatch, tmp_path):
     assert artifacts["screenshotAfter"].endswith("after.png")
     assert artifacts["report"].endswith("report.json")
     assert artifacts["analysis"].endswith("analysis.json")
-    assert "\\device-1\\instagram\\410.0.0.53.71\\action-runs\\post.like\\" in artifacts["report"]
+    assert os.sep.join(["", "device-1", "instagram", "410.0.0.53.71", "action-runs", "post.like", ""]) in artifacts["report"]
 
     for path in artifacts.values():
         assert Path(path).exists()

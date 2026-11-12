@@ -1,8 +1,8 @@
 """The suite never writes the operator's journal.
 
 The bot's journal is `logs/taktik.log` in its data folder: the folder of `TAKTIK_DB_PATH`, else
-`%APPDATA%/taktik-desktop`, the operator's own. `tests/unit/conftest.py` moves that folder to a
-throwaway directory before the tests import the bot. But importing `taktik` used to open the
+`%APPDATA%/taktik-desktop` (under the home folder on Linux and macOS), the operator's own.
+`tests/unit/conftest.py` moves that folder to a throwaway directory before the tests import the bot. But importing `taktik` used to open the
 journal right away, in the folder of that moment, and a pytest plugin (`-p`) is imported before
 any conftest: on 2026-09-28 a run whose plugin imported the bot wrote its tests' log lines into
 the operator's journal. The journal now opens in the data folder of the moment it writes its
@@ -15,15 +15,21 @@ import pathlib
 import subprocess
 import sys
 import textwrap
+from unittest import mock
+
+from taktik.core.shared.app_paths import platform_data_dir
 from unit.paths import CORE
 
 _CANARY = "journal canary"
+# Where the default data folder comes from: APPDATA on Windows, the home folder elsewhere.
+_HOME_VARIABLES = ("APPDATA", "HOME", "USERPROFILE")
 
 # What a pytest plugin does before any conftest, then what tests/unit/conftest.py does.
 _IMPORT_THEN_ISOLATE = textwrap.dedent(f"""
     import logging, os, sys
     import taktik
-    os.environ["APPDATA"] = sys.argv[1]
+    for name in {_HOME_VARIABLES!r}:
+        os.environ[name] = sys.argv[1]
     logging.getLogger("journal-canary").warning("{_CANARY}")
 """)
 
@@ -36,14 +42,17 @@ _PLUGIN = textwrap.dedent(f"""
 """)
 
 
-def _journal(appdata: pathlib.Path) -> pathlib.Path:
-    return appdata / "taktik-desktop" / "logs" / "taktik.log"
+def _journal(root: pathlib.Path) -> pathlib.Path:
+    """The journal of a bot whose APPDATA and home folder are `root`, on this platform."""
+    with mock.patch.dict(os.environ, {name: str(root) for name in _HOME_VARIABLES}):
+        return pathlib.Path(platform_data_dir()) / "logs" / "taktik.log"
 
 
 def _bot_env(appdata: pathlib.Path, *python_path: pathlib.Path) -> dict:
     env = {name: value for name, value in os.environ.items()
            if name not in ("TAKTIK_DB_PATH", "TAKTIK_DATA_DIR")}
-    env["APPDATA"] = str(appdata)
+    for name in _HOME_VARIABLES:
+        env[name] = str(appdata)
     env["PYTHONPATH"] = os.pathsep.join(str(path) for path in (*python_path, CORE))
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     return env
