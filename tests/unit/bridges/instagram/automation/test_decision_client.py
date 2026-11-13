@@ -1,6 +1,7 @@
 import json
 import queue
 import threading
+import time
 
 from bridges.instagram.automation.decision_client import (
     DesktopProfileDecisionClient,
@@ -90,6 +91,12 @@ def test_close_releases_a_pending_request_and_stops_reader():
         target=lambda: result.update(client.request_plan({"username": "alice"}))
     )
     request.start()
+    # Close once the request waits for its answer: closed before, the request is refused upfront
+    # ("is closed"), which is another case than the one tested here.
+    deadline = time.monotonic() + 5
+    while not client._pending and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert client._pending, "the request never reached the decision channel"
 
     client.close()
     request.join(0.5)

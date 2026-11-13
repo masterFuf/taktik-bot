@@ -127,12 +127,18 @@ class _RealDatabaseGuard:
 
 _OPERATOR_FOLDERS, _OPERATOR_FILES = _operator_data(os.environ)
 _THROWAWAY_APPDATA = tempfile.mkdtemp(prefix="taktik-tests-appdata-")
-# Python derives the user site-packages from APPDATA on Windows: subprocesses keep the real one.
+# Python derives the user site-packages from APPDATA on Windows, and from the home folder
+# elsewhere: subprocesses keep the real one.
 os.environ.setdefault("PYTHONUSERBASE", site.getuserbase())
-os.environ["APPDATA"] = _THROWAWAY_APPDATA
+# The bot's default data folder is under APPDATA on Windows and under the home folder on Linux
+# and macOS (`platform_data_dir`); `~` is HOME there, USERPROFILE on Windows. All of them point
+# into the throwaway folder, so the default is a throwaway one on every platform.
+for _name in ("APPDATA", "HOME", "USERPROFILE"):
+    os.environ[_name] = _THROWAWAY_APPDATA
 for _name in ("TAKTIK_DB_PATH", "TAKTIK_DATA_DIR"):
     os.environ.pop(_name, None)
-_DEFAULT_FOLDER = os.path.join(_THROWAWAY_APPDATA, _DATA_FOLDER)
+from taktik.core.shared.app_paths import platform_data_dir  # noqa: E402 - after the redirect
+_DEFAULT_FOLDER = platform_data_dir()
 os.makedirs(_DEFAULT_FOLDER)
 # A decoy base: code that opens the default base only when it exists is caught too.
 open(os.path.join(_DEFAULT_FOLDER, "taktik-data.db"), "wb").close()

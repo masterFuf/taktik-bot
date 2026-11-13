@@ -19,12 +19,12 @@ from taktik.core.shared.app_paths import get_app_data_dir, get_app_subdir
 from unit.paths import CORE
 
 
-def test_the_data_folder_follows_the_database_the_app_handed_us(monkeypatch):
+def test_the_data_folder_follows_the_database_the_app_handed_us(monkeypatch, tmp_path):
+    folder = tmp_path / "somewhere" / "taktik-desktop"
     monkeypatch.delenv("TAKTIK_DATA_DIR", raising=False)
-    monkeypatch.setenv("TAKTIK_DB_PATH", os.path.join("C:\\", "somewhere", "taktik-desktop",
-                                                      "taktik-data.db"))
+    monkeypatch.setenv("TAKTIK_DB_PATH", str(folder / "taktik-data.db"))
 
-    assert get_app_data_dir() == os.path.join("C:\\", "somewhere", "taktik-desktop")
+    assert get_app_data_dir() == str(folder)
 
 
 def test_an_explicit_data_dir_wins(monkeypatch):
