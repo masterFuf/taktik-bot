@@ -13,6 +13,8 @@
 # plus these packages (pyright reads their types), so another version could move the counts.
 # A version changed here goes with the baseline measured again, in the same change.
 
-mitmproxy==11.0.2
+# mitmproxy 12 needs Python 3.12 or later. 12.2.2 is the first version clear of the three advisories open on
+# 11.0.2 (GHSA-wg33-5h85-7q5p, GHSA-63cx-g855-hvv4, GHSA-527g-3w9m-29hv); it brings h2 4.3 or later.
+mitmproxy==12.3.1
 frida-tools==14.13.1
 frida==17.26.2
