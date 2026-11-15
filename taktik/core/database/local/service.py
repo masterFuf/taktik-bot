@@ -451,7 +451,7 @@ class LocalDatabaseService:
         """
         return self.profiles.exists_by_username(username, days)
 
-    def profile_visited_in_db(self, username: str, days: int = None) -> bool:
+    def profile_visited_in_db(self, username: str, days: Optional[int] = None) -> bool:
         """
         Check if the bot already went to this profile's page. Used for per-username dedup by a
         scraping run that opens profiles: a row holding a handle only is still to visit.
