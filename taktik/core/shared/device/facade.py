@@ -19,6 +19,10 @@ from taktik.core.shared.telemetry import emit_step
 # Two first calls at once must not build two photo sources (one invalidation would be lost).
 _SNAPSHOT_SOURCE_LOCK = threading.Lock()
 
+#: The hooks a platform facade may give the gesture engine: the controls a touch-down must miss,
+#: read on screen, and the band of the width it starts in when the screen cannot be read.
+_GESTURE_START_HOOKS = ("_gesture_start_exclusion_bounds", "_gesture_fallback_safe_x_band")
+
 
 class Direction(Enum):
     UP = "up"
@@ -365,13 +369,29 @@ class BaseDeviceFacade:
             host = _FacadeGestureHost()
             host.device = self
             host.logger = self.logger
+            # The engine asks its host which controls a guarded touch-down must miss
+            # (`_prepare_gesture_path`). A platform facade that knows them lends the host its two
+            # hooks; one that does not leaves the host without, and the touch-down stays where it
+            # was sampled. Looked up on the class: the facade forwards unknown names to the device.
+            for hook in _GESTURE_START_HOOKS:
+                if callable(getattr(type(self), hook, None)):
+                    setattr(host, hook, getattr(self, hook))
             self.__dict__["_gesture_host_obj"] = host
         host.screen_width, host.screen_height = self.get_screen_size()
         return host
 
+    def last_gesture_start(self) -> Dict[str, Any]:
+        """Where the last humanized gesture of this facade went down: the point sampled, the one
+        requested, the final one, and what moved it (`source`: `none` when no guard was asked,
+        `ui_bounds` / `ui_bounds_clear` / `ui_bounds_blocked` from the controls read on screen,
+        `fallback_band` when the screen could not be read). Empty before the first gesture."""
+        host = self.__dict__.get("_gesture_host_obj")
+        return dict(getattr(host, "_last_gesture_start", None) or {})
+
     def human_scroll(self, direction: str = "down", distance_ratio: Optional[float] = None,
                      coast: bool = False,
-                     distance_scale: float = 1.0, velocity_scale: float = 1.0) -> bool:
+                     distance_scale: float = 1.0, velocity_scale: float = 1.0,
+                     guard_start: bool = False) -> bool:
         """Humanized VERTICAL scroll — the single entry point for human-like feed/list/grid
         scrolling. `direction='down'` advances (reveals the NEXT content), `'up'` goes back.
         `coast=True` fires a real Android fling (`_strong_flick`, content coasts ~2.5-4x — a natural
@@ -391,7 +411,10 @@ class BaseDeviceFacade:
         has accepted them all along -- `human_hswipe` already passed them through and the vertical
         entry point did not, so a scroll was the one gesture whose distance and speed could not
         follow the run's rhythm. Both default to 1.0, so a caller that does not pass them behaves
-        exactly as before."""
+        exactly as before.
+
+        `guard_start=True` keeps the touch-down off the controls the platform facade names
+        (`_gesture_start_exclusion_bounds`), as a person's thumb avoids the buttons of a feed."""
         host = self._gesture_host()
         g_dir = self._PAGE_TO_GESTURE.get(direction, "up")
         distance_px = (distance_ratio * host.screen_height) if distance_ratio else None
@@ -399,9 +422,9 @@ class BaseDeviceFacade:
             distance_px *= max(0.2, min(float(distance_scale), 3.0))
         if coast:
             return host._strong_flick(direction=g_dir, distance_px=distance_px,
-                                      velocity_scale=velocity_scale)
+                                      velocity_scale=velocity_scale, guard_start=guard_start)
         return host._human_swipe(direction=g_dir, distance_px=distance_px, controlled=True,
-                                 velocity_scale=velocity_scale)
+                                 velocity_scale=velocity_scale, guard_start=guard_start)
 
     def human_hswipe(self, direction: str = "left", distance_ratio: float = 0.6,
                      y_ratio: Optional[float] = None,

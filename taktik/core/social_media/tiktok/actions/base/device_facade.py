@@ -117,7 +117,8 @@ class DeviceFacade(BaseDeviceFacade):
         except Exception:
             return 1.0, 1.0
 
-    def swipe_up(self, scale: float = 0.8, coast: bool = False, pager: bool = False):
+    def swipe_up(self, scale: float = 0.8, coast: bool = False, pager: bool = False,
+                 guard_start: bool = False):
         """Advance the feed / scroll a list DOWN — humanized. TikTok 'swipe up' (finger moves up)
         reveals the NEXT content = page 'down'.
 
@@ -129,18 +130,61 @@ class DeviceFacade(BaseDeviceFacade):
         Both carry the session's motor style: the per-call variation was already there, what was
         missing is that successive gestures had nothing in common.
 
-        `pager=True` is the feed's drag: past half the screen, or the pager snaps back."""
+        `pager=True` is the feed's drag: past half the screen, or the pager snaps back.
+
+        `guard_start=True` keeps the touch-down off the buttons of the video
+        (`_gesture_start_exclusion_bounds`): the feed advance asks for it, a list does not."""
         # The feed's beat was already spent by `choose_scroll_mode`, which picked flick or drag;
         # the list path has no such call, so it spends its own.
         d, v = (self._motor("tiktok_feed_advance") if (coast or pager)
                 else self._plan_gesture("tiktok_list_scroll_down", "controlled_swipe"))
         if pager and not coast:
-            self.human_scroll("down", distance_ratio=self._pager_drag_ratio(d), velocity_scale=v)
+            self.human_scroll("down", distance_ratio=self._pager_drag_ratio(d), velocity_scale=v,
+                              guard_start=guard_start)
         elif coast:
-            self.human_scroll("down", coast=True, distance_scale=d, velocity_scale=v)
+            self.human_scroll("down", coast=True, distance_scale=d, velocity_scale=v,
+                              guard_start=guard_start)
         else:
             self.human_scroll("down", distance_ratio=self._list_scroll_ratio(scale),
                               distance_scale=d, velocity_scale=v)
+
+    #: The advance reads the video's identity on a photo just before it swipes
+    #: (`ScrollActions.scroll_to_next_video`): a photo this young (seconds) is the screen the finger
+    #: goes down on, and no second dump is taken. An older one is not: a new photo is.
+    GESTURE_START_PHOTO_MAX_AGE_S = 1.0
+
+    def _gesture_start_exclusion_bounds(self):
+        """The controls of the video on screen a feed advance's touch-down must miss, as boxes
+        (left, top, right, bottom): the rail, the author, the caption, the bottom bar
+        (`VIDEO_GESTURE_SELECTORS.gesture_start_keep_out`, the production selectors). Asked by
+        the shared gesture engine right before the finger goes down. None when the screen cannot
+        be read or shows none of them: the engine then starts in the catalogue's band."""
+        from taktik.core.shared.device.snapshot import SnapshotUnavailable
+        from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.gesture import (
+            VIDEO_GESTURE_SELECTORS,
+        )
+
+        try:
+            photo = self.snapshot(max_age_s=self.GESTURE_START_PHOTO_MAX_AGE_S)
+        except SnapshotUnavailable as exc:
+            self.logger.debug(f"Feed buttons unreadable before the swipe ({exc}): fallback band")
+            return None
+        finally:
+            # The gesture is about to change the screen: this photo must not answer the next read.
+            self.invalidate_snapshot()
+        zones = [node.bounds
+                 for control in VIDEO_GESTURE_SELECTORS.gesture_start_keep_out
+                 for selector in control
+                 for node in photo.find(selector) if node.bounds]
+        return zones or None
+
+    @staticmethod
+    def _gesture_fallback_safe_x_band():
+        from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.gesture import (
+            VIDEO_GESTURE_SELECTORS,
+        )
+
+        return VIDEO_GESTURE_SELECTORS.gesture_fallback_safe_x_band
 
     def swipe_down(self, scale: float = 0.8, coast: bool = False, pager: bool = False):
         """Go back / scroll a list UP — humanized. Finger moves down = reveal PREVIOUS = page 'up'.

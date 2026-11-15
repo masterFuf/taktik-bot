@@ -42,6 +42,9 @@ class BaseAction(SharedBaseAction):
     
     _device_facade_class = DeviceFacade
     _platform = "tiktok"
+    #: What `SharedBaseAction.__init__` builds from `_device_facade_class`: the TikTok facade, whose
+    #: feed swipes take `coast`, `pager` and `guard_start`.
+    device: DeviceFacade
     
     def __init__(self, device):
         super().__init__(device)
@@ -282,8 +285,10 @@ class BaseAction(SharedBaseAction):
         """Advance one video — a fling, or sometimes a deliberate drag.
 
         Both land on the next video because the feed is a snapping pager; which one happens
-        follows the session's current style rather than being fixed for the whole run."""
-        self.device.swipe_up(scale=0.8, coast=self._advance_mode("tiktok_feed_advance"), pager=True)
+        follows the session's current style rather than being fixed for the whole run. The
+        finger goes down clear of the video's buttons (`guard_start`)."""
+        self.device.swipe_up(scale=0.8, coast=self._advance_mode("tiktok_feed_advance"), pager=True,
+                             guard_start=True)
         self._human_like_delay('scroll')
 
     def _swipe_to_previous_video(self):

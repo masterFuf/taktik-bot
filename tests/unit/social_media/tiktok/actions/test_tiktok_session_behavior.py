@@ -31,11 +31,12 @@ class _Host:
     def __init__(self):
         self.calls = []
 
-    def _strong_flick(self, direction=None, distance_px=None, velocity_scale=1.0):
+    def _strong_flick(self, direction=None, distance_px=None, velocity_scale=1.0, guard_start=False):
         self.calls.append(("flick", distance_px, velocity_scale))
         return True
 
-    def _human_swipe(self, direction=None, distance_px=None, controlled=False, velocity_scale=1.0):
+    def _human_swipe(self, direction=None, distance_px=None, controlled=False, velocity_scale=1.0,
+                     guard_start=False):
         self.calls.append(("swipe", distance_px, velocity_scale))
         return True
 
