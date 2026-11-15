@@ -170,6 +170,130 @@ def test_username_normalisation():
     assert InstagramSwitchAccount._norm("  AcCoUnT.two") == "account.two"
     assert InstagramSwitchAccount._norm("") == ""
     assert InstagramSwitchAccount._norm(None) == ""
+    # A display name or a sentence is no handle: never cleaned into one.
+    assert InstagramSwitchAccount._norm("Account One") == ""
+
+
+# --- The target already active: nothing to switch (diagnostic reported by PR #17) ---------------
+
+def _no_logout(switcher, monkeypatch):
+    """Every step of the logout path fails the test if it is taken."""
+    for step in ("_open_profile_tab", "_open_options_menu", "_find_and_click_logout", "_confirm_logout"):
+        monkeypatch.setattr(switcher._logout, step, _never(f"the logout ({step})"))
+
+
+def test_the_target_already_active_is_not_logged_out(monkeypatch, locale):
+    """The active account is read on the real own profile (English); asked by another spelling, it is
+    the same account. The French own profile carries an empty action bar title: no handle to read
+    there, the case of the next test."""
+    import taktik.core.social_media.instagram.actions.account.switch as switch_mod
+    monkeypatch.setattr(switch_mod.time, "sleep", lambda *a, **k: None)
+    locale("en")
+    emitted = []
+    switcher = InstagramSwitchAccount(_Phone(OWN_PROFILE), "device-1", on_active_account=emitted.append)
+    _no_logout(switcher, monkeypatch)
+    active = switcher.read_active_account().username
+    assert active
+
+    result = switcher.switch_to(f"@{active.upper()}")
+
+    assert (result.success, result.already_active, result.switched_to, result.error_type) == (
+        True, True, active, None)
+    assert result.detected_accounts == []
+    # The account was read, not assumed: the only emission is the reading's.
+    assert emitted == [active, active]
+
+
+def test_an_unread_active_account_still_switches_by_the_picker(monkeypatch):
+    """Nothing read is no proof the target is active: the switch goes on by the logout."""
+    import taktik.core.social_media.instagram.actions.account.switch as switch_mod
+    monkeypatch.setattr(switch_mod.time, "sleep", lambda *a, **k: None)
+    switcher = _switcher()
+    monkeypatch.setattr(switcher, "_on_account_picker", lambda: False)
+    monkeypatch.setattr(switcher, "_read_profile_username", lambda: None)
+    steps = []
+    monkeypatch.setattr(switcher._logout, "_open_profile_tab", lambda: steps.append("profile") or False)
+    result = switcher.switch_to("account.one")
+    assert steps == ["profile"]
+    assert (result.success, result.already_active, result.error_type) == (False, False, "profile_tab_not_found")
+
+
+def _selected_on_the_picker(monkeypatch, screen_after_tap, target, accounts=("account.one",)):
+    """A switch from the logged-out picker whose tap on the target's row shows `screen_after_tap`
+    (a real capture); the picker itself is not captured (see the module docstring)."""
+    import taktik.core.social_media.instagram.actions.account.switch as switch_mod
+    monkeypatch.setattr(switch_mod.time, "sleep", lambda *a, **k: None)
+    emitted = []
+    phone = _Phone(None)
+    switcher = InstagramSwitchAccount(phone, "device-1", on_active_account=emitted.append)
+    monkeypatch.setattr(switcher, "_on_landing_account_list", lambda: True)
+    monkeypatch.setattr(switcher, "_list_accounts_on_screen", lambda: [*accounts, target])
+    taps = []
+
+    def _tap(name):
+        taps.append(name)
+        phone.screen = screen_after_tap
+        return True
+
+    monkeypatch.setattr(switcher, "_select_account", _tap)
+    return switcher, emitted, taps
+
+
+def _own_handle():
+    """The handle the real English own profile shows, read by the production reader."""
+    return InstagramSwitchAccount(_Phone(OWN_PROFILE), "device-1")._read_profile_username()
+
+
+def test_a_tap_that_opens_another_account_is_not_a_switch(monkeypatch, locale):
+    """After the tap, the profile read is someone else's: before, a success announcing the target
+    and `active_account_detected` with the target; now a failure naming the account read."""
+    locale("en")
+    shown = _own_handle()
+    assert shown and shown != "account.one"
+    switcher, emitted, taps = _selected_on_the_picker(monkeypatch, OWN_PROFILE, "account.one",
+                                                      accounts=(shown,))
+
+    result = switcher.switch_to("account.one")
+
+    assert taps == ["account.one"]
+    assert (result.success, result.error_type, result.switched_to) == (False, "verification_failed", shown)
+    assert emitted == [shown]
+
+
+def test_the_target_read_on_the_profile_is_a_switch(monkeypatch, locale):
+    locale("en")
+    shown = _own_handle()
+    switcher, emitted, _ = _selected_on_the_picker(monkeypatch, OWN_PROFILE, shown)
+
+    result = switcher.switch_to(shown)
+
+    assert (result.success, result.error_type, result.switched_to) == (True, None, shown)
+    assert emitted == [shown]
+
+
+def test_no_account_read_after_the_tap_is_not_a_switch(monkeypatch, locale):
+    locale("en")
+    switcher, emitted, _ = _selected_on_the_picker(monkeypatch, OWN_PROFILE, "account.two")
+    looks = []
+    monkeypatch.setattr(switcher, "_read_profile_username", lambda: looks.append(1))
+
+    result = switcher.switch_to("account.two")
+
+    assert len(looks) == InstagramSwitchAccount.VERIFY_ATTEMPTS
+    assert (result.success, result.error_type, result.switched_to) == (False, "verification_failed", None)
+    assert emitted == []
+
+
+def test_another_active_account_is_still_logged_out(monkeypatch):
+    import taktik.core.social_media.instagram.actions.account.switch as switch_mod
+    monkeypatch.setattr(switch_mod.time, "sleep", lambda *a, **k: None)
+    switcher = _switcher()
+    monkeypatch.setattr(switcher, "_on_account_picker", lambda: False)
+    monkeypatch.setattr(switcher, "_read_profile_username", lambda: "account.two")
+    steps = []
+    monkeypatch.setattr(switcher._logout, "_open_profile_tab", lambda: steps.append("profile") or False)
+    result = switcher.switch_to("account.one")
+    assert steps == ["profile"] and result.already_active is False
 
 
 # --- Active-account detection (home feed → profile → read active @username) ---------------------

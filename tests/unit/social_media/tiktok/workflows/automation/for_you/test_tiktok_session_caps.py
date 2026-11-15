@@ -86,6 +86,7 @@ def _loop(monkeypatch, on_video):
     wf._handle_popups = lambda _screen=None: False
     wf._handle_comments_section = lambda _screen: False
     wf._handle_suggestion_page = lambda _screen: False
+    wf._leave_profile_surface = lambda _screen: False
     wf._handle_stuck_video = lambda _info: False
     wf._behavior_reading_scale = lambda _key: 1.0
     wf._train_on_video = lambda _info: False

@@ -238,6 +238,30 @@ def not_interested(a, p):
     }
 
 
+@action("tt.feed.back_to_for_you")
+def back_to_for_you(a, p):
+    """ACTS when a creator's profile is on screen: the For You turn's way out of it (production
+    `FeedInterruptionsMixin._leave_profile_surface` of the For You workflow, which returns by
+    Home and the For You tab). Not applicable on any other screen: the turn would not act there.
+    """
+    from taktik.core.social_media.tiktok.workflows.automation.for_you.workflow import ForYouWorkflow
+
+    action_id = "tt.feed.back_to_for_you"
+    workflow = ForYouWorkflow(a.device)
+    screen = workflow.detection.read_screen()
+    if screen.kind != "profile":
+        return not_applicable(action_id, f"no creator's profile on screen ({screen.kind})")
+    workflow._leave_profile_surface(screen)
+    after = workflow.detection.read_screen()
+    returned = workflow.stats.errors == 0
+    logger.info(f"tt.feed.back_to_for_you: profile -> {after.kind} (returned: {returned})")
+    return {
+        "success": returned,
+        "message": f"profile -> {after.kind}" if returned else f"still not on For You ({after.kind})",
+        "details": {"before": screen.kind, "after": after.kind, "forYou": after.for_you},
+    }
+
+
 @action("tt.feed.training_decision")
 def feed_training_decision(a, p):
     """READS ONLY: what a training pass would do with the video on screen, and why.

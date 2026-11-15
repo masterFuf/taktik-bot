@@ -10,7 +10,7 @@ runs every flow of it, named by `workflowType`; each prints `status`, `error`, `
 
 from __future__ import annotations
 
-from typing import Tuple
+from typing import Mapping, Tuple
 
 from .schema import HOST, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
 from .shared import ERROR_EVENT, LOG_EVENT, PACKAGE_READER, STATUS_EVENT, instagram_package_field
@@ -215,6 +215,33 @@ INSTAGRAM_ACCOUNT_CHANGE_LANGUAGE = _contract(
     ),
 )
 
+#: `account_result.error_type` of an Instagram account switch, each with the key of its sentence in the
+#: app (namespace `sessionLive`, like the bridges' codes of `error_codes.py`): the codes the switch action
+#: returns (`social_media/instagram/actions/account/switch/`, its `SwitchResult`). Its bridge adds none (a
+#: crash there is an `error` line). `tests/unit/contract/test_workflow_contract_switch_account_errors.py`
+#: holds the set to them.
+INSTAGRAM_SWITCH_ACCOUNT_ERROR_PHRASES: Mapping[str, str] = {
+    # refused before the phone
+    "no_target": "errorSwitchNoTarget",
+    # the walk to the account picker
+    "profile_tab_not_found": "errorSwitchProfileTabNotFound",
+    "options_menu_not_found": "errorSwitchOptionsMenuNotFound",
+    "logout_button_not_found": "errorSwitchLogoutButtonNotFound",
+    "picker_unreachable": "errorSwitchPickerUnreachable",
+    # the picker
+    "target_not_connected": "errorSwitchTargetNotConnected",
+    "select_failed": "errorSwitchSelectFailed",
+    # after the selection: the password screen, or the account read on the profile is not the target
+    "relogin_required": "errorSwitchReloginRequired",
+    "verification_failed": "errorSwitchVerificationFailed",
+}
+
+INSTAGRAM_SWITCH_ACCOUNT_ERROR = OneOf(
+    tuple(INSTAGRAM_SWITCH_ACCOUNT_ERROR_PHRASES),
+    name="InstagramSwitchAccountError",
+    doc="Why an Instagram account switch failed (`account_result.error_type`).",
+)
+
 INSTAGRAM_ACCOUNT_SWITCH = _contract(
     "instagram.account.switch_account", "InstagramAccountSwitch", _IG_BRIDGE, _IG_LAUNCHER,
     f"{_INSTAGRAM}:switch_account_params_from_payload",
@@ -227,10 +254,14 @@ INSTAGRAM_ACCOUNT_SWITCH = _contract(
     refusals=(Refusal("targetUsername", doc="No account to switch to."),),
     events=(
         _ACTIVE_ACCOUNT, _ACCOUNT_STEP, _ACCOUNTS_DETECTED, _SAVED_ACCOUNTS_DETECTED,
-        _result("switch_account", "The switch is over.",
-                _error_type(),
-                Field("switched_to", "string", "The account now active; with `relogin_required`, the account "
-                      "selected, not active.", nullable=True),
+        _result("switch_account", "The switch is over: a success only when the account read on the profile "
+                "after the selection is the one asked.",
+                Field("error_type", INSTAGRAM_SWITCH_ACCOUNT_ERROR, "Why it failed; null on success.",
+                      nullable=True),
+                Field("switched_to", "string", "The account read after the selection: on success, the one asked; "
+                      "with `relogin_required`, the account selected, not active (its password is asked); with "
+                      "`verification_failed`, the account really active, or null when none could be read; null "
+                      "on the other failures.", nullable=True),
                 Field("relogin_required", "bool", "The account is known but its session is not saved: the switch "
                       "failed (`error_type` `relogin_required`), log in."),
                 _DETECTED),
@@ -447,6 +478,8 @@ __all__ = [
     "INSTAGRAM_ACCOUNT_LOGOUT",
     "INSTAGRAM_ACCOUNT_REGISTER",
     "INSTAGRAM_ACCOUNT_SWITCH",
+    "INSTAGRAM_SWITCH_ACCOUNT_ERROR",
+    "INSTAGRAM_SWITCH_ACCOUNT_ERROR_PHRASES",
     "LOG_EVENT",
     "TIKTOK_ACCOUNT_CHANGE_LANGUAGE",
     "TIKTOK_ACCOUNT_LOGIN",

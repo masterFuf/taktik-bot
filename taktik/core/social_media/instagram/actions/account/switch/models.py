@@ -15,11 +15,14 @@ class SwitchResult:
         switched_to: Optional[str] = None,
         relogin_required: bool = False,
         detected_accounts: Optional[List[str]] = None,
+        already_active: bool = False,
     ):
         self.success = success
         self.message = message
         self.error_type = error_type
-        # Username we tried to switch to (without the leading '@').
+        # The account read after the selection (without the leading '@'): the target on success; with
+        # `relogin_required`, the target selected but not active; with `verification_failed`, the
+        # account really active, or None when none could be read.
         self.switched_to = switched_to
         # True when the target account is connected but its session is NOT saved: Instagram
         # shows the password screen, so the switch can't complete without re-login. The front
@@ -28,11 +31,14 @@ class SwitchResult:
         # Usernames seen on the account picker during the switch (device-connected accounts),
         # so the front can refresh its list.
         self.detected_accounts = detected_accounts or []
+        # True when the target was read as the active account before any gesture: nothing was
+        # switched, nothing logged out. Not sent to the app yet (no field of `account_result`).
+        self.already_active = already_active
 
     def __repr__(self):
         return (
             f"SwitchResult(success={self.success}, switched_to='{self.switched_to}', "
-            f"relogin_required={self.relogin_required})"
+            f"relogin_required={self.relogin_required}, already_active={self.already_active})"
         )
 
 
