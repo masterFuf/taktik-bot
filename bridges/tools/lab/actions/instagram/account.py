@@ -171,7 +171,8 @@ def list_saved_accounts(a, p):
 def switch_account(a, p):
     """Switch to another account already logged in on the device (InstagramSwitchAccount.switch_to):
     select it on the picker, or (if an account is active) via the @username switcher / logout
-    fallback. Param: username (required). Run on a device with 2+ connected accounts."""
+    fallback. The target already the active account: success, no logout. Param: username
+    (required). Run on a device with 2+ connected accounts."""
     username = (p.get("username") or "").strip()
     if not username:
         return {"success": False, "message": "username param is required"}

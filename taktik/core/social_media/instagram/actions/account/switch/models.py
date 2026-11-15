@@ -15,6 +15,7 @@ class SwitchResult:
         switched_to: Optional[str] = None,
         relogin_required: bool = False,
         detected_accounts: Optional[List[str]] = None,
+        already_active: bool = False,
     ):
         self.success = success
         self.message = message
@@ -28,11 +29,14 @@ class SwitchResult:
         # Usernames seen on the account picker during the switch (device-connected accounts),
         # so the front can refresh its list.
         self.detected_accounts = detected_accounts or []
+        # True when the target was read as the active account before any gesture: nothing was
+        # switched, nothing logged out. Not sent to the app yet (no field of `account_result`).
+        self.already_active = already_active
 
     def __repr__(self):
         return (
             f"SwitchResult(success={self.success}, switched_to='{self.switched_to}', "
-            f"relogin_required={self.relogin_required})"
+            f"relogin_required={self.relogin_required}, already_active={self.already_active})"
         )
 
 

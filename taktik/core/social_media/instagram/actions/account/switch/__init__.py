@@ -26,6 +26,7 @@ from loguru import logger
 
 from taktik.core.clone.packages.package_map import belongs_to_platform
 from taktik.core.shared.device.app_inspection import foreground_package
+from taktik.core.shared.text import handle_from_screen_text
 
 from taktik.core.social_media.instagram.ui.selectors.shell.auth import AUTH_SELECTORS
 from taktik.core.social_media.instagram.actions.account.switch.models import ActiveAccountReading, SwitchResult
@@ -38,11 +39,6 @@ _STAT_RE = re.compile(
     r"^\d+\s*(posts?|followers?|following|abonn\w*|abonn[ée]s?|publications?|mentions?|reels?|tagged)$",
     re.IGNORECASE,
 )
-
-# An Instagram @handle: lowercase letters/digits/dot/underscore, 1–30 chars. Mirrors the front's
-# anti-pollution guard in recordDeviceSighting — anything else (display names with spaces, empty)
-# is not a real account username and must never be recorded as the device's active account.
-_HANDLE_RE = re.compile(r"^[a-z0-9._]{1,30}$")
 
 
 class InstagramSwitchAccount:
@@ -90,8 +86,10 @@ class InstagramSwitchAccount:
         return self._logout._click_first_match(selectors, name)
 
     @staticmethod
-    def _norm(username: str) -> str:
-        return (username or "").lstrip("@").strip().lower()
+    def _norm(username: Optional[str]) -> str:
+        """The Instagram handle `username` shows, lowercased (Instagram ignores case), or "" when it
+        shows anything else: a display name, a sentence, nothing. Never recorded as an account."""
+        return (handle_from_screen_text(username, "instagram") or "").lower()
 
     def _on_home_feed(self) -> bool:
         return self._element_exists(self.auth.home_feed_indicators)
@@ -264,7 +262,7 @@ class InstagramSwitchAccount:
             self.logger.warning(f"detect_active_account failed: {exc}")
             return ActiveAccountReading(None, "unreadable")
         username = self._norm(raw)
-        if not username or not _HANDLE_RE.match(username):
+        if not username:
             self.logger.warning(f"detect_active_account: no valid username (got {raw!r})")
             return ActiveAccountReading(None, "unreadable")
         self.logger.info(f"👤 Active account on device: @{username}")
@@ -296,7 +294,7 @@ class InstagramSwitchAccount:
     def switch_to(self, target_username: str) -> SwitchResult:
         target = self._norm(target_username)
         if not target:
-            return SwitchResult(False, "No target username", "no_target")
+            return SwitchResult(False, f"No valid target username ({target_username!r})", "no_target")
 
         self.logger.info(f"🔀 Switching to @{target}")
         self._notify(f"Switching to @{target}")
@@ -329,9 +327,18 @@ class InstagramSwitchAccount:
                                 detected_accounts=detected)
 
         # 1. An account is active (home feed). First READ the currently-active account (navigate to
-        # the own profile) so the device↔account DB link is recaled even before the switch — non-destructive, emits `active_account_detected`. Then reach the connected-accounts
-        # picker by LOGGING OUT — Profile tab → options menu → Log out → confirm → picker.
-        self.detect_active_account()
+        # the own profile): non-destructive, it emits `active_account_detected` so the device↔account
+        # DB link is recaled even before the switch. The target already active: nothing to do. Else
+        # reach the connected-accounts picker by LOGGING OUT — Profile tab → options menu → Log out
+        # → confirm → picker.
+        active = self.read_active_account()
+        if active.username == target:
+            self.logger.success(f"✅ @{target} is already the active account: nothing to switch")
+            self._notify(f"@{target} is already the active account")
+            return SwitchResult(True, f"@{target} is already the active account", switched_to=target,
+                                already_active=True)
+        if active.username is None:
+            self.logger.info(f"Active account not read ({active.reason}): switching by the picker")
         self._notify("An account is active — logging out to reach the account picker…")
         self._emit_step("logout")
         if not self._logout._open_profile_tab():
