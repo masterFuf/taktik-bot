@@ -244,7 +244,7 @@
   "taktik/core/social_media/tiktok/actions/atomic/interaction/comment_actions.py": 2,
   "taktik/core/social_media/tiktok/actions/atomic/messaging/dm_actions.py": 9,
   "taktik/core/social_media/tiktok/actions/atomic/navigation/search_actions.py": 1,
-  "taktik/core/social_media/tiktok/actions/base/base_action.py": 7,
+  "taktik/core/social_media/tiktok/actions/base/base_action.py": 3,
   "taktik/core/social_media/tiktok/manager.py": 13,
   "taktik/core/social_media/tiktok/services/profile/profile_actions.py": 2,
   "taktik/core/social_media/tiktok/services/publish/progress.py": 1,

@@ -179,3 +179,14 @@ versions:
       - '//*[contains(@resource-id, ":id/tiq")]'
       - '//*[contains(@resource-id, ":id/qrb")]'
       - '//*[contains(@resource-id, ":id/post_btn")]'
+    # Banner of a publication left in progress (Pixel 6a, French, 2026-11-15, over the For You
+    # feed and over a creator's profile): the title `uj8` « Continuer la modification de cette
+    # publication ? », the buttons `v5z` « Enreg. brouillon » and `uj4` « Modifier » in the same
+    # frame `lcb`. `uj8` and `v5z` answer on the 4 dumps of that banner, not on the editor that
+    # « Modifier » opens, and on none of the 441 dumps of the capture corpus (115 of them 47.0.3,
+    # the others 43.1.4, 46.6.3 and 46.9.3). The button is tapped only while the title is on
+    # screen. No baseline entry.
+    popup._draft_resume_banner_base:
+      - '//*[contains(@resource-id, ":id/uj8")]'
+    popup._draft_resume_save_draft_base:
+      - '//*[contains(@resource-id, ":id/v5z")][@clickable="true"][//*[contains(@resource-id, ":id/uj8")]]'

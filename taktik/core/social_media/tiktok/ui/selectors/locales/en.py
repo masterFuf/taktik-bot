@@ -440,6 +440,16 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@text, \"No thanks\")][@clickable=\"true\"]",
         "//*[@clickable=\"true\"][.//*[contains(@text, \"No thanks\")]]",
     ],
+    # Le pendant anglais du bandeau d'une publication restee en cours, releve en francais seulement
+    # (47.0.3, 2026-11-15). Libelles NON vus sur un ecran anglais, a confirmer sur appareil ; sur
+    # 47.0.3 les identifiants de l'override trouvent le bandeau dans toutes les langues.
+    "popup.draft_resume_banner": [
+        "//*[contains(@text, \"Continue editing this post\")]",
+    ],
+    "popup.draft_resume_save_draft": [
+        "//android.widget.Button[@text=\"Save draft\"][@clickable=\"true\"]"
+        "[//*[contains(@text, \"Continue editing this post\")]]",
+    ],
     "popup.follow_friends_close": [
         "//android.widget.ImageView[@content-desc=\"Close\"][@clickable=\"true\"]",
     ],

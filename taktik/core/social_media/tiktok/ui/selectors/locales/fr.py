@@ -577,6 +577,18 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@text, \"Non, merci\")][@clickable=\"true\"]",
         "//*[@clickable=\"true\"][.//*[contains(@text, \"Non, merci\")]]",
     ],
+    # Bandeau d'une publication restee en cours (47.0.3, Pixel 6a, 2026-11-15, sur le fil For You
+    # et sur le profil d'un createur) : le titre « Continuer la modification de cette publication ? »
+    # (espace insecable avant le point d'interrogation, d'ou le `contains` sans lui) et, dans le
+    # meme cadre, les boutons « Enreg. brouillon » et « Modifier ». Le bouton n'est tape que si le
+    # titre est a l'ecran : « brouillon » est aussi un mot de l'ecran de publication.
+    "popup.draft_resume_banner": [
+        "//*[contains(@text, \"Continuer la modification de cette publication\")]",
+    ],
+    "popup.draft_resume_save_draft": [
+        "//android.widget.Button[@text=\"Enreg. brouillon\"][@clickable=\"true\"]"
+        "[//*[contains(@text, \"Continuer la modification de cette publication\")]]",
+    ],
     "popup.follow_friends_close": [],
     "popup.follow_friends_popup": [
         "//*[contains(@text, \"Suivez vos amis\")]",

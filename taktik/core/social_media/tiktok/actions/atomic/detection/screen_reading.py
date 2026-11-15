@@ -92,6 +92,7 @@ def popup_families(present: Callable) -> Set[str]:
         ('system_deny', (POPUP_SELECTORS.system_deny_button,)),
         ('system_input', (POPUP_SELECTORS.system_input_method_popup,)),
         ('system_dialog', (POPUP_SELECTORS.system_dialog,)),
+        ('draft_resume_banner', (POPUP_SELECTORS.draft_resume_banner,)),
         ('notification_banner', (POPUP_SELECTORS.notification_banner,)),
         ('inbox_page', (INBOX_SELECTORS.inbox_title, NAVIGATION_SELECTORS.inbox_tab_selected)),
         ('link_email', (POPUP_SELECTORS.link_email_popup,)),

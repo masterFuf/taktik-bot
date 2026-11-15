@@ -162,6 +162,12 @@ class PopupHandler:
                 time.sleep(0.5)
                 return True
 
+        # A publication left in progress: its banner covers the top of every screen
+        if 'draft_resume_banner' in detected:
+            if self.click.save_draft_from_resume_banner():
+                time.sleep(0.5)
+                return True
+
         # Notification banner (e.g., "X sent you new messages")
         if 'notification_banner' in detected:
             if self.click.dismiss_notification_banner():
@@ -234,6 +240,12 @@ class PopupHandler:
             self.logger.info("✅ System popup closed")
             time.sleep(0.5)
             return True
+
+        # A publication left in progress
+        if self.detection._element_exists(POPUP_SELECTORS.draft_resume_banner, timeout=1):
+            if self.click.save_draft_from_resume_banner():
+                time.sleep(0.5)
+                return True
 
         # Notification banner (e.g., "X sent you new messages")
         if self.click.dismiss_notification_banner():

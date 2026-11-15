@@ -108,6 +108,26 @@ class PopupSelectors:
     def notification_banner(self) -> List[str]:
         return L("popup.notification_banner")
 
+    # === Banner « Continuer la modification de cette publication ? » ===
+    # A publication left half-way: TikTok lays this banner over the top of every screen, with
+    # « Enreg. brouillon » and « Modifier ». Both end in a draft (the editor's back arrow saves one
+    # by itself); there is no way to abandon from the banner. While it is there, a creator's
+    # profile reads without its header. Never captured on the baseline: no entry here, the ids of
+    # 47.0.3 are in its override, the labels in the locales.
+    _draft_resume_banner_base: List[str] = field(default_factory=list)
+
+    @property
+    def draft_resume_banner(self) -> List[str]:
+        return self._draft_resume_banner_base + L("popup.draft_resume_banner")
+
+    _draft_resume_save_draft_base: List[str] = field(default_factory=list)
+
+    @property
+    def draft_resume_save_draft(self) -> List[str]:
+        """« Enreg. brouillon », the button that closes the banner: nothing published, nothing
+        lost."""
+        return self._draft_resume_save_draft_base + L("popup.draft_resume_save_draft")
+
     # === Inbox page detection ===
     _inbox_page_indicator_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/jld")]',
