@@ -218,6 +218,72 @@ def test_an_unread_active_account_still_switches_by_the_picker(monkeypatch):
     assert (result.success, result.already_active, result.error_type) == (False, False, "profile_tab_not_found")
 
 
+def _selected_on_the_picker(monkeypatch, screen_after_tap, target, accounts=("account.one",)):
+    """A switch from the logged-out picker whose tap on the target's row shows `screen_after_tap`
+    (a real capture); the picker itself is not captured (see the module docstring)."""
+    import taktik.core.social_media.instagram.actions.account.switch as switch_mod
+    monkeypatch.setattr(switch_mod.time, "sleep", lambda *a, **k: None)
+    emitted = []
+    phone = _Phone(None)
+    switcher = InstagramSwitchAccount(phone, "device-1", on_active_account=emitted.append)
+    monkeypatch.setattr(switcher, "_on_landing_account_list", lambda: True)
+    monkeypatch.setattr(switcher, "_list_accounts_on_screen", lambda: [*accounts, target])
+    taps = []
+
+    def _tap(name):
+        taps.append(name)
+        phone.screen = screen_after_tap
+        return True
+
+    monkeypatch.setattr(switcher, "_select_account", _tap)
+    return switcher, emitted, taps
+
+
+def _own_handle():
+    """The handle the real English own profile shows, read by the production reader."""
+    return InstagramSwitchAccount(_Phone(OWN_PROFILE), "device-1")._read_profile_username()
+
+
+def test_a_tap_that_opens_another_account_is_not_a_switch(monkeypatch, locale):
+    """After the tap, the profile read is someone else's: before, a success announcing the target
+    and `active_account_detected` with the target; now a failure naming the account read."""
+    locale("en")
+    shown = _own_handle()
+    assert shown and shown != "account.one"
+    switcher, emitted, taps = _selected_on_the_picker(monkeypatch, OWN_PROFILE, "account.one",
+                                                      accounts=(shown,))
+
+    result = switcher.switch_to("account.one")
+
+    assert taps == ["account.one"]
+    assert (result.success, result.error_type, result.switched_to) == (False, "verification_failed", shown)
+    assert emitted == [shown]
+
+
+def test_the_target_read_on_the_profile_is_a_switch(monkeypatch, locale):
+    locale("en")
+    shown = _own_handle()
+    switcher, emitted, _ = _selected_on_the_picker(monkeypatch, OWN_PROFILE, shown)
+
+    result = switcher.switch_to(shown)
+
+    assert (result.success, result.error_type, result.switched_to) == (True, None, shown)
+    assert emitted == [shown]
+
+
+def test_no_account_read_after_the_tap_is_not_a_switch(monkeypatch, locale):
+    locale("en")
+    switcher, emitted, _ = _selected_on_the_picker(monkeypatch, OWN_PROFILE, "account.two")
+    looks = []
+    monkeypatch.setattr(switcher, "_read_profile_username", lambda: looks.append(1))
+
+    result = switcher.switch_to("account.two")
+
+    assert len(looks) == InstagramSwitchAccount.VERIFY_ATTEMPTS
+    assert (result.success, result.error_type, result.switched_to) == (False, "verification_failed", None)
+    assert emitted == []
+
+
 def test_another_active_account_is_still_logged_out(monkeypatch):
     import taktik.core.social_media.instagram.actions.account.switch as switch_mod
     monkeypatch.setattr(switch_mod.time, "sleep", lambda *a, **k: None)

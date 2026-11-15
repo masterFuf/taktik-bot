@@ -12,6 +12,8 @@ Flow (from UI dumps, 2026-07-01):
 6. If the target's session is saved → it logs straight in. If not → the password
    screen appears → the switch FAILS with `relogin_required` (the account is not active: the
    device is on the password screen), so the page routes to Login and a scheduled node fails.
+7. Otherwise the active account is READ on the profile: the switch succeeds only when it is the
+   target; another account, or none read, fails with `verification_failed`.
 
 The bot only switches between accounts ALREADY connected on the device; connecting
 a brand-new account is the Login flow's job.
@@ -45,6 +47,9 @@ class InstagramSwitchAccount:
     """Instagram account switcher, across the already logged-in accounts."""
 
     MAX_LOGOUT_LOOPS = 3  # guards the auto-switch-to-home loop
+    # The looks at the screen after the tap on the target's row, and the wait before each.
+    VERIFY_ATTEMPTS = 3
+    VERIFY_WAIT_S = 3.0
 
     def __init__(
         self,
@@ -317,14 +322,7 @@ class InstagramSwitchAccount:
             if not self._select_account(target):
                 return SwitchResult(False, f"Could not tap @{target}", "select_failed",
                                     detected_accounts=detected)
-            time.sleep(3)
-            if self._password_required():
-                return self._relogin_required(target, detected)
-            self._emit_active(target)  # target is now the active account → recale the DB
-            self._emit_step("switched", username=target)
-            self.logger.success(f"✅ Switched to @{target} (picker)")
-            return SwitchResult(True, f"Switched to @{target}", switched_to=target,
-                                detected_accounts=detected)
+            return self._verify_selected(target, detected)
 
         # 1. An account is active (home feed). First READ the currently-active account (navigate to
         # the own profile): non-destructive, it emits `active_account_detected` so the device↔account
@@ -368,17 +366,41 @@ class InstagramSwitchAccount:
         if not self._select_account(target):
             return SwitchResult(False, f"Could not tap @{target}", "select_failed",
                                 detected_accounts=picker_accounts)
-        time.sleep(3)
+        return self._verify_selected(target, picker_accounts)
 
-        # 5. Either it logged straight in, or the password screen appeared (session not saved).
-        if self._password_required():
-            return self._relogin_required(target, picker_accounts)
+    def _verify_selected(self, target: str, detected: List[str]) -> SwitchResult:
+        """After the tap on the target's row: the switch is a success only once the active account
+        is READ and is the target.
 
-        self._emit_active(target)  # target is now the active account → recale the DB
-        self._emit_step("switched", username=target)
-        self.logger.success(f"✅ Switched to @{target}")
-        return SwitchResult(True, f"Switched to @{target}", switched_to=target,
-                            detected_accounts=picker_accounts)
+        Up to `VERIFY_ATTEMPTS` looks, `VERIFY_WAIT_S` apart: the password screen is the known
+        failure (`relogin_required`); an account read on the profile ends the wait, the target or
+        not. Another account, or none read at all, fails with `verification_failed`, the account
+        read (or None) in `switched_to`: the target is never reported as active without being
+        read. The reading itself emits `active_account_detected` with what it read.
+        """
+        reading: Optional[ActiveAccountReading] = None
+        for attempt in range(self.VERIFY_ATTEMPTS):
+            time.sleep(self.VERIFY_WAIT_S)
+            if self._password_required():
+                return self._relogin_required(target, detected)
+            reading = self.read_active_account()
+            if reading.username is not None:
+                break
+            self.logger.info(f"Switch to @{target}: active account not read yet ({reading.reason}, "
+                             f"look {attempt + 1}/{self.VERIFY_ATTEMPTS})")
+
+        read = reading.username if reading is not None else None
+        if read == target:
+            self._emit_step("switched", username=target)
+            self.logger.success(f"✅ Switched to @{target}, read on the profile")
+            return SwitchResult(True, f"Switched to @{target}", switched_to=target, detected_accounts=detected)
+
+        why = f"@{read} is active instead" if read else (
+            f"no active account read ({reading.reason if reading is not None else 'not looked'})")
+        self.logger.error(f"❌ Switch to @{target} not verified: {why}")
+        self._notify(f"Switch to @{target} not verified: {why}")
+        return SwitchResult(False, f"Switch to @{target} not verified: {why}", "verification_failed",
+                            switched_to=read, detected_accounts=detected)
 
     def list_accounts(self) -> List[str]:
         """List the Instagram accounts logged in on the device — NON-destructive.
