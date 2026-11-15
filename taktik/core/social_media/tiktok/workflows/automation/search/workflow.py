@@ -19,14 +19,18 @@ from taktik.core.shared.telemetry.device_io import DeviceIoMeasure
 
 from taktik.core.social_media.tiktok.workflows.common.base_video_workflow import BaseVideoWorkflow
 from taktik.core.social_media.tiktok.workflows.common.models import VideoWorkflowStats
+from taktik.core.social_media.tiktok.workflows.common.feed_interruptions import FeedInterruptionsMixin
 from taktik.core.social_media.tiktok.workflows.automation.search.models import SearchConfig
+
+#: What the search's feed of videos shows (`read_screen().kind`).
+_FEED_ITEMS = ("video", "ad", "live")
 
 
 # Backward-compat alias
 SearchStats = VideoWorkflowStats
 
 
-class SearchWorkflow(BaseVideoWorkflow):
+class SearchWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
     """Workflow d'automatisation de recherche TikTok.
     
     Ce workflow permet de:
@@ -88,7 +92,12 @@ class SearchWorkflow(BaseVideoWorkflow):
                 if self._check_limits_reached():
                     self.logger.info("📊 Session limits reached")
                     break
-                
+
+                # A creator's profile opened by mistake: nothing to count, back to the videos.
+                if self._leave_profile_surface(screen):
+                    decision.finish(kind="profile")
+                    continue
+
                 # Get video info
                 video_info = self.detection.get_video_info(light_if_ad=self.config.skip_ads, screen=screen)
                 decision.finish(kind=self._screen_kind(video_info))
@@ -184,13 +193,20 @@ class SearchWorkflow(BaseVideoWorkflow):
         self.logger.info(f"🔍 Navigating to search: {self.config.search_query}")
         
         return self.navigation.search_and_open_videos(self.config.search_query)
-    
+
+    def _return_to_video_feed(self) -> bool:
+        """The profile was opened from the search's videos: Back returns to them, and the screen
+        read after it must show a video of the feed again."""
+        if not self.navigation.go_back():
+            return False
+        return self.detection.read_screen().kind in _FEED_ITEMS
+
     def _scroll_to_next(self):
         """Scroll to next video."""
         self.scroll.scroll_to_next_video()
         time.sleep(0.5)
     
-    def _watch_video(self, watch_time: float = None):
+    def _watch_video(self, watch_time: Optional[float] = None):
         """Watch the current video — honor the dwell planned (and emitted to the front)
         pre-callback, drawing one only if none was planned."""
         if not watch_time:

@@ -61,6 +61,7 @@ def _wire(wf, video_infos, monkeypatch, module):
     wf.detection = SimpleNamespace(read_screen=lambda **_: "photo", get_video_info=_screens(*video_infos))
     wf._wait_if_paused = lambda: True
     wf._handle_popups = lambda _screen=None: False
+    wf._leave_profile_surface = lambda _screen: False
     wf._handle_stuck_video = lambda _info: False
     wf._behavior_reading_scale = lambda _key: 1.0
     wf._check_pause_needed = lambda: None

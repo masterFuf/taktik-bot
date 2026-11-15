@@ -97,7 +97,12 @@ class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
                 if self._handle_suggestion_page(screen):
                     decision.finish(kind="suggestion")
                     continue
-                
+
+                # A creator's profile opened by mistake: nothing to count, back to For You.
+                if self._leave_profile_surface(screen):
+                    decision.finish(kind="profile")
+                    continue
+
                 # Check limits
                 if self._check_limits_reached():
                     self.logger.info("📊 Session limits reached")
@@ -277,7 +282,11 @@ class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
         self._handle_popups()
         
         return self.detection.is_on_for_you_page()
-    
+
+    def _return_to_video_feed(self) -> bool:
+        """The For You feed is reached by the navigation the run starts with."""
+        return self._ensure_on_for_you()
+
     def _process_current_video(self, video_info: Optional[Dict[str, Any]] = None):
         """Process the current video.
         
