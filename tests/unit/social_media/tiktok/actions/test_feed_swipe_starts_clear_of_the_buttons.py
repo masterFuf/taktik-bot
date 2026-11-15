@@ -19,7 +19,7 @@ from uiautomator2.xpath import XPathEntry
 from taktik.core.social_media.tiktok.actions.atomic.scroll.scroll_actions import ScrollActions
 from taktik.core.social_media.tiktok.actions.base.device_facade import DeviceFacade
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
-from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.gesture import VIDEO_GESTURE_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.gesture import VIDEO_GESTURE_ZONES
 from unit.paths import CORE
 
 FIXTURES = CORE / "tests/unit/social_media/tiktok/fixtures"
@@ -112,7 +112,7 @@ def test_an_unreadable_screen_starts_in_the_band_of_the_catalogue():
     facade = DeviceFacade(phone)
     scroll = ScrollActions(facade)
     random.seed(7)
-    low, high = VIDEO_GESTURE_SELECTORS.gesture_fallback_safe_x_band
+    low, high = VIDEO_GESTURE_ZONES.GESTURE_FALLBACK_SAFE_X_BAND
     for _ in range(20):
         scroll._swipe_to_next_video()
         assert facade.last_gesture_start()["source"] == "fallback_band"
@@ -125,3 +125,28 @@ def test_a_list_scroll_keeps_its_sampled_start():
     facade = DeviceFacade(phone)
     facade.swipe_up()
     assert facade.last_gesture_start()["source"] == "none"
+
+
+def test_the_zones_follow_a_version_override(tmp_path):
+    """The zones are a view: an override of a control reaches the swipe with nothing registered
+    for them. No version we ship overrides one of these controls (47.0.3 patches none), so the
+    override is a file of the test, applied by the production machinery."""
+    from taktik.core.compat.selectors.setup import apply_version_overrides
+    from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.engagement import (
+        VIDEO_ENGAGEMENT_SELECTORS,
+    )
+
+    patched = '//*[contains(@resource-id, ":id/like_of_a_later_version")]'
+    baseline = list(VIDEO_ENGAGEMENT_SELECTORS._like_button_base)
+    (tmp_path / "tiktok.yaml").write_text(
+        'meta:\n  baseline_version: "43.1.4"\nversions:\n  "99.0.0":\n'
+        f"    video_engagement._like_button_base:\n      - '{patched}'\n",
+        encoding="utf-8",
+    )
+    try:
+        assert apply_version_overrides("tiktok", "99.0.0", overrides_dir=str(tmp_path)) == 1
+        like = VIDEO_GESTURE_ZONES.gesture_start_keep_out[0]
+        assert patched in like and not set(baseline) & set(like)
+    finally:
+        apply_version_overrides("tiktok", "43.1.4")
+    assert VIDEO_GESTURE_ZONES.gesture_start_keep_out[0][:len(baseline)] == baseline

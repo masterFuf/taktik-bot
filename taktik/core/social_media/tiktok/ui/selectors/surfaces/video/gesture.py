@@ -1,13 +1,16 @@
 """Where the finger of a feed advance must not go down on a TikTok video.
 
 No selector is written here: the controls are the production ones, named once in their own
-catalogues (engagement rail, creator, media, bottom bar). This catalogue only says which of them a
+catalogues (engagement rail, creator, media, bottom bar). This module only says which of them a
 swipe's touch-down keeps clear of, and the band of the screen a swipe starts in when the screen
 could not be read. The shared gesture engine moves a touch-down that lands on one of them into
 the widest free gap of its row (`gesture_primitives._prepare_gesture_path`).
+
+It is a VIEW, like `VIDEO_SELECTORS` (`detail.py`), not a selector catalogue: it holds no field of
+its own, it reads the registered catalogues at each call, so a version override or a clone patch
+of a control reaches the swipe with nothing registered here (`ui/selectors/domains.py`).
 """
 
-from dataclasses import dataclass
 from typing import List, Tuple
 
 from taktik.core.social_media.tiktok.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
@@ -18,9 +21,8 @@ from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.engagement impo
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.media import VIDEO_MEDIA_SELECTORS
 
 
-@dataclass
-class VideoGestureSelectors:
-    """The controls of a feed video a touch-down keeps clear of."""
+class VideoGestureZones:
+    """The controls of a feed video a touch-down keeps clear of. A plain class: nothing to patch."""
 
     @property
     def gesture_start_keep_out(self) -> Tuple[List[str], ...]:
@@ -46,8 +48,11 @@ class VideoGestureSelectors:
     #: The screen could not be read: the touch-down is moved into this band of the width (ratios),
     #: clear of the rail. Measured on six video captures of 43.1.4, 46.9.3 and 47.0.3 (1080 px
     #: wide): the rail starts between x = 870 and 922 (0.81 to 0.85), and nothing but the caption
-    #: and the author's name lie left of it.
-    gesture_fallback_safe_x_band: Tuple[float, float] = (0.22, 0.70)
+    #: and the author's name lie left of it. A ratio of the layout, not an id: the three versions
+    #: give the same, and the version overrides patch xpaths only (`compat/selectors/setup.py`
+    #: skips any other type). A layout that moves the rail is measured on a capture and changes
+    #: here.
+    GESTURE_FALLBACK_SAFE_X_BAND: Tuple[float, float] = (0.22, 0.70)
 
 
-VIDEO_GESTURE_SELECTORS = VideoGestureSelectors()
+VIDEO_GESTURE_ZONES = VideoGestureZones()

@@ -156,12 +156,12 @@ class DeviceFacade(BaseDeviceFacade):
     def _gesture_start_exclusion_bounds(self):
         """The controls of the video on screen a feed advance's touch-down must miss, as boxes
         (left, top, right, bottom): the rail, the author, the caption, the bottom bar
-        (`VIDEO_GESTURE_SELECTORS.gesture_start_keep_out`, the production selectors). Asked by
+        (`VIDEO_GESTURE_ZONES.gesture_start_keep_out`, the production selectors). Asked by
         the shared gesture engine right before the finger goes down. None when the screen cannot
         be read or shows none of them: the engine then starts in the catalogue's band."""
         from taktik.core.shared.device.snapshot import SnapshotUnavailable
         from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.gesture import (
-            VIDEO_GESTURE_SELECTORS,
+            VIDEO_GESTURE_ZONES,
         )
 
         try:
@@ -173,7 +173,7 @@ class DeviceFacade(BaseDeviceFacade):
             # The gesture is about to change the screen: this photo must not answer the next read.
             self.invalidate_snapshot()
         zones = [node.bounds
-                 for control in VIDEO_GESTURE_SELECTORS.gesture_start_keep_out
+                 for control in VIDEO_GESTURE_ZONES.gesture_start_keep_out
                  for selector in control
                  for node in photo.find(selector) if node.bounds]
         return zones or None
@@ -181,10 +181,10 @@ class DeviceFacade(BaseDeviceFacade):
     @staticmethod
     def _gesture_fallback_safe_x_band():
         from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.gesture import (
-            VIDEO_GESTURE_SELECTORS,
+            VIDEO_GESTURE_ZONES,
         )
 
-        return VIDEO_GESTURE_SELECTORS.gesture_fallback_safe_x_band
+        return VIDEO_GESTURE_ZONES.GESTURE_FALLBACK_SAFE_X_BAND
 
     def swipe_down(self, scale: float = 0.8, coast: bool = False, pager: bool = False):
         """Go back / scroll a list UP — humanized. Finger moves down = reveal PREVIOUS = page 'up'.
