@@ -33,6 +33,10 @@ if str(ROOT) not in sys.path:
 
 from taktik.core.contract import TOOL_CONTRACTS, WORKFLOW_CONTRACTS  # noqa: E402
 from taktik.core.contract.bounds import describe  # noqa: E402
+from taktik.core.contract.accounts import (  # noqa: E402
+    INSTAGRAM_SWITCH_ACCOUNT_ERROR,
+    INSTAGRAM_SWITCH_ACCOUNT_ERROR_PHRASES,
+)
 from taktik.core.contract.error_codes import BRIDGE_ERROR_CODE, BRIDGE_ERROR_PHRASES, BRIDGE_REFUSAL_CODES  # noqa: E402
 from taktik.core.contract.registry import selector_value  # noqa: E402
 from taktik.core.contract.schema import (  # noqa: E402
@@ -97,7 +101,9 @@ HEADER = """/**
  * (`<Name>BridgePayload`) and the stdout lines the app reads (`<Name>BridgeLine`); the lines of the
  * diagnostic tools the app runs beside them; the catalogues of why a run ends, one union each; the codes
  * of a bridge's `error` line (`BridgeErrorCode`) and the key of each one's sentence in the app
- * (`BRIDGE_ERROR_PHRASE_KEYS`), and the codes of a refusal the run meant (`BRIDGE_REFUSAL_CODES`).
+ * (`BRIDGE_ERROR_PHRASE_KEYS`), the same for the codes of an Instagram account switch
+ * (`INSTAGRAM_SWITCH_ACCOUNT_ERROR_PHRASE_KEYS`), and the codes of a refusal the run meant
+ * (`BRIDGE_REFUSAL_CODES`).
  * Rendered by `core/scripts/audits/workflow_contract.py`; `npm run workflow:contract` fails when this
  * file and the bot disagree.
  */
@@ -201,11 +207,20 @@ def render_catalogue(catalogue: OneOf) -> List[str]:
     return out
 
 
-def render_error_phrases() -> List[str]:
-    """`BRIDGE_ERROR_PHRASE_KEYS`: for each code of a bridge's `error` line, the key of its sentence."""
-    out = ["/** The key of each code's sentence in the app's translations (`sessionLive`): `contract/error_codes.py`. */",
-           f"export const BRIDGE_ERROR_PHRASE_KEYS: Readonly<Record<{BRIDGE_ERROR_CODE.name}, string>> = {{"]
-    out += [f"  {ts_key(code)}: {literal(key)}," for code, key in BRIDGE_ERROR_PHRASES.items()]
+#: The codes that name the key of their sentence in the app (`sessionLive`), each table under its name:
+#: the codes of a bridge's `error` line, and the `error_type` of an Instagram account switch.
+PHRASE_KEY_TABLES: Tuple[Tuple[str, OneOf, Dict[str, str], str], ...] = (
+    ("BRIDGE_ERROR_PHRASE_KEYS", BRIDGE_ERROR_CODE, dict(BRIDGE_ERROR_PHRASES), "contract/error_codes.py"),
+    ("INSTAGRAM_SWITCH_ACCOUNT_ERROR_PHRASE_KEYS", INSTAGRAM_SWITCH_ACCOUNT_ERROR,
+     dict(INSTAGRAM_SWITCH_ACCOUNT_ERROR_PHRASES), "contract/accounts.py"),
+)
+
+
+def render_phrase_keys(name: str, catalogue: OneOf, phrases: Dict[str, str], source: str) -> List[str]:
+    """`<name>`: for each code of `catalogue`, the key of its sentence."""
+    out = [f"/** The key of each code's sentence in the app's translations (`sessionLive`): `{source}`. */",
+           f"export const {name}: Readonly<Record<{catalogue.name}, string>> = {{"]
+    out += [f"  {ts_key(code)}: {literal(key)}," for code, key in phrases.items()]
     out.append("}")
     return out
 
@@ -603,8 +618,9 @@ def render(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS,
     for catalogue in catalogues.values():
         lines += render_catalogue(catalogue) + [""]
         exported.append(catalogue.name)
-    lines += render_error_phrases() + [""]
-    exported.append("BRIDGE_ERROR_PHRASE_KEYS")
+    for name, catalogue, phrases, source in PHRASE_KEY_TABLES:
+        lines += render_phrase_keys(name, catalogue, phrases, source) + [""]
+        exported.append(name)
     lines += render_refusal_codes() + [""]
     exported.append("BRIDGE_REFUSAL_CODES")
     for shape in shapes.values():

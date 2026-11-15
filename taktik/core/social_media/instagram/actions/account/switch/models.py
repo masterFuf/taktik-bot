@@ -20,7 +20,9 @@ class SwitchResult:
         self.success = success
         self.message = message
         self.error_type = error_type
-        # Username we tried to switch to (without the leading '@').
+        # The account read after the selection (without the leading '@'): the target on success; with
+        # `relogin_required`, the target selected but not active; with `verification_failed`, the
+        # account really active, or None when none could be read.
         self.switched_to = switched_to
         # True when the target account is connected but its session is NOT saved: Instagram
         # shows the password screen, so the switch can't complete without re-login. The front
