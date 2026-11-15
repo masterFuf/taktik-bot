@@ -121,6 +121,19 @@ class PopupActions(BaseAction):
         # Fallback to generic close
         return self.close_popup()
     
+    def save_draft_from_resume_banner(self) -> bool:
+        """Close the banner « Continuer la modification de cette publication ? » by « Enreg. brouillon ».
+
+        The banner offers no abandon: « Modifier » opens the editor, whose back arrow saves a draft
+        by itself. Saving the draft here publishes nothing and loses nothing, and is never
+        « Modifier ». True when the button was found and tapped.
+        """
+        if self._find_and_click(self.popup_selectors.draft_resume_save_draft, timeout=2):
+            self.logger.info("✅ Publication in progress kept as a draft (banner closed)")
+            return True
+        self.logger.warning("⚠️ Draft banner seen, its « save draft » button not found")
+        return False
+
     def dismiss_notification_banner(self) -> bool:
         """Swipe away the in-app message banner ("X t'a envoyé ..." beside its « Répondre »).
 
