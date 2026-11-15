@@ -30,6 +30,9 @@ class _FakeDb:
     def profile_exists_in_db(self, *_a, **_k):
         return False
 
+    def profile_visited_in_db(self, *_a, **_k):
+        return False
+
 
 class _FakeLogger:
     def info(self, *_a, **_k):

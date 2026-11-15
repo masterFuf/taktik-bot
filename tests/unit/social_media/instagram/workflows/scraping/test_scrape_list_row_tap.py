@@ -97,18 +97,21 @@ class _Scraper(ScrapingListMixin):
         return None
 
 
-def _scrape(xml):
-    phone = _Phone(xml)
+def _followers_strategy(phone):
     detection = object.__new__(ListDetectionMixin)
     detection.device = DeviceFacade(CloneAwareDeviceProxy(phone, PKG))
     detection.detection_selectors = DETECTION_SELECTORS
     detection.utils = ActionUtils()
     detection.logger = logger
-    strategy = ListScrapingStrategy(get_visible=detection.get_visible_followers_with_elements,
-                                    is_on_list=lambda: True, scroll_down=lambda: None,
-                                    enable_suggestions_check=False)
+    return ListScrapingStrategy(get_visible=detection.get_visible_followers_with_elements,
+                                is_on_list=lambda: True, scroll_down=lambda: None,
+                                enable_suggestions_check=False)
+
+
+def _scrape(xml):
+    phone = _Phone(xml)
     scraper = _Scraper(phone)
-    scraped = scraper._scrape_list(1, "FOLLOWER", "demo", enrich_on_the_fly=True, strategy=strategy)
+    scraped = scraper._scrape_list(1, "FOLLOWER", "demo", enrich_on_the_fly=True, strategy=_followers_strategy(phone))
     return scraper, phone, scraped
 
 

@@ -185,7 +185,7 @@ class ScrapingListMixin(DeepQualifyMixin):
                 profile_data.update(_dq)
 
         # Capture screenshot for AI vision analysis (while still on profile page).
-        # Skip if ai_rescrape_mode = 'stats_only' and the profile already existed in DB.
+        # Skip if ai_rescrape_mode = 'stats_only' and the profile was already visited.
         _ai_rescrape_mode = self.config.get('ai_rescrape_mode', 'full')
         _skip_ai_for_existing = _ai_rescrape_mode == 'stats_only' and profile_preexisted
         if getattr(self, '_ai_service', None) and not _skip_ai_for_existing:
@@ -284,10 +284,10 @@ class ScrapingListMixin(DeepQualifyMixin):
             profile_preexisted = False
             if _dedup_db is not None:
                 try:
-                    if _dedup_db.profile_exists_in_db(username, days=rescrape_after_days):
+                    if self._already_in_db(_dedup_db, username, rescrape_after_days, opens_profiles=True):
                         self._say_already_in_db(username, rescrape_after_days)
                         continue
-                    profile_preexisted = _dedup_db.profile_exists_in_db(username, days=None)
+                    profile_preexisted = _dedup_db.profile_visited_in_db(username, days=None)
                 except Exception as _dedup_err:
                     self.logger.debug(f"Dedup check failed for @{username}: {_dedup_err}")
 
@@ -350,6 +350,18 @@ class ScrapingListMixin(DeepQualifyMixin):
                 return
             self.logger.debug(f"⚠️ Not on target list after {_back_attempt + 1} back press(es), retrying...")
         self.logger.warning("⚠️ Could not return to target list after 5 back presses")
+
+    def _already_in_db(self, db: Any, username: str, rescrape_after_days: Any, opens_profiles: bool) -> bool:
+        """Does the base already hold what this run comes for?
+
+        A run that opens profiles comes for their page: a row holding a handle only (the author of a
+        post liked in the Feed, a name read in a list) is still to visit, or the setting's default
+        ("never re-scrape") leaves it empty for good. A run that only collects names comes for the
+        name, which that row already holds.
+        """
+        if opens_profiles:
+            return db.profile_visited_in_db(username, days=rescrape_after_days)
+        return db.profile_exists_in_db(username, days=rescrape_after_days)
 
     def _say_already_in_db(self, username: str, rescrape_after_days: Any) -> None:
         """A profile the base knows: the app words the code, and its days when the run re-reads old ones."""
@@ -428,8 +440,9 @@ class ScrapingListMixin(DeepQualifyMixin):
         scrolls_made = 0
         seen_usernames = set()
 
-        # Dedup: skip profiles already known in DB — checked directly per username.
-        # - rescrape_after_days = None (default)  → skip ALL known profiles (pure existence check)
+        # Dedup: skip profiles already known in DB — checked directly per username (`_already_in_db`:
+        # known means visited for a run that opens profiles, stored for one that collects names).
+        # - rescrape_after_days = None (default)  → skip ALL known profiles
         # - rescrape_after_days = N > 0           → skip only profiles created within N days
         # - rescrape_after_days = 0               → disabled (always re-scrape)
         rescrape_after_days: int | None = self.config.get('rescrape_after_days')
@@ -567,11 +580,12 @@ class ScrapingListMixin(DeepQualifyMixin):
                     _profile_preexisted = False
                     if _dedup_db is not None:
                         try:
-                            if _dedup_db.profile_exists_in_db(username, days=rescrape_after_days):
+                            if self._already_in_db(_dedup_db, username, rescrape_after_days, opens_profiles=enrich_on_the_fly):
                                 self._say_already_in_db(username, rescrape_after_days)
                                 continue
-                            # Profile passed dedup: check if it pre-existed (for AI rescrape mode)
-                            _profile_preexisted = _dedup_db.profile_exists_in_db(username, days=None)
+                            # Profile passed dedup: was it visited before (for AI rescrape mode)? A
+                            # handle alone holds nothing `stats_only` could keep.
+                            _profile_preexisted = _dedup_db.profile_visited_in_db(username, days=None)
                         except Exception as _dedup_err:
                             self.logger.debug(f"Dedup check failed for @{username}: {_dedup_err}")
 

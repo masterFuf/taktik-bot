@@ -23,6 +23,16 @@ MARK_UNREACHABLE_SQL = """UPDATE social_profiles
 SNAPSHOT_COUNTERS = ('followers_count', 'following_count', 'posts_count')
 
 
+#: A profile the bot went to: something only its page gives was read, or the page could not be
+#: opened. Any other row holds a handle and at most a name: the author of a post liked in the Feed,
+#: a name read in a list. The app's search applies this rule word for word
+#: (`ProfileSearchRepository.VISITED`, compared by its gate `npm run profile-search:paths`).
+VISITED_SQL = """(COALESCE(followers_count, 0) > 0 OR COALESCE(following_count, 0) > 0
+    OR COALESCE(posts_count, 0) > 0 OR COALESCE(likes_count, 0) > 0
+    OR COALESCE(biography, '') != '' OR COALESCE(profile_pic_path, '') != ''
+    OR unreachable_at IS NOT NULL)"""
+
+
 def flag_as_stored(value: Any) -> Optional[int]:
     """A flag as the base keeps it: 1 or 0 when it was read, NULL (None) when it was not. An unread
     privacy is not « public »."""
@@ -232,6 +242,22 @@ class ProfileRepository(BaseRepository):
                 """,
                 (username, days),
             )
+        return row is not None
+
+    def was_visited(self, username: str, days: Optional[int] = None) -> bool:
+        """Did the bot already go to this profile's page (`VISITED_SQL`)? With `days`, only a row
+        created within them counts, the window of `exists_by_username`."""
+        window = "" if days is None else "AND created_at >= datetime('now', '-' || ? || ' days')"
+        params = (username,) if days is None else (username, days)
+        row = self.query_one(
+            f"""
+            SELECT 1 FROM social_profiles
+            WHERE platform = 'instagram' AND username = ? {window}
+            AND {VISITED_SQL}
+            LIMIT 1
+            """,
+            params,
+        )
         return row is not None
 
     def get_known_usernames(self, days: Optional[int] = None, limit: int = 10000) -> set:
