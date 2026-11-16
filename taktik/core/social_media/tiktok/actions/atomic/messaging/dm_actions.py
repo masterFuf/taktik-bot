@@ -19,7 +19,7 @@ from taktik.core.shared.input.taktik_keyboard import (
     field_holds_text,
     type_text_checked,
 )
-from taktik.core.shared.text import as_xml_dumped, clean_shown_text, fold_for_match, same_shown_name
+from taktik.core.shared.text import as_xml_dumped, clean_shown_text, same_shown_name
 from taktik.core.social_media.tiktok.services.profile.username import read_open_profile_handle
 from taktik.core.social_media.tiktok.actions.base.base_action import BaseAction
 from taktik.core.social_media.tiktok.actions.base.utils import extract_resource_id, first_matching, first_text
@@ -1186,42 +1186,6 @@ class DMActions(BaseAction):
             pass
         return ""
     
-    def is_conversation_with(self, username: str) -> bool:
-        """Is the open conversation the one with `username`?
-
-        A send answers "did it leave", never "did it reach the right person" — and a navigation
-        that drifts one row is enough to write into someone else's thread. That happened during
-        this survey: a request list shifted between two runs and a reply went to a stranger.
-
-        Compared on the conversation HEADER, through the shared fold: TikTok shows the DISPLAY
-        NAME there and a caller holds the handle, and the two differ by more than case. Measured
-        on device -- the header read `Cin(é)Club` for @cineclub_demo, so a literal containment
-        test matched neither way and refused to send a message to exactly the right person.
-
-        Returns False when the header cannot be read, so an unverifiable conversation is never
-        treated as verified.
-        """
-        wanted = fold_for_match(clean_shown_text(username))
-        if not wanted:
-            return False
-        header = fold_for_match(clean_shown_text(self.get_conversation_info().get("name") or ""))
-        if not header:
-            return False
-        return wanted in header or header in wanted
-
-    def send_text_message_to(self, username: str, text: str) -> bool:
-        """Send `text`, but only into the conversation with `username`.
-
-        The guarded form of `send_text_message`. Any workflow that navigates before writing
-        should use this one: the unguarded version cannot tell whose thread it is in.
-        """
-        if not self.is_conversation_with(username):
-            info = self.get_conversation_info().get("name")
-            self.logger.error(
-                f"Refusing to send: conversation header is {info!r}, expected @{username}")
-            return False
-        return self.send_text_message(text)
-
     def send_text_message(self, text: str) -> bool:
         """Type and send a text message.
         
