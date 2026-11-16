@@ -10,7 +10,7 @@ altgraph==0.17.5
     #   pyinstaller
 black==26.3.1
     # via -r requirements-dev.txt
-certifi==2026.4.22
+certifi==2026.10.23
     # via requests
 charset-normalizer==3.4.7
     # via requests
