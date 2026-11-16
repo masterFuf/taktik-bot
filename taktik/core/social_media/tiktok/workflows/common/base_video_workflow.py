@@ -147,7 +147,9 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
         # carried as state: `_comment_target_username` needs it and the feed has no walked profile.
         self._current_video_author = (video_info.get('author') or '').strip()
 
-        # Like
+        # Like. A stop asked while the video played (its wait hears it): no gesture at all.
+        if self._halted():
+            return
         if (self.stats.videos_liked < cfg.max_likes_per_session
                 and random.random() < cfg.like_probability
                 and not video_info.get('is_liked')):

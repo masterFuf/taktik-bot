@@ -10,6 +10,7 @@ import random
 from taktik.core.social_media.tiktok.services.behavior.watch_time import video_watch_seconds
 
 from taktik.core.shared.behavior.grid_entry import sample_entry_index
+from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.behavior.interaction_plan import sample_like_target
 from taktik.core.shared.telemetry.sink import emit_step
 
@@ -81,7 +82,8 @@ class VideoInteractionMixin(VideoCommentMixin):
                 reading_scale=self._behavior_reading_scale('tiktok_profile_video'),
             )
             self.logger.debug(f"Watching video {i+1}/{posts_to_interact} for {watch_time:.1f}s")
-            time.sleep(watch_time)
+            # A stop asked during the video is heard within half a second, not after it.
+            run_halt.attendre_sauf_arret(watch_time)
             
             self.stats.posts_watched += 1
             
@@ -216,7 +218,10 @@ class VideoInteractionMixin(VideoCommentMixin):
     
     def _interact_with_current_video(self):
         """Interact with the currently playing video (like, comment, share, favorite)."""
-        
+        # A stop asked while the video played (its wait hears it): no gesture at all.
+        if self._halted():
+            return
+
         # Check if video is already liked
         if self._is_video_already_liked():
             self.logger.debug("Video already liked, skipping like")

@@ -7,6 +7,7 @@ import time
 import random
 
 from taktik.core.shared.behavior.sampling import sample_within
+from taktik.core.shared.diagnostics import run_halt
 
 from taktik.core.social_media.tiktok.actions.base.base_action import BaseAction
 from taktik.core.social_media.tiktok.actions.atomic.detection.screen_reading import read_until
@@ -109,7 +110,7 @@ class ScrollActions(BaseAction):
         return self._element_exists(self.scroll_selectors.loading_indicator, timeout=1)
     
     def watch_video(self, duration: float = 3.0) -> bool:
-        """Watch current video for specified duration."""
+        """Watch current video for specified duration. False: the run was asked to stop, or an error."""
         try:
             self.logger.debug(f"👀 Watching video for {duration}s")
             
@@ -117,9 +118,8 @@ class ScrollActions(BaseAction):
             actual_duration = sample_within(lambda: duration + random.uniform(-0.5, 1.0),
                                             1.0, float('inf'), edge_band=0.5)
             
-            time.sleep(actual_duration)
-            
-            return True
+            # A stop asked during the video is heard within half a second, not after it.
+            return run_halt.attendre_sauf_arret(actual_duration)
             
         except Exception as e:
             self.logger.error(f"Error watching video: {e}")
