@@ -3,7 +3,9 @@
 Proxy Manager for mitmproxy + Frida SSL bypass.
 Manages the interception infrastructure for capturing Instagram media.
 """
-import os
+import importlib.util
+import shutil
+import socket
 import sys
 import json
 import subprocess
@@ -12,6 +14,41 @@ import time
 from typing import Optional, Callable, Dict, Any, List
 from pathlib import Path
 from loguru import logger
+
+
+#: mitmproxy's own entry point for mitmdump, the function its `mitmdump` script calls. mitmproxy 11 and 12 have
+#: no `python -m` entry for it: `python -m mitmproxy.tools.main mitmdump` imports the module and exits 0, silent.
+MITMDUMP_ENTRY_POINT = "from mitmproxy.tools.main import mitmdump; mitmdump()"
+
+#: How long mitmdump gets to listen on its port before its launch counts as failed (it takes about 2 s).
+MITMDUMP_READY_TIMEOUT_S = 20.0
+
+
+def mitmdump_command() -> List[str]:
+    """The command that runs mitmdump, before its arguments.
+
+    From source, this interpreter runs mitmproxy's entry point: the version of `requirements-media.txt`, not
+    whichever `mitmdump` the PATH holds. The frozen engine excludes mitmproxy (`taktik_launcher.spec`) and its
+    executable is not a Python interpreter: it runs the `mitmdump` the user installed, found in the PATH.
+    """
+    if not getattr(sys, "frozen", False) and importlib.util.find_spec("mitmproxy") is not None:
+        return [sys.executable, "-c", MITMDUMP_ENTRY_POINT]
+    installed = shutil.which("mitmdump")
+    if installed:
+        return [installed]
+    raise FileNotFoundError(
+        "mitmdump not found: mitmproxy is not installed for this interpreter and no mitmdump is in the PATH "
+        "(pip install -r requirements-media.txt)"
+    )
+
+
+def is_port_listening(port: int) -> bool:
+    """True when something accepts a TCP connection on this port of this machine."""
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+            return True
+    except OSError:
+        return False
 
 
 def resolve_media_scripts_dir(module_file: Path) -> Path:
@@ -91,34 +128,20 @@ class ProxyManager:
                 logger.error(f"mitm_addon.py not found at {self.addon_path}")
                 return False
             
-            # Build command
-            cmd = [
-                sys.executable, "-m", "mitmproxy.tools.main",
-                "mitmdump",
+            if is_port_listening(self.proxy_port):
+                logger.error(f"mitmdump not started: port {self.proxy_port} is already taken by another process")
+                return False
+
+            cmd = mitmdump_command() + [
                 "-s", str(self.addon_path),
                 "-p", str(self.proxy_port),
                 "--quiet",
                 "--set", "stream_large_bodies=1m",  # Stream large files
                 "--set", "keep_host_header=true"
             ]
-            
-            # Alternative: use mitmdump directly if installed
-            try:
-                # Check if mitmdump is available
-                result = subprocess.run(["mitmdump", "--version"], capture_output=True, timeout=5)
-                if result.returncode == 0:
-                    cmd = [
-                        "mitmdump",
-                        "-s", str(self.addon_path),
-                        "-p", str(self.proxy_port),
-                        "--quiet"
-                    ]
-            except (subprocess.TimeoutExpired, FileNotFoundError):
-                pass
-            
-            logger.info(f"Starting mitmproxy: {' '.join(cmd)}")
-            
-            self.mitm_process = subprocess.Popen(
+            logger.info(f"Starting mitmdump: {' '.join(cmd)}")
+
+            process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -126,51 +149,69 @@ class ProxyManager:
                 bufsize=1,  # Line buffered
                 creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0
             )
-            
-            # Start reader thread
-            self.reader_thread = threading.Thread(target=self._read_mitm_output, daemon=True)
+            self.mitm_process = process
+
+            # Read from the first line: the addon may write before the port opens.
+            self.reader_thread = threading.Thread(target=self._read_mitm_output, args=(process,), daemon=True)
             self.reader_thread.start()
-            
-            # Wait a bit and check if process is still running
-            time.sleep(1)
-            if self.mitm_process.poll() is not None:
-                stderr = self.mitm_process.stderr.read()
-                logger.error(f"mitmproxy failed to start: {stderr}")
+
+            if not self._wait_until_listening(process, cmd):
+                self.mitm_process = None
                 return False
-            
-            logger.info("mitmproxy started successfully")
+
+            logger.info(f"mitmdump listening on port {self.proxy_port}")
             return True
-            
-        except FileNotFoundError:
-            logger.error("mitmproxy not installed. Run: pip install mitmproxy")
+
+        except FileNotFoundError as e:
+            logger.error(f"mitmdump not started: {e}")
             return False
         except Exception as e:
             logger.error(f"Failed to start mitmproxy: {e}")
             return False
     
-    def _read_mitm_output(self):
-        """Read and process mitmproxy stdout."""
-        while self.running and self.mitm_process:
-            try:
-                line = self.mitm_process.stdout.readline()
+    def _wait_until_listening(self, process: subprocess.Popen, cmd: List[str]) -> bool:
+        """True once mitmdump accepts connections on its port; False, said, when it exits or never listens."""
+        deadline = time.monotonic() + MITMDUMP_READY_TIMEOUT_S
+        while time.monotonic() < deadline:
+            exit_code = process.poll()
+            if exit_code is not None:
+                error_output = process.stderr.read().strip() if process.stderr else ""
+                logger.error(
+                    f"mitmdump exited at start with exit code {exit_code}: {' '.join(cmd)}\n"
+                    f"{error_output or '(nothing on its error output)'}"
+                )
+                return False
+            if is_port_listening(self.proxy_port):
+                return True
+            time.sleep(0.2)
+        logger.error(
+            f"mitmdump not listening on port {self.proxy_port} after {MITMDUMP_READY_TIMEOUT_S:.0f} s, "
+            f"stopped: {' '.join(cmd)}"
+        )
+        process.kill()
+        return False
+
+    def _read_mitm_output(self, process: subprocess.Popen):
+        """Read mitmdump's stdout until it closes: the process ended, or stop() terminated it."""
+        if process.stdout is None:
+            logger.error("mitmdump started without a stdout pipe: no capture can be read")
+            return
+        try:
+            for raw_line in process.stdout:
+                line = raw_line.strip()
                 if not line:
-                    if self.mitm_process.poll() is not None:
-                        break
                     continue
-                
-                line = line.strip()
-                if not line:
-                    continue
-                
                 try:
                     message = json.loads(line)
-                    self._handle_message(message)
                 except json.JSONDecodeError:
-                    # Not JSON, might be mitmproxy log
-                    logger.debug(f"mitmproxy: {line}")
-                    
-            except Exception as e:
-                logger.error(f"Error reading mitmproxy output: {e}")
+                    message = None
+                if not isinstance(message, dict):
+                    # Not an addon message: mitmdump's own log line
+                    logger.debug(f"mitmdump: {line}")
+                    continue
+                self._handle_message(message)
+        except Exception as e:
+            logger.error(f"Error reading mitmdump output: {e}")
     
     def _handle_message(self, message: Dict[str, Any]):
         """Handle a message from mitmproxy addon."""

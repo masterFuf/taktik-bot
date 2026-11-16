@@ -169,7 +169,7 @@
   "taktik/core/social_media/instagram/actions/base/device/facade.py": 1,
   "taktik/core/social_media/instagram/manager.py": 6,
   "taktik/core/social_media/instagram/media/proxy/mitm_addon.py": 6,
-  "taktik/core/social_media/instagram/media/proxy/proxy_manager.py": 3,
+  "taktik/core/social_media/instagram/media/proxy/proxy_manager.py": 1,
   "taktik/core/social_media/instagram/recorder/human_behavior_recorder.py": 3,
   "taktik/core/social_media/instagram/services/comment/action.py": 5,
   "taktik/core/social_media/instagram/services/comment/thread_context.py": 4,
