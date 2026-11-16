@@ -167,8 +167,29 @@ def arret_demande() -> Optional[Dict[str, Any]]:
     return dict(_arret) if _arret is not None else None
 
 
+#: How often a long wait reads the latch: a stop is seen within this many seconds.
+PAS_ATTENTE = 0.5
+
+
+def attendre_sauf_arret(secondes: float) -> bool:
+    """Sleep `secondes`, by slices of `PAS_ATTENTE`, unless a stop is asked meanwhile.
+
+    True: the whole wait was slept. False: the latch is set, the wait ended at once. A TikTok video
+    watched in one `time.sleep` heard the stop only after its whole dwell (38 s seen on a phone).
+    Without a stop, the time slept is exactly `secondes`.
+    """
+    reste = float(secondes)
+    while reste > 0:
+        if _arret is not None:
+            return False
+        tranche = min(PAS_ATTENTE, reste)
+        time.sleep(tranche)
+        reste -= tranche
+    return _arret is None
+
+
 __all__ = [
-    "demander_arret", "arret_demande", "reinitialiser", "configurer_temoin",
+    "demander_arret", "arret_demande", "attendre_sauf_arret", "reinitialiser", "configurer_temoin",
     "DEVICE_DISCONNECTED", "TARGET_APP_CRASHED", "ACTION_BLOCKED", "DESKTOP_GONE", "ACCOUNT_CHALLENGE",
     "NETWORK_LOST", "PHONE_LOCKED", "LIKE_UNCONFIRMED", "RunRefused",
 ]

@@ -30,6 +30,15 @@ from taktik.core.shared.actions.utils import ActionUtils
 class LikersWorkflowBase(BaseBusinessAction):
     """Base class for workflows that interact with profiles from a likers popup."""
 
+    def _is_own_account(self, username: Optional[str]) -> bool:
+        """Is `username` the account the run acts as? Its posts and its row are no target.
+
+        The account is read off its own profile when the run starts (`automation.active_username`,
+        the Lab's `account` parameter); a run that does not know it passes nobody.
+        """
+        acting_username = getattr(self.automation, 'active_username', None) if self.automation else None
+        return ActionUtils.same_username(username, acting_username)
+
     # ─── Main interaction loop ───────────────────────────────────────────
 
     def _interact_with_likers_list(
@@ -82,11 +91,6 @@ class LikersWorkflowBase(BaseBusinessAction):
 
         account_id = getattr(self.automation, 'active_account_id', None) if self.automation else None
         session_id = getattr(self.automation, 'current_session_id', None) if self.automation else None
-        # The account the run acts as, read off its own profile when the run starts (the Lab's
-        # `account` parameter). A run that likes a post and then walks its likers finds itself
-        # among them: opening that row lands on its own profile, from which the way back did not
-        # find the sheet again, and the post was left (C57 S, 2026-10-25).
-        acting_username = getattr(self.automation, 'active_username', None) if self.automation else None
 
         def _ledger(uname: str, outcome: str, reason: Optional[str] = None, **extra) -> None:
             """One audit entry per UNIQUE encountered user → its outcome + reason. The
@@ -154,7 +158,10 @@ class LikersWorkflowBase(BaseBusinessAction):
 
                 # The acting account is no target: its row is passed without a tap, and counts
                 # neither as a profile found nor in the known streak, as in the followers loop.
-                if ActionUtils.same_username(username, acting_username):
+                # A run that likes a post and then walks its likers finds itself among them:
+                # opening that row landed on its own profile, from which the way back did not
+                # find the sheet again, and the post was left (2026-10-25).
+                if self._is_own_account(username):
                     self.logger.info(f"⏭️ Skipping own account @{username}")
                     _ledger(username, "skipped", "own_account")
                     continue

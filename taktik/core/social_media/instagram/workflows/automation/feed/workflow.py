@@ -355,6 +355,14 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                     feed_action = None
                     feed_reason = None
 
+                    # A post of the account the run acts as: no like under its own name, no
+                    # visit of its own profile. Counted with the posts a filter left out.
+                    if process_post and self._is_own_account(post_author):
+                        self.logger.info(f"⏭️ Skipping own post (@{post_author})")
+                        stats['posts_skipped_filter'] = stats.get('posts_skipped_filter', 0) + 1
+                        process_post = False
+                        feed_action, feed_reason = 'skip', 'own_account'
+
                     # Filter by like count when configured
                     if process_post and (min_likes > 0 or max_likes > 0):
                         post_metadata = self._extract_post_metadata()

@@ -14,6 +14,7 @@ import random
 
 from taktik.core.social_media.tiktok.services.behavior.watch_time import video_watch_seconds
 
+from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.telemetry.sink import emit_step
 from taktik.core.shared.telemetry.device_io import DeviceIoMeasure
 
@@ -215,7 +216,8 @@ class SearchWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
                 self.config.max_watch_time
             )
         self.logger.debug(f"👀 Watching video for {watch_time:.1f}s")
-        time.sleep(watch_time)
+        # A stop asked during the video is heard within half a second, not after it.
+        run_halt.attendre_sauf_arret(watch_time)
     
     def _should_skip_video(self, video_info: Dict[str, Any]) -> bool:
         """Check if video should be skipped based on filters."""
