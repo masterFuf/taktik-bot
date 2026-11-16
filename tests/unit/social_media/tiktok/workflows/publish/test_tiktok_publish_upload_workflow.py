@@ -87,9 +87,9 @@ def publish(monkeypatch, tmp_path):
 
     notes = _Notes()
 
-    def _run(device=None, caption=""):
+    def _run(device=None, caption="", local_path=str(video)):
         workflow = module.TikTokUploadWorkflow(device=device or object(), device_id="device-1", notifier=notes)
-        return workflow.execute(local_path=str(video), caption=caption)
+        return workflow.execute(local_path=local_path, caption=caption)
 
     _run.notes = notes
 
@@ -187,6 +187,103 @@ def test_a_published_video_presses_no_back(publish, phone_on_the_publication):
     assert result["success"] is True
     assert "left_publish_flow" not in result
     assert phone.keys == []
+
+
+# --- a failure before the medium was chosen backs out to the feed too ----------------------------
+
+
+#: Each failure once TikTok's creation is open, before a medium is ticked: the step that answers
+#: no, the screen it leaves, the backs to the feed. No draft exists yet, but the camera stays open:
+#: on a phone the adb link falls again and again while it is in front.
+EARLY_FAILURES = {
+    "create_btn_not_found": ("tap_create_button", "feed", 0),
+    "upload_btn_not_found": ("tap_upload_button", "camera", 1),
+    "gallery_not_opened": ("ensure_gallery_picker_open", "camera", 1),
+    "gallery_item_not_found": ("select_first_gallery_item", "gallery", 2),
+}
+
+
+@pytest.mark.parametrize("error_type", list(EARLY_FAILURES))
+def test_a_failure_before_the_medium_was_chosen_leaves_the_creation_for_the_feed(
+        publish, phone_on_the_publication, monkeypatch, error_type):
+    step, screen, backs = EARLY_FAILURES[error_type]
+    monkeypatch.setattr(module, step, lambda *a, **k: False)
+    phone = phone_on_the_publication(screen)
+
+    result = publish(device=phone)
+
+    assert result["success"] is False
+    assert result["error_type"] == error_type, "the way out replaced the motive of the failure"
+    assert result["left_publish_flow"] is True
+    assert phone.screen == "feed"
+    assert phone.keys == ["back"] * backs
+
+
+def test_a_missing_file_stops_before_tiktok_and_presses_no_back(publish, phone_on_the_publication, tmp_path):
+    phone = phone_on_the_publication("camera")
+
+    result = publish(device=phone, local_path=str(tmp_path / "absent.mp4"))
+
+    assert result["error_type"] == "file_not_found"
+    assert "left_publish_flow" not in result
+    assert phone.keys == []
+
+
+def test_a_push_that_fails_stops_before_tiktok_and_presses_no_back(publish, phone_on_the_publication, monkeypatch):
+    monkeypatch.setattr(module, "push_media", lambda *a, **k: None)
+    phone = phone_on_the_publication("camera")
+
+    result = publish(device=phone)
+
+    assert result["error_type"] == "push_failed"
+    assert "left_publish_flow" not in result
+    assert phone.keys == []
+
+
+# --- an exception in the middle of the publication -----------------------------------------------
+
+
+@pytest.mark.parametrize("step, screen, backs", [
+    ("select_first_gallery_item", "gallery", 2),
+    ("advance_to_post_screen", "editor", 3),
+])
+def test_an_exception_mid_publication_backs_out_then_rises_unchanged(
+        publish, phone_on_the_publication, monkeypatch, step, screen, backs):
+    crash = RuntimeError("uiautomator server gone")
+
+    def _crash(*a, **k):
+        raise crash
+
+    monkeypatch.setattr(module, step, _crash)
+    phone = phone_on_the_publication(screen)
+
+    with pytest.raises(RuntimeError) as raised:
+        publish(device=phone)
+
+    assert raised.value is crash, "the exception was swallowed or replaced"
+    assert phone.screen == "feed"
+    assert phone.keys == ["back"] * backs
+
+
+def test_a_way_out_that_raises_does_not_hide_the_exception_of_the_publication(
+        publish, phone_on_the_publication, monkeypatch):
+    crash = RuntimeError("uiautomator server gone")
+
+    def _crash(*a, **k):
+        raise crash
+
+    def _exit_breaks(*a, **k):
+        raise ConnectionError("adb: device offline")
+
+    monkeypatch.setattr(module, "advance_to_post_screen", _crash)
+    monkeypatch.setattr(module, "leave_publish_flow", _exit_breaks)
+
+    with pytest.raises(RuntimeError) as raised:
+        publish(device=phone_on_the_publication("editor"))
+
+    assert raised.value is crash
+    assert ("error", "[exit] the way out of the publication raised (adb: device offline) after: "
+                     "uiautomator server gone") in publish.notes.logs
 
 
 # --- what the publication leaves in the camera folder --------------------------------------------
