@@ -27,9 +27,9 @@ def _nav(tab_results, search_bar=(False,)):
     nav.selectors = _Sel()
     nav._is_search_screen = lambda: True
     taps, bars = iter(tab_results), iter(search_bar)
-    nav.tab_calls = nav.backs = nav.opened = nav.home_calls = 0
+    nav.tab_calls = nav.backs = nav.opened = nav.home_calls = nav.misses_reported = 0
 
-    def _tab(selectors, name, emoji, verify):
+    def _tab(selectors, name, emoji, verify, probe=False):
         nav.tab_calls += 1
         return next(taps, tab_results[-1])
 
@@ -40,6 +40,7 @@ def _nav(tab_results, search_bar=(False,)):
     nav.navigate_to_home = lambda: setattr(nav, "home_calls", nav.home_calls + 1) or True
     nav._is_instagram_open = lambda: True
     nav._open_instagram = lambda: setattr(nav, "opened", nav.opened + 1) or True
+    nav._report_selector_miss = lambda *a, **k: setattr(nav, "misses_reported", nav.misses_reported + 1)
     nav.logger = type("L", (), {"warning": lambda *a, **k: None, "debug": lambda *a, **k: None})()
     return nav
 
@@ -78,6 +79,7 @@ def test_it_never_backs_more_than_three_screens():
     nav = _nav([False])
     assert nav.navigate_to_search() is False
     assert nav.backs == 3
+    assert nav.misses_reported == 1
 
 
 def test_brings_instagram_foreground_if_left_the_app():

@@ -22,6 +22,7 @@ SOURCE = inspect.getsource(workflow_helpers.WorkflowHelpers.create_workflow_sess
 
 @pytest.mark.parametrize("action_type,expected", [
     ('interact_with_followers', 'USER'),
+    ('interact_with_profiles', 'PROFILES'),
     ('hashtag', 'HASHTAG'),
     ('post_url', 'POST_URL'),
     ('feed', 'FEED'),

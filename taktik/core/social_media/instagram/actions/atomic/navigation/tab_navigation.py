@@ -80,12 +80,18 @@ class TabNavigationMixin(BaseAction):
         return False
 
     def navigate_to_search(self) -> bool:
+        """The search screen, by its tab, or Back after Back until it or the tab shows.
+
+        Every look for the tab is a probe, as on the way home (`navigate_to_home`): only the way
+        that ends without the search says so, once, with its screen kept."""
+        started = time.time()
         # The search screen may already be up: the results of an earlier search, which Instagram
         # 447 shows without the tab bar. Its own bar says so; the search types into it as it is.
         if self._is_search_bar_shown():
             self.logger.debug("🔍 Already on the search screen")
             return True
-        if self._navigate_to_tab(self.selectors.search_tab, "search screen", "🔍", self._is_search_screen):
+        if self._navigate_to_tab(self.selectors.search_tab, "search screen", "🔍", self._is_search_screen,
+                                 probe=True):
             return True
 
         # The search tab lives in the BOTTOM NAV BAR. If we're parked on a fullscreen surface that
@@ -97,14 +103,18 @@ class TabNavigationMixin(BaseAction):
         # tab bar all four, and the three Backs of the way home ended on those results, which nothing
         # then recognised (cold DM from a likers run, 2026-10-24). If a stray back dropped us to the
         # launcher, bring Instagram back to the foreground first.
-        self.logger.warning("🔍 Search tab not found — backing out to the search screen or the tab bar")
+        self.logger.debug("🔍 Search tab not found — backing out to the search screen or the tab bar")
         if not self._is_instagram_open():
             self._open_instagram()
             if self._is_search_bar_shown() or self._navigate_to_tab(
-                    self.selectors.search_tab, "search screen", "🔍", self._is_search_screen):
+                    self.selectors.search_tab, "search screen", "🔍", self._is_search_screen, probe=True):
                 return True
-        return self._back_out_until(lambda: self._is_search_bar_shown() or self._navigate_to_tab(
-            self.selectors.search_tab, "search screen", "🔍", self._is_search_screen))
+        if self._back_out_until(lambda: self._is_search_bar_shown() or self._navigate_to_tab(
+                self.selectors.search_tab, "search screen", "🔍", self._is_search_screen, probe=True)):
+            return True
+        self._report_selector_miss(self.selectors.search_tab, timeout=3,
+                                   elapsed_ms=round((time.time() - started) * 1000))
+        return False
 
     def _back_out_until(self, arrived, max_backs: int = 3) -> bool:
         """One real Back at a time, at most `max_backs` screens left, until `arrived()` answers True

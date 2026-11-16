@@ -1,8 +1,8 @@
 """`get_conversation_info` reads the group member count once, without waiting for it.
 
 A one-to-one conversation has no member count, so the former polled read waited out its whole
-timeout on every call: in the DM workflow's conversation read and in the send guard
-`is_conversation_with`. The answer is unchanged; only the wait goes.
+timeout on every call of the DM workflow's conversation read. The answer is unchanged; only the
+wait goes.
 """
 
 import types

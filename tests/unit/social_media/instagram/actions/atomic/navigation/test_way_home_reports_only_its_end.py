@@ -1,14 +1,17 @@
-"""The way home looks for the home tab after each Back without a warning nor a screen kept.
+"""The way home, and the way back to the search, look for their tab after each Back without a
+warning nor a screen kept.
 
 Measured on a Pixel 6a (Instagram 447, French), 2026-10-25, after a cold DM that went through:
 from the conversation, the way home (`navigate_to_home`) looked for the home tab, missed it, pressed
 Back, looked again... Each look that missed logged "No element found after 3s" as a warning and kept
 a capture of the screen: four per DM, while a screen without the tab bar is exactly what the way
 expects until it gets home. Only a way that ends without home is worth a warning and a capture.
+The way back to the search (`navigate_to_search`) backs out the same way and kept the same noise
+at each Back until it was given the same mechanism: every look is a probe, its end says so once.
 
 The screens are real dumps of that phone, anonymized, in the order a Back leaves them after a cold
 DM: the conversation with the keyboard up, the same without it, the profile opened from the search,
-the search results, and the home feed. The phone is uiautomator2's own xpath engine behind the
+the search results (where the way back to the search arrives), and the home feed. The phone is uiautomator2's own xpath engine behind the
 facade production mounts; a Back shows the next screen.
 """
 
@@ -81,7 +84,7 @@ class _Phone:
 
 
 @pytest.fixture
-def way_home(monkeypatch):
+def way(monkeypatch):
     import time
 
     clock = _Clock()
@@ -95,29 +98,46 @@ def way_home(monkeypatch):
     sink = logger.add(lambda message: warnings.append(message.record["message"]), level="WARNING")
     set_active_locale("fr")
 
-    def run(last):
+    def run(destination, last):
         phone = _Phone(last)
         nav = NavigationActions(DeviceFacade(CloneAwareDeviceProxy(phone, IG)))
         nav.logger = logger
-        return nav.navigate_to_home(), phone, warnings, kept
+        return getattr(nav, destination)(), phone, warnings, kept
 
     yield run
     logger.remove(sink)
     set_active_locale(None)
 
 
-def test_a_way_home_that_arrives_says_nothing_and_keeps_no_screen(way_home):
-    arrived, phone, warnings, kept = way_home(last=len(SCREENS) - 1)
+def test_a_way_home_that_arrives_says_nothing_and_keeps_no_screen(way):
+    arrived, phone, warnings, kept = way("navigate_to_home", last=len(SCREENS) - 1)
 
     assert arrived is True
     assert phone.backs == 4  # the keyboard, the conversation, the profile, the search results
     assert warnings == [] and kept == []
 
 
-def test_a_way_home_that_ends_without_home_says_so_once_with_its_screen(way_home):
-    arrived, phone, warnings, kept = way_home(last=len(SCREENS) - 2)  # the search results, at most
+def test_a_way_home_that_ends_without_home_says_so_once_with_its_screen(way):
+    arrived, phone, warnings, kept = way("navigate_to_home", last=len(SCREENS) - 2)  # the search results, at most
 
     assert arrived is False
     assert phone.backs == 4
+    assert [w for w in warnings if "No element found" in w] == ["🚫 No element found after 3s"]
+    assert kept == [1]
+
+
+def test_a_way_back_to_the_search_that_arrives_says_nothing_and_keeps_no_screen(way):
+    arrived, phone, warnings, kept = way("navigate_to_search", last=len(SCREENS) - 2)
+
+    assert arrived is True
+    assert phone.backs == 3  # the keyboard, the conversation, the profile: the search results
+    assert warnings == [] and kept == []
+
+
+def test_a_way_back_to_the_search_that_ends_without_it_says_so_once_with_its_screen(way):
+    arrived, phone, warnings, kept = way("navigate_to_search", last=len(SCREENS) - 3)  # the profile, at most
+
+    assert arrived is False
+    assert phone.backs == 4  # the keyboard, then the three screens a way backs out at most
     assert [w for w in warnings if "No element found" in w] == ["🚫 No element found after 3s"]
     assert kept == [1]

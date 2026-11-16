@@ -327,6 +327,10 @@ class WorkflowHelpers:
             # action type -> (target_type, key holding the target, or None when there is none)
             _ACTION_TARGETS = {
                 'interact_with_followers': ("USER", 'target_username'),
+                # The hand-picked accounts are the profiles visited, not a source whose lists
+                # are walked: never USER, which the app reads as a source. The first one names
+                # the session, as the first hashtag names a run on several.
+                'interact_with_profiles': ("PROFILES", 'target_username'),
                 'hashtag': ("HASHTAG", 'hashtag'),
                 'post_url': ("POST_URL", 'post_url'),
                 # No target: the run works on our own feed / our own following list.
@@ -355,6 +359,10 @@ class WorkflowHelpers:
                     for action in steps_or_actions:
                         mapping = _ACTION_TARGETS.get(action.get('type'))
                         if not mapping:
+                            self.logger.warning(
+                                f"Unmapped action type '{action.get('type')}' for the session label — "
+                                f"skipped. Add it to _ACTION_TARGETS."
+                            )
                             continue
                         target_type, target_key = mapping
                         target = action.get(target_key, 'unknown') if target_key else target_type.lower()
