@@ -661,6 +661,15 @@ STRINGS: Dict[str, List[str]] = {
         "access your contacts",
         "sync contacts",
     ],
+    # Bare LABEL fragments: the questions of Android's permission prompt that the check of pages
+    # grants (any other, contacts or location, is refused by Back). Android's wording, none
+    # captured in English yet (the French ones are, on Android 12).
+    "popup.permission_prompt_granted_questions": [
+        "take pictures",
+        "record audio",
+        "access photos",
+        "send you notifications",
+    ],
     # "popup.account_challenge_texts": to capture. The English account check (challenge screen)
     # was never read on a phone, so no headline is written here; its activity proves it in every
     # language (`ProblematicPageSelectors.account_challenge_activities`).

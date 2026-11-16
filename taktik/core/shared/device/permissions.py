@@ -490,14 +490,14 @@ def allow_prompts_this_time_only(
         )
         if photo is None or not photo.exists(sel.prompt):
             return OneTimeAnswer(answered, "", question)
-        question = _question(photo)
+        question = prompt_question(photo)
         if not photo.exists(sel.allow_one_time):
             photo = facade.wait_for_snapshot(lambda p: p.exists(sel.allow_one_time), choice_wait_s)
             if photo is None:
                 say("warning", f"Permission prompt without 'only this time', left unanswered: {question}")
                 return OneTimeAnswer(answered, NO_ONE_TIME_CHOICE, question)
         button = photo.first(sel.allow_one_time)
-        _reaction_pause()
+        pause_to_read_prompt()
         if button is None or not button.bounds or not facade.human_tap(button.bounds):
             return OneTimeAnswer(answered, TAP_FAILED, question)
         answered += 1
@@ -505,21 +505,21 @@ def allow_prompts_this_time_only(
         facade.invalidate_snapshot()
         # This prompt goes: closed, or replaced by the next question.
         facade.wait_for_snapshot(
-            lambda p, asked=question: not p.exists(sel.prompt) or _question(p) != asked,
+            lambda p, asked=question: not p.exists(sel.prompt) or prompt_question(p) != asked,
             settle_s,
         )
     still = facade.wait_for_snapshot(lambda p: p.exists(sel.prompt), 0.0)
     if still is not None:
-        return OneTimeAnswer(answered, TOO_MANY_PROMPTS, _question(still))
+        return OneTimeAnswer(answered, TOO_MANY_PROMPTS, prompt_question(still))
     return OneTimeAnswer(answered, "", question)
 
 
-def _question(photo) -> str:
+def prompt_question(photo) -> str:
     node = photo.first(PERMISSION_PROMPT_SELECTORS.message)
     return node.text if node is not None else ""
 
 
-def _reaction_pause() -> None:
+def pause_to_read_prompt() -> None:
     # A person reads the prompt before answering it.
     time.sleep(random.uniform(0.6, 1.5))
 

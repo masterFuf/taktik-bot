@@ -11,7 +11,9 @@ from taktik.core.shared.diagnostics.ui_dump_files import dump_ui_hierarchy, capt
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.device.app_inspection import foreground_activity
 from taktik.core.shared.device.facade import as_device_facade
+from taktik.core.shared.device.permissions import pause_to_read_prompt, prompt_question
 from taktik.core.shared.device.snapshot import SnapshotUnavailable
+from taktik.core.shared.ui.selectors.system.permission_prompt import PERMISSION_PROMPT_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors import POPUP_SELECTORS, PROBLEMATIC_PAGE_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.locales import L_all, active_locale, available_locales
 
@@ -161,7 +163,7 @@ class ProblematicPageDetector:
         # An Instagram alert that reaches the rate-limit threshold is decided HERE, before
         # the patterns: on its ids alone it used to be "closed" by its primary button (the
         # contacts request: address book uploaded), or to fall to the Android permission
-        # pattern, which taps "Allow".
+        # pattern, which then read words (« Autoriser ») and tapped "Allow".
         handled = self._handle_instagram_alert(ui_content)
         if handled is not None:
             return handled
@@ -223,8 +225,12 @@ class ProblematicPageDetector:
         return self._outcome(page_type, closed=closed, soft_ban=is_soft_ban)
 
     def _matches(self, ui_content: str, config: dict) -> bool:
-        """Is this pattern's page on screen? Its surface ids first, when it names some: words
+        """Is this pattern's page on screen? A window of Android is proven by its system ids
+        alone (`system_xpaths`). Otherwise its surface ids first, when it names some: words
         found anywhere also sit on a profile or a feed behind no sheet at all."""
+        system_xpaths = config.get('system_xpaths')
+        if system_xpaths:
+            return self.device.snapshot_of(ui_content).exists(system_xpaths)
         surface_ids = config.get('surface_ids')
         if surface_ids and not _has_surface(ui_content, surface_ids):
             return False
@@ -357,9 +363,35 @@ class ProblematicPageDetector:
         return self._click_button_from_selectors(
             PROBLEMATIC_PAGE_SELECTORS.ok_button_selectors, "OK")
 
-    def _close_via_allow_permission(self) -> bool:
-        return self._click_button_from_selectors(
-            PROBLEMATIC_PAGE_SELECTORS.allow_permission_button_selectors, "Allow permission")
+    def _close_via_permission_answer(self) -> bool:
+        """Android's permission prompt: granted when the bot works with what it asks (decision of
+        2026-11-16), refused by Back otherwise, and the log says which.
+
+        Granted: a question of `permission_prompt_granted_questions` (camera, microphone, photos,
+        notifications), by the first button of `PERMISSION_PROMPT_SELECTORS.grant`: « Uniquement
+        cette fois-ci » for the camera and the microphone, as the publishing workflow answers
+        them, the whole gallery when Android offers it. Refused by Back: any other question
+        (contacts, location...), one we cannot read, or a prompt without a grant button.
+        """
+        photo = self.device.snapshot_of(self._get_ui_content("permission prompt"))
+        question = prompt_question(photo)
+        granted_questions = PROBLEMATIC_PAGE_SELECTORS.permission_prompt_granted_questions
+        if not any(fragment.lower() in question.lower() for fragment in granted_questions):
+            return self._refuse_permission_by_back(question, "not a permission the bot works with")
+        button = photo.first(PERMISSION_PROMPT_SELECTORS.grant)
+        if button is None or not button.bounds:
+            return self._refuse_permission_by_back(question, "no button that grants it")
+        pause_to_read_prompt()
+        if not self.device.human_tap(button.bounds):
+            logger.error(f"Android permission prompt: the tap on its grant button failed: {question!r}")
+            return False
+        logger.info(f"Android permission granted ({button.resource_id.rsplit('/', 1)[-1]}): {question!r}")
+        return True
+
+    def _refuse_permission_by_back(self, question: str, reason: str) -> bool:
+        logger.warning(f"Android permission prompt refused by Back ({reason}): {question!r}")
+        self.device.press("back")
+        return True
 
     def _close_via_ad_consent(self) -> bool:
         """Popup de consentement publicitaire Meta : deux pages (choix, puis accord)."""
@@ -380,7 +412,7 @@ class ProblematicPageDetector:
             'swipe_down_handle': lambda: self._close_via_sheet_drag(page_type),
             'terminate_button': self._close_via_terminate,
             'ok_button': self._close_via_ok,
-            'allow_permission_button': self._close_via_allow_permission,
+            'answer_permission_prompt': self._close_via_permission_answer,
             'ad_consent_flow': self._close_via_ad_consent,
         }
 

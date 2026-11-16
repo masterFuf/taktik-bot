@@ -48,9 +48,21 @@ class PermissionPromptSelectors:
     allow_one_time: Tuple[str, ...] = (
         system_id_xpath("permission_allow_one_time_button", CONTROLLER_PACKAGES),
     )
+    # The button the check of pages grants with (decision of 2026-11-16), the first one present
+    # wins. Never "While using the app" (a lasting grant where "only this time" is offered), never
+    # the limited photo access (a post must see its media), never a refusal.
+    grant: Tuple[str, ...] = (
+        # « Tout autoriser », the whole gallery, Android 14+: Android's own id, not captured yet.
+        system_id_xpath("permission_allow_all_button", CONTROLLER_PACKAGES),
+        # « Uniquement cette fois-ci », camera and microphone (Android 12 captures).
+        system_id_xpath("permission_allow_one_time_button", CONTROLLER_PACKAGES),
+        # « Autoriser » when it is the only grant: the package installer (« AUTORISER », capture),
+        # notifications and the gallery of Android 13 (not captured yet).
+        system_id_xpath("permission_allow_button", _ANY_OWNER),
+    )
 
     def all_xpaths(self) -> Tuple[str, ...]:
-        return self.prompt + self.message + self.allow_one_time
+        return self.prompt + self.message + self.allow_one_time + self.grant
 
 
 PERMISSION_PROMPT_SELECTORS = PermissionPromptSelectors()

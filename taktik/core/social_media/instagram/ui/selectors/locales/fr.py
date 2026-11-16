@@ -656,6 +656,17 @@ STRINGS: Dict[str, List[str]] = {
         "acceder a vos contacts",
         "synchroniser vos contacts",
     ],
+    # Raw LABELS: the questions of Android's permission prompt that the check of pages grants,
+    # what the bot works with (any other, contacts or location, is refused by Back). Android
+    # writes them in the phone's language, read in every locale (`L_all`). Captured on Android 12:
+    # the camera and the microphone; the gallery and notifications are Android's wording, not
+    # captured yet.
+    "popup.permission_prompt_granted_questions": [
+        "prendre des photos",
+        "enregistrer de l'audio",
+        "accéder aux photos",
+        "envoyer des notifications",
+    ],
     # Raw LABELS: the headline of Instagram's account check (its challenge screen), read on a
     # real one (410, Pixel 6 Pro, 2026-10-24: « Confirmez que vous êtes une personne réelle afin
     # d'utiliser votre compte, <compte> »). The second proof, after the screen's activity.

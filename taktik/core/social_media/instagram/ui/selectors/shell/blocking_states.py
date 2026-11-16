@@ -1,7 +1,8 @@
 from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, field
 
-from taktik.core.social_media.instagram.ui.selectors.locales import L
+from taktik.core.shared.ui.selectors.system.permission_prompt import PERMISSION_PROMPT_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.locales import L, L_all
 
 @dataclass
 class ProblematicPageSelectors:
@@ -40,21 +41,15 @@ class ProblematicPageSelectors:
         {'description': 'Ok'}
     ])
     
-    # `com.android.packageinstaller` n'est PAS le paquet qui sert les dialogues de permission sur
-    # les appareils du parc : mesure du 2026-09-03 sur Android 12 et Android 16, c'est
-    # `com.google.android.permissioncontroller`. L'identifiant complet ne resolvait donc rien.
-    # L'ENTREE de l'id (`permission_allow_button`), elle, est posee par le framework et survit au
-    # changement de paquet — d'ou la correspondance partielle, la meme forme que le reste du
-    # catalogue utilise deja pour les ids d'application.
-    allow_permission_button_selectors: List[Dict[str, str]] = field(default_factory=lambda: [
-        {'resourceIdMatches': r'.*:id/permission_allow_button'},
-        {'resourceId': 'com.android.packageinstaller:id/permission_allow_button'},
-        {'text': 'AUTORISER'},
-        {'text': 'ALLOW'},
-        {'text': 'Autoriser'},
-        {'text': 'Allow'},
-    ])
-    
+    # Android's permission prompt is not Instagram's: its ids and its grant buttons live in the
+    # catalogue of Android's own windows (`shared/ui/selectors/system/permission_prompt.py`).
+    @property
+    def permission_prompt_granted_questions(self) -> List[str]:
+        """The questions the check of pages grants, in every language we read: the prompt speaks
+        the phone's language, which is not always Instagram's (a capture shows a French prompt
+        over Instagram in English)."""
+        return L_all('popup.permission_prompt_granted_questions')
+
     # The CANCEL button of an Instagram alert: the one way to dismiss an alert that is not the
     # rate-limit dialog without accepting what it asks (the contacts request's primary button
     # uploads the address book).
@@ -162,10 +157,11 @@ class ProblematicPageSelectors:
             'close_methods': ['swipe_down_handle', 'tap_outside']
         },
         'android_permission_dialog': {
-            'indicators': ['com.android.packageinstaller', 'permission_allow_button', 'permission_deny_button',
-                          'Autoriser', 'AUTORISER', 'Allow', 'ALLOW', 'accéder aux photos',
-                          'access to photos', 'contenus multimédias', 'media files'],
-            'close_methods': ['allow_permission_button', 'back_button']
+            # Proven by the window's system ids, never by words: « Autoriser » is also on
+            # Instagram's own screens (its contacts request), and one such word, compared
+            # lowercased, counted as two indicators (« Autoriser », « AUTORISER »).
+            'system_xpaths': PERMISSION_PROMPT_SELECTORS.prompt,
+            'close_methods': ['answer_permission_prompt']
         },
         'meta_ad_consent': {
             'indicators': ['free of charge with ads', 'gratuitement avec des publicités',
