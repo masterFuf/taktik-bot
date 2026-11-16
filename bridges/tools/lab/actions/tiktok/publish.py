@@ -98,6 +98,16 @@ def remove_sound(a, p):
     return {"success": success, "message": outcome}
 
 
+@action("tt.publish.leave_flow")
+def leave_flow(a, p):
+    """Back out of a publication to the feed, as the upload workflow does after a failure past the
+    gallery (production ``leave_publish_flow``): one back at a time, the screen read after each,
+    the budget of the workflow at most. Taps nothing; success only once the feed was read. Be on
+    the post screen, the editor, the gallery or the camera."""
+    ok = _nav(a).leave_publish_flow(_raw(a), log=_lab_log)
+    return {"success": ok, "message": "feed reached" if ok else "feed not read: TikTok may still be on the publication"}
+
+
 def _lab_log(level: str, message: str) -> None:
     getattr(logger, level)(message)
 
