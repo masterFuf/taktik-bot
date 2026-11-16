@@ -15,8 +15,9 @@ Flow :
   8. Tape "Post" / "Publier"
   9. once TikTok confirmed the publication, delete from the camera folder the file pushed and the
      copy TikTok saved of the video (after a failure, both wait for the purge of a later publish)
-  A failure after the medium was chosen backs out to the feed before the workflow returns
-  (`leave_publish_flow`), so the next launch shows no draft banner.
+  A failure from the Create tap on, a failed step or an exception, backs out to the feed once
+  (`_publish_or_leave`, by `leave_publish_flow`): no camera stays open, and the next launch shows
+  no draft banner. An exception rises unchanged after the way out.
 """
 
 from __future__ import annotations
@@ -199,7 +200,8 @@ class TikTokUploadWorkflow:
 
             published = False
             try:
-                result = self._publish_from_gallery(caption, hashtags, tiktok_pkg)
+                self._start_tiktok(tiktok_pkg)
+                result = self._publish_or_leave(caption, hashtags, tiktok_pkg)
                 published = bool(result.get("success"))
                 return result
             finally:
@@ -211,8 +213,8 @@ class TikTokUploadWorkflow:
     # Publish stage helpers
     # ------------------------------------------------------------------
 
-    def _publish_from_gallery(self, caption: str, hashtags: list[str], tiktok_pkg: str) -> dict:
-        """From a fresh start of TikTok to the confirmed publication of the medium just pushed."""
+    def _start_tiktok(self, tiktok_pkg: str) -> None:
+        """A fresh start of TikTok, up to its feed with the language of the app read."""
         # 4-5. Force-stop TikTok and relaunch — same pattern as automation workflows.
         # TikTokManager.restart() calls device.app_start(pkg, SplashActivity, stop=True),
         # which translates to `am start -S -n pkg/SplashActivity` (fast, non-blocking).
@@ -239,6 +241,36 @@ class TikTokUploadWorkflow:
 
         dismiss_post_popups(self.device, log=_ipc.log)
 
+    def _publish_or_leave(self, caption: str, hashtags: list[str], tiktok_pkg: str) -> dict:
+        """The one way out of the publication, from the Create tap to the end.
+
+        Whatever stops the publication from here leaves TikTok on the camera, the gallery, the
+        editor or the post screen: the camera open keeps the phone busy (the adb link falls again
+        and again while it is in front), and a publication left on the editor or the post screen
+        lays the draft banner over every screen of the next launch. So every failure backs out to
+        the feed once, here: a failed result keeps its motive and says whether the feed was read
+        (`left_publish_flow`); an exception backs out, then rises unchanged. A success is left as
+        it is (TikTok is force-stopped)."""
+        try:
+            result = self._publish_from_create(caption, hashtags, tiktok_pkg)
+        except Exception as failure:
+            try:
+                self._leave_publish_flow()
+            except Exception as exit_error:
+                _ipc.log("error", f"[exit] the way out of the publication raised ({exit_error}) "
+                                  f"after: {failure}")
+            raise
+        if not result["success"]:
+            result["left_publish_flow"] = self._leave_publish_flow()
+        return result
+
+    def _leave_publish_flow(self) -> bool:
+        left = leave_publish_flow(self.device, log=_ipc.log)
+        self._capture("09_after_exit")
+        return left
+
+    def _publish_from_create(self, caption: str, hashtags: list[str], tiktok_pkg: str) -> dict:
+        """From TikTok's feed to the confirmed publication of the medium just pushed."""
         # 6. Tap the create button
         _ipc.status("navigating", "Tapping Create button...")
         if not tap_create_button(self.device, log=_ipc.log):
@@ -266,15 +298,7 @@ class TikTokUploadWorkflow:
             return self._error("gallery_item_not_found", "Could not select media from gallery")
         time.sleep(1.2)  # wait for TikTok to enable the Next button after item selection
         self._capture("04_media_selected")
-
-        # From here a failure leaves TikTok on the editor or the post screen, and the next launch
-        # lays the draft banner over every screen: every failure backs out to the feed first. The
-        # motive stays the failure's; the way out only says whether it reached the feed.
-        result = self._publish_selected_media(caption, hashtags, tiktok_pkg)
-        if not result["success"]:
-            result["left_publish_flow"] = leave_publish_flow(self.device, log=_ipc.log)
-            self._capture("09_after_exit")
-        return result
+        return self._publish_selected_media(caption, hashtags, tiktok_pkg)
 
     def _publish_selected_media(self, caption: str, hashtags: list[str], tiktok_pkg: str) -> dict:
         """From the medium ticked in the gallery to the confirmed publication."""
