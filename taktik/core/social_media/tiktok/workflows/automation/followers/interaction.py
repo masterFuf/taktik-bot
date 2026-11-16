@@ -219,7 +219,7 @@ class VideoInteractionMixin(VideoCommentMixin):
     def _interact_with_current_video(self):
         """Interact with the currently playing video (like, comment, share, favorite)."""
         # A stop asked while the video played (its wait hears it): no gesture at all.
-        if self._halted():
+        if run_halt.arret_demande():
             return
 
         # Check if video is already liked
