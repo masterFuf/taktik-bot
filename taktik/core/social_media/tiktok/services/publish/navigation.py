@@ -5,6 +5,9 @@ from __future__ import annotations
 import time
 from typing import Callable
 
+from loguru import logger
+
+from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_shell
 from taktik.core.social_media.tiktok.services.publish.dialogs import handle_permission_dialog
 from taktik.core.social_media.tiktok.services.publish.editor_sound import (
     SOUND_KEPT,
@@ -36,6 +39,12 @@ SleepFn = Callable[[float], None]
 POST_SCREEN_REACHED = "post_screen_reached"
 POST_SCREEN_NOT_REACHED = "post_screen_not_reached"
 SOUND_NOT_REMOVED = "sound_not_removed"
+
+#: Backs from the post screen to the feed. Measured on 47.0.3 in French: the post screen goes back
+#: to the editor, the editor to the gallery (the medium still ticked), the gallery to the camera,
+#: the camera to the feed, with no question asked and no draft saved. One more for a keyboard left
+#: open over the caption, and one spare.
+PUBLISH_EXIT_BACK_PRESSES = 6
 
 
 def tap_create_button(
@@ -154,6 +163,36 @@ def advance_to_post_screen(
         sleep(1.5)
 
     return POST_SCREEN_REACHED if is_post_screen(device) else POST_SCREEN_NOT_REACHED
+
+
+def leave_publish_flow(
+    device,
+    *,
+    max_back_presses: int = PUBLISH_EXIT_BACK_PRESSES,
+    log: LogFn | None = None,
+) -> bool:
+    """Back out of a publication that stopped half-way, until the feed is read again.
+
+    A publication left open on the editor or the post screen makes TikTok lay the banner
+    « Continuer la modification de cette publication ? » over every screen of the next launch.
+    One back at a time, the screen read after each one (`return_to_tiktok_shell`, the way every
+    workflow gets back to the app's bottom bar), `max_back_presses` at most. True only once the
+    feed was read: a screen that could not be read is never taken for it. Nothing is tapped, no
+    draft is saved or deleted.
+    """
+    try:
+        reached = return_to_tiktok_shell(device, logger=logger, max_back_presses=max_back_presses)
+    except Exception as exc:  # noqa: BLE001 - an adb link that falls mid-way is any exception
+        _log(log, "error", f"[exit] the way out of the publication broke off ({exc}): "
+                           "TikTok may still be on the publication")
+        return False
+    if reached:
+        _log(log, "info", "[exit] back on the feed: the publication is left")
+    else:
+        _log(log, "error", f"[exit] the feed was not read after {max_back_presses} back(s) at most "
+                           "(screen unreadable or still in the publication): TikTok may still be "
+                           "on the publication")
+    return reached
 
 
 def _log(log: LogFn | None, level: str, message: str) -> None:

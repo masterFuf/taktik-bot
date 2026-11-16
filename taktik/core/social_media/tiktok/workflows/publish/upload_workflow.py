@@ -15,6 +15,8 @@ Flow :
   8. Tape "Post" / "Publier"
   9. once TikTok confirmed the publication, delete from the camera folder the file pushed and the
      copy TikTok saved of the video (after a failure, both wait for the purge of a later publish)
+  A failure after the medium was chosen backs out to the feed before the workflow returns
+  (`leave_publish_flow`), so the next launch shows no draft banner.
 """
 
 from __future__ import annotations
@@ -59,6 +61,7 @@ from taktik.core.social_media.tiktok.services.publish.navigation import (
     SOUND_NOT_REMOVED,
     advance_to_post_screen,
     ensure_gallery_picker_open,
+    leave_publish_flow,
     select_first_gallery_item,
     tap_create_button,
     tap_upload_button,
@@ -264,6 +267,17 @@ class TikTokUploadWorkflow:
         time.sleep(1.2)  # wait for TikTok to enable the Next button after item selection
         self._capture("04_media_selected")
 
+        # From here a failure leaves TikTok on the editor or the post screen, and the next launch
+        # lays the draft banner over every screen: every failure backs out to the feed first. The
+        # motive stays the failure's; the way out only says whether it reached the feed.
+        result = self._publish_selected_media(caption, hashtags, tiktok_pkg)
+        if not result["success"]:
+            result["left_publish_flow"] = leave_publish_flow(self.device, log=_ipc.log)
+            self._capture("09_after_exit")
+        return result
+
+    def _publish_selected_media(self, caption: str, hashtags: list[str], tiktok_pkg: str) -> dict:
+        """From the medium ticked in the gallery to the confirmed publication."""
         # 8. Tap Next up to the post screen, taking off the sound TikTok attached to the video
         _ipc.status("navigating", "Navigating to post screen...")
         reached = advance_to_post_screen(self.device, log=_ipc.log)
