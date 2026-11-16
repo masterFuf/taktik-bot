@@ -2,7 +2,8 @@
 
 `merge_invocation_payload` lays the step's own params over the payload the executor carries;
 `value_param` reads a parameter under the first of its names that is set; `text_param` under the
-first of its names that holds text; `package_name_from_payload` the app package a run starts.
+first of its names that holds text, and `required_text_param` the same text a run cannot go
+without; `package_name_from_payload` the app package a run starts.
 """
 
 from __future__ import annotations
@@ -39,6 +40,14 @@ def text_param(payload: Mapping[str, Any], *names: str) -> Optional[str]:
         if text:
             return text
     return None
+
+
+def required_text_param(payload: Mapping[str, Any], *names: str, message: str) -> str:
+    """`text_param`, refused when none of `names` holds text: ValueError with the handler's `message`."""
+    text = text_param(payload, *names)
+    if text is None:
+        raise ValueError(message)
+    return text
 
 
 def package_name_from_payload(payload: Mapping[str, Any]) -> Optional[str]:

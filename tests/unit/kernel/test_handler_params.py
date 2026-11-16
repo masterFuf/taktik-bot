@@ -19,6 +19,7 @@ from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.handler_params import (
     merge_invocation_payload,
     package_name_from_payload,
+    required_text_param,
     text_param,
     value_param,
 )
@@ -91,6 +92,30 @@ def test_text_param_reads_the_first_name_with_text_spaces_dropped():
     assert text_param({"a": None, "b": "  ", "c": " x "}, "a", "b", "c") == "x"
     assert text_param({"a": 7}, "a") == "7"
     assert text_param({"a": ""}, "a", "b") is None
+
+
+@pytest.mark.parametrize("payload", [{}, {"a": None}, {"a": ""}, {"a": "   "}, {"a": "", "b": " "}])
+def test_required_text_param_refuses_a_payload_without_text_in_the_handler_words(payload):
+    with pytest.raises(ValueError) as refused:
+        required_text_param(payload, "a", "b", message="Login requires a")
+    assert str(refused.value) == "Login requires a"
+
+
+def test_required_text_param_reads_like_text_param():
+    assert required_text_param({"a": "", "b": " x "}, "a", "b", message="unused") == "x"
+    assert required_text_param({"a": 7}, "a", message="unused") == "7"
+
+
+def test_no_handler_keeps_its_own_copy_of_the_text_rule():
+    # Gmail, YouTube, Instagram and TikTok each had their own `_required_string`, Gmail and
+    # YouTube their `_optional_string`, with rules that differed. The rule lives here alone.
+    copies = []
+    for path in sorted((CORE / "taktik").rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8-sig"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name in {"_required_string", "_optional_string"}:
+                copies.append(f"{path.relative_to(CORE).as_posix()}::{node.name}")
+    assert copies == []
 
 
 CLONE = "com.example.clone"
