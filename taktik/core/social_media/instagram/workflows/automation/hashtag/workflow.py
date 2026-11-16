@@ -270,18 +270,26 @@ class HashtagBusiness(
                 except Exception as exc:
                     self.logger.debug(f"Failed to send current_post: {exc}")
 
+                # A post of the account the run acts as: nothing is done on it, not even a walk
+                # of its likers. Counted with the posts a filter left out, said with the reason
+                # the likers loop gives that account.
+                skip_reason, skip_counter = None, None
+                if self._is_own_account(author):
+                    skip_reason, skip_counter = "own_account", 'already_filtered'
                 # Same 7-day guard as the likers mode: a post we already engaged must not be
                 # engaged twice, and re-liking a liked post would UNLIKE it.
-                if InstagramHashtagPostService.is_processed(
+                elif InstagramHashtagPostService.is_processed(
                     hashtag=hashtag, post_author=author,
                     post_caption_hash=(metadata or {}).get('caption_hash'),
                     account_id=account_id, hours_limit=168,
                 ):
-                    self.logger.info(f"⏭️ Post by @{author} already processed, next post")
-                    stats['already_processed'] = stats.get('already_processed', 0) + 1
+                    skip_reason, skip_counter = "already_processed", 'already_processed'
+                if skip_reason and skip_counter:
+                    self.logger.info(f"⏭️ Post by @{author} passed ({skip_reason}), next post")
+                    stats[skip_counter] = stats.get(skip_counter, 0) + 1
                     try:
                         IPCEmitter.emit_post_skipped(
-                            author=author, reason="already_processed", hashtag=hashtag,
+                            author=author, reason=skip_reason, hashtag=hashtag,
                         )
                     except Exception as exc:
                         self.logger.debug(f"Failed to send post_skipped: {exc}")
