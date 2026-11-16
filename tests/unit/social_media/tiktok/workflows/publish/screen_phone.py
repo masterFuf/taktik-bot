@@ -17,6 +17,26 @@ from unit.paths import CORE
 
 FIXTURES = CORE / "tests/unit/social_media/tiktok/fixtures"
 
+#: The way out of a publication on TikTok 47.0.3 in French (`test_tiktok_publish_exit`): the post
+#: screen of 2026-09-27, the editor, the gallery and the camera as each back left them on
+#: 2026-11-15, the feed with and without the draft banner.
+EXIT_SCREENS = {
+    "post_screen": "tt4703_fr_publish_post_screen.xml",
+    "editor": "tt4703_fr_publish_exit_editor.xml",
+    "gallery": "tt4703_fr_publish_exit_gallery.xml",
+    "camera": "tt4703_fr_publish_exit_camera.xml",
+    "feed": "tt4703_fr_home.xml",
+    "feed_under_banner": "tt4703_fr_draft_banner_for_you.xml",
+}
+
+#: Each back as the phone answered it, from the post screen down to the feed.
+EXIT_BACKS = {
+    ("post_screen", "back"): "editor",
+    ("editor", "back"): "gallery",
+    ("gallery", "back"): "camera",
+    ("camera", "back"): "feed",
+}
+
 
 class Tap:
     def __init__(self, x: int, y: int, screen: str, rid: str, bounds: str):

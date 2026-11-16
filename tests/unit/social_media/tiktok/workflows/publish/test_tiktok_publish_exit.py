@@ -20,25 +20,7 @@ from taktik.core.social_media.tiktok.services.publish.navigation import (
     leave_publish_flow,
 )
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
-from screen_phone import ScreenPhone
-
-SCREENS = {
-    "post_screen": "tt4703_fr_publish_post_screen.xml",
-    "editor": "tt4703_fr_publish_exit_editor.xml",
-    "gallery": "tt4703_fr_publish_exit_gallery.xml",
-    "camera": "tt4703_fr_publish_exit_camera.xml",
-    "feed": "tt4703_fr_home.xml",
-    "feed_under_banner": "tt4703_fr_draft_banner_for_you.xml",
-}
-
-#: Each back as the phone answered it, from the post screen down to the feed.
-BACKS = {
-    ("post_screen", "back"): "editor",
-    ("editor", "back"): "gallery",
-    ("gallery", "back"): "camera",
-    ("camera", "back"): "feed",
-}
-
+from screen_phone import EXIT_BACKS as BACKS, EXIT_SCREENS as SCREENS, ScreenPhone
 
 @pytest.fixture(autouse=True)
 def phone_4703_in_french(monkeypatch):

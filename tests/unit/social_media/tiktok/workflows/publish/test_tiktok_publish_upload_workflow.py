@@ -13,8 +13,7 @@ from taktik.core.social_media.tiktok.services.publish.navigation import POST_SCR
 from taktik.core.social_media.tiktok.ui import language
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.tiktok.workflows.publish import upload_workflow as module
-from screen_phone import ScreenPhone
-from test_tiktok_publish_exit import BACKS, SCREENS
+from screen_phone import EXIT_BACKS as BACKS, EXIT_SCREENS as SCREENS, ScreenPhone
 
 PUSHED = "/sdcard/DCIM/Camera/VID_20260928_010000.mp4"
 SAVED_IN_JUNE = {"path": "/storage/emulated/0/DCIM/Camera/2026-06-11-010830653.mp4", "size": 8172575}
