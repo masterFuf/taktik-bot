@@ -12,6 +12,8 @@ from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.kernel.handler_params import (
     merge_invocation_payload,
+    required_text_param,
+    text_param,
     value_param,
 )
 from taktik.core.social_media.gmail.workflows.account import GmailWorkflow
@@ -136,24 +138,24 @@ def gmail_account_params(workflow_id: str, payload: Mapping[str, Any]) -> dict[s
 def login_params_from_payload(payload: Mapping[str, Any]) -> dict[str, str]:
     """`gmail.account.login`: the Google account to add to the phone."""
     return {
-        "email": _required_string(payload, "email", message="Gmail login requires email"),
-        "password": _required_string(payload, "password", message="Gmail login requires password"),
+        "email": required_text_param(payload, "email", message="Gmail login requires email"),
+        "password": required_text_param(payload, "password", message="Gmail login requires password"),
     }
 
 
 def logout_params_from_payload(payload: Mapping[str, Any]) -> dict[str, str]:
     """`gmail.account.logout`: the Google account to remove."""
     return {
-        "email": _required_string(payload, "email", message="Gmail logout requires email"),
+        "email": required_text_param(payload, "email", message="Gmail logout requires email"),
     }
 
 
 def read_otp_params_from_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     """`gmail.account.read_otp`: whose inbox, which mail, and how long to wait for it."""
     return {
-        "email": _required_string(payload, "email", message="Gmail read_otp requires email"),
-        "sender_filter": _optional_string(payload, "senderFilter", "sender_filter"),
-        "subject_filter": _optional_string(payload, "subjectFilter", "subject_filter"),
+        "email": required_text_param(payload, "email", message="Gmail read_otp requires email"),
+        "sender_filter": text_param(payload, "senderFilter", "sender_filter"),
+        "subject_filter": text_param(payload, "subjectFilter", "subject_filter"),
         # A zero or empty timeout waits the default time rather than not at all.
         "timeout": int(value_param(payload, "timeout", default=None) or 120),
     }
@@ -170,18 +172,3 @@ _READERS = {
     GMAIL_ACCOUNT_READ_OTP_WORKFLOW_ID: read_otp_params_from_payload,
     GMAIL_ACCOUNT_SCAN_ACCOUNTS_WORKFLOW_ID: scan_accounts_params_from_payload,
 }
-
-
-def _required_string(payload: Mapping[str, Any], *names: str, message: str) -> str:
-    value = _optional_string(payload, *names)
-    if not value:
-        raise ValueError(message)
-    return value
-
-
-def _optional_string(payload: Mapping[str, Any], *names: str) -> str | None:
-    value = value_param(payload, *names, default=None)
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None

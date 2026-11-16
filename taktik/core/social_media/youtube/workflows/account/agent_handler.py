@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any, Callable, Mapping
 
 from taktik.core.kernel.contracts import WorkflowInvocation
-from taktik.core.kernel.handler_params import merge_invocation_payload
+from taktik.core.kernel.handler_params import merge_invocation_payload, required_text_param, text_param
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.youtube.workflows.account.account_workflow import (
     YouTubeAccountWorkflow,
@@ -113,31 +113,18 @@ def youtube_account_params(workflow_id: str, payload: Mapping[str, Any]) -> dict
 def login_params_from_payload(payload: Mapping[str, Any]) -> dict[str, str]:
     """`youtube.account.login`: the Google account YouTube signs in with."""
     return {
-        "email": _required_string(payload, "email", message="YouTube login requires email"),
-        "password": _optional_string(payload, "password"),
+        "email": required_text_param(payload, "email", message="YouTube login requires email"),
+        # The workflow takes "" for no password (the account is already on the phone).
+        "password": text_param(payload, "password") or "",
     }
 
 
 def logout_params_from_payload(payload: Mapping[str, Any]) -> dict[str, str]:
     """`youtube.account.logout`: the account to sign out; empty, the one signed in."""
-    return {"email": _optional_string(payload, "email")}
+    return {"email": text_param(payload, "email") or ""}
 
 
 _READERS = {
     YOUTUBE_ACCOUNT_LOGIN_WORKFLOW_ID: login_params_from_payload,
     YOUTUBE_ACCOUNT_LOGOUT_WORKFLOW_ID: logout_params_from_payload,
 }
-
-
-def _required_string(payload: Mapping[str, Any], name: str, *, message: str) -> str:
-    value = _optional_string(payload, name)
-    if not value:
-        raise ValueError(message)
-    return value
-
-
-def _optional_string(payload: Mapping[str, Any], name: str) -> str:
-    value = payload.get(name)
-    if value is None:
-        return ""
-    return str(value).strip()

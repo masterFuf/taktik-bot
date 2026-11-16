@@ -19,7 +19,12 @@ from typing import Any, Callable, Mapping, Optional
 from loguru import logger
 
 from taktik.core.kernel.contracts import WorkflowInvocation
-from taktik.core.kernel.handler_params import merge_invocation_payload, package_name_from_payload, text_param
+from taktik.core.kernel.handler_params import (
+    merge_invocation_payload,
+    package_name_from_payload,
+    required_text_param,
+    text_param,
+)
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.instagram.workflows.account.change_language_workflow import (
     ChangeLanguageWorkflow,
@@ -127,8 +132,8 @@ def instagram_account_params(workflow_id: str, payload: Mapping[str, Any]) -> di
 def login_params_from_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     """`instagram.account.login`: the credentials and how the session is kept."""
     return {
-        "username": _required_string(payload, "username", message="Instagram login requires username"),
-        "password": _required_string(payload, "password", message="Instagram login requires password"),
+        "username": required_text_param(payload, "username", message="Instagram login requires username"),
+        "password": required_text_param(payload, "password", message="Instagram login requires password"),
         "max_retries": _int_param(payload, "maxRetries", "max_retries", default=3),
         "save_session": _bool_param(payload, "saveSession", "save_session", default=True),
         "use_saved_session": _bool_param(payload, "useSavedSession", "use_saved_session", default=True),
@@ -161,14 +166,14 @@ def register_params_from_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
 def change_language_params_from_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     """`instagram.account.change_language`: the target app language code."""
     return {
-        "language": _required_string(payload, "language", message="language is required for change_language"),
+        "language": required_text_param(payload, "language", message="language is required for change_language"),
     }
 
 
 def switch_account_params_from_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     """`instagram.account.switch_account`: the account to switch to."""
     return {
-        "target_username": _required_string(
+        "target_username": required_text_param(
             payload, "targetUsername", "target_username",
             message="targetUsername is required for switch_account",
         ),
@@ -262,13 +267,6 @@ def _status(on_status: Optional[StatusCallback], state: str, message: str) -> No
 
 def _log_status(state: str, message: str) -> None:
     logger.info(f"[{state}] {message}")
-
-
-def _required_string(payload: Mapping[str, Any], *names: str, message: str) -> str:
-    value = text_param(payload, *names)
-    if not value:
-        raise ValueError(message)
-    return value
 
 
 def _string_param(payload: Mapping[str, Any], name: str, *, default: str) -> str:

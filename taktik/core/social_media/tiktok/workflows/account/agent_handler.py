@@ -18,6 +18,7 @@ from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.kernel.handler_params import (
     merge_invocation_payload,
     package_name_from_payload,
+    required_text_param,
     text_param,
     value_param,
 )
@@ -106,8 +107,8 @@ def tiktok_account_params(workflow_id: str, payload: Mapping[str, Any]) -> dict[
 def login_params_from_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     """`tiktok.account.login`: the credentials and how the session is kept."""
     return {
-        "username": _required_string(payload, "username", message="TikTok login requires username"),
-        "password": _required_string(payload, "password", message="TikTok login requires password"),
+        "username": required_text_param(payload, "username", message="TikTok login requires username"),
+        "password": required_text_param(payload, "password", message="TikTok login requires password"),
         "max_retries": int_param(payload, "maxRetries", "max_retries", default=3),
         "save_session": bool_param(payload, "saveSession", "save_session", default=True),
     }
@@ -144,7 +145,7 @@ def change_language_params_from_payload(payload: Mapping[str, Any]) -> dict[str,
     """`tiktok.account.change_language`: refused rather than defaulted, a missing field must not
     change what the phone speaks."""
     return {
-        "target_language": _required_string(
+        "target_language": required_text_param(
             payload, "targetLanguage", "target_language", "language",
             message="targetLanguage is required (e.g. 'fr', 'en', 'en-US')",
         ),
@@ -231,10 +232,3 @@ def _emit(notifier: Any, method: str, *args: Any) -> None:
     target = getattr(notifier, method, None)
     if callable(target):
         target(*args)
-
-
-def _required_string(payload: Mapping[str, Any], *names: str, message: str) -> str:
-    value = text_param(payload, *names)
-    if not value:
-        raise ValueError(message)
-    return value

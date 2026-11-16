@@ -10,6 +10,7 @@ from taktik.core.social_media.gmail.workflows import (
     GMAIL_ACCOUNT_SCAN_ACCOUNTS_WORKFLOW_ID,
     register_gmail_account_handlers,
 )
+from taktik.core.social_media.gmail.workflows.agent_handler import read_otp_params_from_payload
 
 
 class FakeGmailWorkflow:
@@ -257,3 +258,18 @@ def test_gmail_logout_rejects_missing_email_before_workflow_creation():
         )
 
     assert FakeGmailWorkflow.instances == []
+
+
+def test_an_empty_filter_key_does_not_hide_its_alias():
+    # Gmail read the filters by the first key that is not None: an empty `senderFilter`
+    # hid the `sender_filter` written next to it. The rule of every handler is `text_param`.
+    params = read_otp_params_from_payload({
+        "email": "creator@example.com",
+        "senderFilter": "",
+        "sender_filter": "TikTok",
+        "subjectFilter": "  ",
+        "subject_filter": "code",
+    })
+
+    assert params["sender_filter"] == "TikTok"
+    assert params["subject_filter"] == "code"

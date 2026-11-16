@@ -17,7 +17,7 @@ def agent_plan_from_payload(
     if not isinstance(payload, Mapping):
         raise ValueError("Agent plan payload must be an object")
 
-    plan_id = _required_string(payload, "plan_id")
+    plan_id = _required_plan_string(payload, "plan_id")
     steps_payload = payload.get("steps") or []
     if not isinstance(steps_payload, list):
         raise ValueError("Agent plan steps must be a list")
@@ -55,7 +55,7 @@ def _plan_step_from_payload(
         raise ValueError("Agent plan step conditions must be a list")
 
     return PlanStep(
-        step_id=_required_string(payload, "step_id"),
+        step_id=_required_plan_string(payload, "step_id"),
         kind=str(payload.get("kind") or "workflow"),
         workflow=workflow,
         conditions=[str(item) for item in conditions],
@@ -70,8 +70,8 @@ def _workflow_invocation_from_payload(
     if not isinstance(payload, Mapping):
         raise ValueError("Agent workflow invocation must be an object")
 
-    platform = _required_string(payload, "platform")
-    workflow_id = _required_string(payload, "workflow_id")
+    platform = _required_plan_string(payload, "platform")
+    workflow_id = _required_plan_string(payload, "workflow_id")
     if manifest is not None and not manifest.contains(workflow_id):
         raise ValueError(f"Unknown workflow_id: {workflow_id}")
 
@@ -82,7 +82,11 @@ def _workflow_invocation_from_payload(
     )
 
 
-def _required_string(payload: Mapping[str, Any], key: str) -> str:
+def _required_plan_string(payload: Mapping[str, Any], key: str) -> str:
+    """A plan's own field (an id, a platform), not a handler's setting: `text_param` is not its rule.
+
+    The plan is written and read back by code (`agent_plan_to_payload`), so the value is kept as
+    written: a number is refused rather than turned into text, and no space is dropped."""
     value = payload.get(key)
     if not isinstance(value, str) or not value:
         raise ValueError(f"Agent plan field '{key}' must be a non-empty string")
