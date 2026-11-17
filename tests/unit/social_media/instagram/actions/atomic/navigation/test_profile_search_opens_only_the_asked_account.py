@@ -29,6 +29,14 @@ went "home" by three Backs, stopped on those results without knowing them, and f
 "Cannot access search screen", nothing sent. The search screen is now the screen of its own bar
 (`search_screen_bar`): used as it is when it is up, and the way back stops on it.
 
+A direct run (`target_profiles`, « Ces comptes ») opens each profile of its list by this search, from
+the screen the profile before it left (the run of 2026-11-17 on Instagram 447, four handles, the third
+one absent). A profile the search opened shows no tab bar on 447: one Back shows the results of its
+own search, the field still holding its handle; the field is emptied, the next handle typed, its row
+opened, and the profile shown is the one asked for, by the handle it shows. An absent handle lists no
+account row: nobody is opened, its deep link opens an empty profile page, and the next handle is
+searched from that page by one Back.
+
 The screens are real (`search_screens_phone.py`): the home feed, Explore, the results, on
 Instagram 410 and 447 in French, with the selectors their version gets at connect. The keyboard is
 not what is tested: it types what it is given. What the profile shows once opened is not either
@@ -55,6 +63,8 @@ from taktik.core.social_media.instagram.actions.base.device.facade import Device
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 
 from search_screens_phone import (
+    DIRECT_RUN,
+    DIRECT_RUN_HANDLES,
     PKG,
     SEARCH_410,
     LEFT_OPEN_STACK,
@@ -70,19 +80,22 @@ from search_screens_phone import (
 
 @pytest.fixture
 def phone_on(monkeypatch):
-    """`phone_on(screens, stack)`: the phone (on the first screen of `stack` when given), its
-    keyboard typing into it, nothing waited for, the selectors of its version; the zones its taps
-    were aimed at in `phone.tap_zones`."""
-    deep_links = []
+    """`phone_on(screens, stack, **phone_options)`: the phone (on the first screen of `stack` when
+    given), its keyboard typing into it and clearing its field, its deep links followed by the phone,
+    nothing waited for, the selectors of its version; the zones its taps were aimed at in
+    `phone.tap_zones`."""
+    played = {}
     versions = ExitStack()
     aimed_human_tap = shared_facade_module.BaseDeviceFacade.human_tap
 
-    def build(screens, stack=()):
-        phone = SearchPhone(screens, stack=stack)
+    def build(screens, stack=(), **phone_options):
+        phone = SearchPhone(screens, stack=stack, **phone_options)
+        played["phone"] = phone
         phone.tap_zones = []
         versions.enter_context(selectors_of(screens))
         monkeypatch.setattr(base_action_module, "ensure_taktik_keyboard", lambda *_a, **_k: True)
-        monkeypatch.setattr(base_action_module, "clear_text_with_taktik_keyboard", lambda *_a, **_k: True)
+        monkeypatch.setattr(base_action_module, "clear_text_with_taktik_keyboard",
+                            lambda *_a, **_k: phone.keyboard_clears() or True)
         monkeypatch.setattr(base_action_module, "type_text_checked",
                             lambda _device, _serial, text, **_k: phone.keyboard_types(text) or True)
 
@@ -91,7 +104,6 @@ def phone_on(monkeypatch):
             return aimed_human_tap(facade, bounds, **kwargs)
 
         monkeypatch.setattr(shared_facade_module.BaseDeviceFacade, "human_tap", human_tap)
-        phone.deep_links = deep_links
         return phone
 
     for module in (facade_module, shared_facade_module, search_navigation, delays_module):
@@ -101,17 +113,19 @@ def phone_on(monkeypatch):
     monkeypatch.setattr(miss_capture, "blocage_a_signaler", lambda: False)
     monkeypatch.setattr(search_navigation, "get_active_package", lambda: PKG)
     monkeypatch.setattr(DeepLinkNavigationMixin, "_navigate_via_deep_link",
-                        lambda _self, username, *a, **k: deep_links.append(username) or False)
+                        lambda _self, username, *a, **k: played["phone"].follows_deep_link(username))
     set_active_locale("fr")
     with versions:
         yield build
     set_active_locale(None)
 
 
-def _navigation(phone, opened):
-    """The production navigation on the device a bridge hands it; the profile check recorded."""
+def _navigation(phone, opened=None):
+    """The production navigation on the device a bridge hands it; the profile check recorded in
+    `opened` when given, the production one (the handle the profile shows) otherwise."""
     nav = NavigationActions(DeviceFacade(CloneAwareDeviceProxy(phone, PKG)))
-    nav._verify_profile_navigation = lambda handle: opened.append(handle) or True
+    if opened is not None:
+        nav._verify_profile_navigation = lambda handle: opened.append(handle) or True
     return nav
 
 
@@ -229,3 +243,45 @@ def test_from_a_likers_sheet_the_way_back_stops_on_the_search_screen(phone_on):
     assert phone.typed == ["name_70"]
     assert phone.rows_tapped() == ["name_70"]
     assert opened == ["name_70"] and phone.deep_links == []
+
+
+def test_a_direct_run_opens_the_next_profile_from_the_profile_it_left(phone_on):
+    """The first profile as the run left it, back from its post: one Back to the results of its own
+    search, the field emptied, the second handle typed, its row opened; the profile shown is the
+    second one, by the handle it shows."""
+    _first, second, _absent, _fourth = DIRECT_RUN_HANDLES
+    phone = phone_on(SEARCH_447, (DIRECT_RUN.profile_left, DIRECT_RUN.results_under_profile_left),
+                     results_of={second: DIRECT_RUN.results_of_next},
+                     opens={second: (DIRECT_RUN.next_profile, DIRECT_RUN.results_under_next_profile)})
+
+    assert _navigation(phone).navigate_to_profile(second) is True
+
+    assert phone.presses == ["back"]
+    assert phone.typed == [second]
+    assert phone.rows_tapped() == [second]
+    assert phone.screen is DIRECT_RUN.next_profile
+    assert phone.deep_links == []
+
+
+def test_an_absent_handle_opens_nobody_and_the_next_one_is_searched_from_its_page(phone_on):
+    """From the second profile, the absent handle: its results list no account row, nobody is opened;
+    its deep link opens an empty profile page. From that page, one Back to the results of the absent
+    handle, the field emptied, the fourth handle typed and opened by its row."""
+    _first, _second, absent, fourth = DIRECT_RUN_HANDLES
+    phone = phone_on(
+        SEARCH_447, (DIRECT_RUN.next_profile, DIRECT_RUN.results_under_next_profile),
+        results_of={absent: DIRECT_RUN.results_of_absent, fourth: DIRECT_RUN.results_after_absent},
+        deep_link_opens={absent: (DIRECT_RUN.deep_link_page_of_absent, DIRECT_RUN.results_under_deep_link_page)},
+        opens={fourth: (DIRECT_RUN.profile_after_absent, None)},
+    )
+    navigation = _navigation(phone)
+
+    assert navigation.navigate_to_profile(absent) is False
+    assert phone.rows_tapped() == [] and phone.deep_links == [absent]
+    assert phone.screen is DIRECT_RUN.deep_link_page_of_absent
+
+    assert navigation.navigate_to_profile(fourth) is True
+    assert phone.presses == ["back", "back"]
+    assert phone.typed == [absent, fourth]
+    assert phone.rows_tapped() == [fourth]
+    assert phone.screen is DIRECT_RUN.profile_after_absent

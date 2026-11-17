@@ -33,12 +33,28 @@ Explore grid with its search bar, then the results Instagram listed for the quer
   (`ig447_fr_profile_under_conversation.xml`), then the results of the search that opened it
   (`ig447_fr_search_results_under_profile.xml`). None of them shows the tab bar. Anonymized together.
 
+- Instagram 447 (same phone, 2026-11-17), a direct run (`target_profiles`) on four handles, the third
+  one an account that does not exist, each screen the bot read on its way (`ig447_fr_direct_*.xml`):
+  the profile of the first handle (`user_1`) as the run left it, back from its only post
+  (`profile_left_after_post`), the results of its search that a Back showed under it
+  (`results_under_profile_left`, the field still holding `user_1`), the results of the second handle
+  (`results_of_next_handle`, `user_5`), its profile (`next_profile`) and the results a Back showed
+  under it (`results_under_next_profile`); then the results of the absent handle (`user_8`,
+  `results_of_absent_handle`: the row of the query itself, no account row), the page its deep link
+  opened (`deep_link_page_of_absent_handle`: an empty profile frame, no handle), the results a Back
+  showed under that page (`results_under_deep_link_page`), the results of the fourth handle
+  (`results_after_absent_handle`, `user_9`) and its profile (`profile_after_absent_handle`).
+  Anonymized together.
+
 The phone moves as Instagram did: a tap on the tab bar's search tab opens Explore, one on its home
 tab shows the home feed, a text typed
 there by the keyboard shows the results, a tap on a keyword row shows the results of that keyword
 (when the phone was given them), a Back shows the screen under the one shown (when the
-phone was given what is under it). Nothing else moves the screen: a tap on a result row is
-recorded and the screen stays (what the profile then shows is another test's). It answers `xpath`
+phone was given what is under it). A phone given the results of each query (`results_of`) shows them
+for what its search field holds: the query of the screen, or what was typed since the field was
+emptied; a query it was not given is no screen to invent. A phone given the profile a row opens
+(`opens`) shows it on a tap on that account row, with what a Back then shows under it. Nothing else
+moves the screen: a tap on a result row is recorded and the screen stays. It answers `xpath`
 through uiautomator2's own engine; the tests put it behind the clone proxy and the facade the
 bridges mount, with the selectors the version of the screens gets at connect (`selectors_of`).
 """
@@ -63,6 +79,7 @@ AVATAR_RING_ID = f"{PKG}:id/row_search_avatar_with_ring"
 FOLLOW_BUTTON_ID = f"{PKG}:id/row_search_user_follow_button"
 SEARCH_TAB_ID = f"{PKG}:id/search_tab"
 HOME_TAB_ID = f"{PKG}:id/feed_tab"
+SEARCH_FIELD_ID = f"{PKG}:id/action_bar_search_edit_text"
 #: What follows the handle in the subtitle of a keyword row: "nasa • 104 M followers".
 KEYWORD_SUBTITLE_SEPARATOR = " • "
 
@@ -96,6 +113,14 @@ def result_rows(screen: str) -> list:
             rows += [("keyword", node.get("text").split(KEYWORD_SUBTITLE_SEPARATOR)[0], _bounds(row.getparent()))
                      for node in row if node.get("resource-id") == KEYWORD_SUBTITLE_ID]
     return rows
+
+
+def search_field_text(screen: str) -> str:
+    """What the search field of `screen` holds (the query of a results screen), "" without one."""
+    for node in etree.fromstring(screen.encode("utf-8")).iter("node"):
+        if node.get("resource-id") == SEARCH_FIELD_ID:
+            return node.get("text") or ""
+    return ""
 
 
 def row_buttons(screen: str) -> list:
@@ -179,6 +204,28 @@ LEFT_OPEN_STACK = (
 )
 
 
+@dataclass(frozen=True)
+class DirectRunScenes:
+    """The screens of the direct run of 2026-11-17 (Pixel 6a, Instagram 447, French), by name."""
+
+    profile_left: str = _capture("ig447_fr_direct_profile_left_after_post.xml")
+    results_under_profile_left: str = _capture("ig447_fr_direct_results_under_profile_left.xml")
+    results_of_next: str = _capture("ig447_fr_direct_results_of_next_handle.xml")
+    next_profile: str = _capture("ig447_fr_direct_next_profile.xml")
+    results_under_next_profile: str = _capture("ig447_fr_direct_results_under_next_profile.xml")
+    results_of_absent: str = _capture("ig447_fr_direct_results_of_absent_handle.xml")
+    deep_link_page_of_absent: str = _capture("ig447_fr_direct_deep_link_page_of_absent_handle.xml")
+    results_under_deep_link_page: str = _capture("ig447_fr_direct_results_under_deep_link_page.xml")
+    results_after_absent: str = _capture("ig447_fr_direct_results_after_absent_handle.xml")
+    profile_after_absent: str = _capture("ig447_fr_direct_profile_after_absent_handle.xml")
+
+
+DIRECT_RUN = DirectRunScenes()
+#: The four handles of that run, as the anonymizer named them: the first, the second, the absent one,
+#: the fourth.
+DIRECT_RUN_HANDLES = ("user_1", "user_5", "user_8", "user_9")
+
+
 class RunningClock:
     """The waits loop on `time.time()`: a clock that runs, and sleeps that do not."""
 
@@ -213,7 +260,7 @@ class SearchPhone:
 
     wait_timeout = 1.0
 
-    def __init__(self, screens: SearchScreens, stack=()):
+    def __init__(self, screens: SearchScreens, stack=(), *, results_of=None, opens=None, deep_link_opens=None):
         self.screens = screens
         self.stack = list(stack)
         self.screen = self.stack.pop(0) if self.stack else screens.home
@@ -223,6 +270,16 @@ class SearchPhone:
         self.button_hits = []
         self.typed = []
         self.presses = []
+        self.deep_links = []
+        #: Query -> its results, for a phone that plays a run query by query.
+        self.results_of = dict(results_of or {})
+        #: Handle -> (its profile, what a Back shows under it): what a tap on its account row opens.
+        self.opens = dict(opens or {})
+        #: Handle -> (the page its deep link opens, what a Back shows under it).
+        self.deep_link_opens = dict(deep_link_opens or {})
+        #: What was typed into the search field since it was emptied; None while it holds the query
+        #: of the screen shown.
+        self.field = None
         self.xpath = XPathEntry(self)
 
     def dump_hierarchy(self, *_a, **_k):
@@ -238,13 +295,34 @@ class SearchPhone:
         self.presses.append(key)
         if key == "back" and self.stack:
             self.screen = self.stack.pop(0)
+            self.field = None
         return True
+
+    def shows_over(self, screen: str, under) -> None:
+        """`screen` opened over the one shown (a profile, the page of a deep link): a Back shows `under`
+        (None: what a Back showed there was not captured, the phone was not given it)."""
+        if under is not None:
+            self.stack.insert(0, under)
+        self.screen = screen
+        self.field = None
+
+    def follows_deep_link(self, handle: str) -> bool:
+        """What the deep link to `handle` does: recorded, and the page it opened when the phone was given
+        it. No profile is verified on it here: False."""
+        self.deep_links.append(handle)
+        if handle in self.deep_link_opens:
+            self.shows_over(*self.deep_link_opens[handle])
+        return False
 
     def click(self, x, y):
         self.taps.append((x, y))
         hits = [(kind, handle) for kind, handle, box in result_rows(self.screen) if _inside((x, y), box)]
         self.row_hits += hits
         self.button_hits += [(x, y) for box in row_buttons(self.screen) if _inside((x, y), box)]
+        opened = next((handle for kind, handle in hits if kind == "account" and handle in self.opens), None)
+        if opened is not None:
+            self.shows_over(*self.opens[opened])
+            return
         if ("keyword", self.screens.keyword_results_of) in hits:
             self.screen = self.screens.keyword_results
             return
@@ -259,9 +337,19 @@ class SearchPhone:
     def long_click(self, x, y, _duration=0.0):
         self.click(x, y)
 
+    def keyboard_clears(self) -> None:
+        """What the Taktik Keyboard does to the focused field when asked to clear it."""
+        self.field = ""
+
     def keyboard_types(self, text: str) -> None:
-        """What the Taktik Keyboard types into the focused field."""
+        """What the Taktik Keyboard types into the focused field: added to what it holds."""
         self.typed.append(text)
+        if self.results_of:
+            self.field = (search_field_text(self.screen) if self.field is None else self.field) + text
+            if self.field not in self.results_of:
+                raise AssertionError(f"the phone was given no results for {self.field!r}")
+            self.screen = self.results_of[self.field]
+            return
         if self.screen is self.screens.explore:
             self.screen = self.screens.results
 
