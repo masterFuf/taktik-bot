@@ -31,6 +31,10 @@ def why_like_fell_short(
     failure_stage: Optional[str],
     posts_count: Optional[int],
     min_likes: int,
+    likes_refused: int = 0,
+    already_liked: int = 0,
+    passed_by_draw: int = 0,
+    posts_seen: Optional[int] = None,
 ) -> str:
     """Dire POURQUOI le like n'a pas atteint son seuil, au lieu de deviner.
 
@@ -42,6 +46,11 @@ def why_like_fell_short(
     Ordre volontaire : un echec technique explique tout le reste, y compris un compte de
     publications qui paraitrait faible. Et `posts_count` a `None` veut dire « inconnu », jamais
     « zero » -- on ne l'accuse pas d'une ignorance.
+
+    Puis ce que la marche dans les publications a compte (`like_posts_with_sequential_scroll`) :
+    des likes que l'ecran n'a pas pris, des publications deja aimees, des publications que le tirage
+    a passees avant que la marche s'arrete. « the likes did not land » ne reste que quand aucun de
+    ces comptes n'explique l'ecart.
     """
     if technical_failure:
         return f"the post grid could not be opened ({failure_stage or 'unknown stage'})"
@@ -52,6 +61,13 @@ def why_like_fell_short(
             total = None
         if total is not None and total < min_likes:
             return f"the profile only has {total} post(s)"
+    if likes_refused:
+        return f"the screen did not take {likes_refused} like(s)"
+    if already_liked:
+        return f"{already_liked} post(s) were liked already"
+    if passed_by_draw:
+        seen = f" after {posts_seen} post(s)" if posts_seen else ""
+        return f"the draw passed {passed_by_draw} post(s) and the posts ran out{seen}"
     return "the likes did not land"
 
 
@@ -363,6 +379,10 @@ class InteractionEngineMixin:
                             failure_stage=likes_result.get('failure_stage'),
                             posts_count=posts_count,
                             min_likes=min_likes,
+                            likes_refused=likes_result.get('likes_refused', 0),
+                            already_liked=likes_result.get('already_liked', 0),
+                            passed_by_draw=likes_result.get('passed_by_draw', 0),
+                            posts_seen=likes_result.get('unique_posts_seen'),
                         )
                         self.logger.info(
                             f"⏭️ @{username}: only {result['likes']}/{min_likes} min likes — "

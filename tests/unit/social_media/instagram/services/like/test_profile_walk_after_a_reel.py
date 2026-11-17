@@ -24,6 +24,7 @@ from types import SimpleNamespace
 import pytest
 
 import taktik.core.social_media.instagram.services.like.orchestration as orchestration
+import taktik.core.shared.behavior.like_method as like_method
 import taktik.core.social_media.instagram.services.like.post_navigation as post_navigation
 from taktik.core.shared.behavior.grid_entry import GRID_COLUMNS
 from taktik.core.shared.behavior.session_state import BehaviorSessionState
@@ -249,7 +250,7 @@ def _walker(monkeypatch, profile, session, liked_positions):
     monkeypatch.setattr(orchestration, "plan_engagement_sequence", lambda *_args: ("like",))
     # The like draw of each new post: the posts the run liked, and those only.
     monkeypatch.setattr(
-        orchestration.random,
+        like_method.random,
         "random",
         lambda: 0.0 if profile.current in liked_positions else 0.99,
     )
@@ -310,7 +311,8 @@ def test_a_post_met_again_gets_no_glance_and_no_reading(monkeypatch):
     entry = profile.grid_opens[0]
     assert glances[:2] == [entry, entry + 1], f"glances at {glances}"
     assert glances == sorted(set(glances))
-    assert engaged == []
+    # The draw passed every post; the plan's one like goes to the last post the walk had left.
+    assert engaged == [glances[-1]]
 
 
 def test_a_reopen_after_a_reel_is_not_always_the_very_next_post(monkeypatch):

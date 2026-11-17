@@ -1,7 +1,6 @@
 ﻿"""Like orchestration — like_profile_posts, sequential scroll, like_current_post."""
 
 import time
-import random
 from enum import Enum
 from typing import Callable, Dict, List, Any, Optional
 from loguru import logger
@@ -9,7 +8,7 @@ from loguru import logger
 from taktik.core.social_media.instagram.actions.base.base_business import BaseBusinessAction
 from taktik.core.social_media.instagram.services.profile import ProfileBusiness
 from taktik.core.social_media.instagram.services.like.post_navigation import PostNavigationMixin
-from taktik.core.shared.behavior.like_method import should_double_tap_like
+from taktik.core.shared.behavior.like_method import should_double_tap_like, should_like_this_post
 from taktik.core.shared.diagnostics import like_confirmation, run_halt
 from taktik.core.shared.behavior.engagement_sequence import plan_engagement_sequence
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
@@ -140,6 +139,8 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             stats['posts_commented'] = posts_commented
             stats['posts_seen'] = sequential_stats.get('posts_seen', 0)
             stats['method'] = sequential_stats.get('method', 'sequential_scroll')
+            for shortfall_count in ('passed_by_draw', 'likes_refused', 'already_liked', 'unique_posts_seen'):
+                stats[shortfall_count] = sequential_stats.get(shortfall_count, 0)
             if sequential_stats.get('technical_failure'):
                 stats['technical_failure'] = True
                 stats['failure_stage'] = sequential_stats.get('failure_stage')
@@ -208,7 +209,12 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             # Real time of each successful like, captured as it happens. The DB write is
             # batched at the end of the profile (like_profile_posts), so without these
             # every like of the batch would share one insert-time second.
-            'like_times': []
+            'like_times': [],
+            # Why a walk can give fewer likes than its plan, said by `why_like_fell_short`:
+            # posts the draw passed, likes the screen did not take, posts liked already.
+            'passed_by_draw': 0,
+            'likes_refused': 0,
+            'already_liked': 0,
         }
         
         try:
@@ -311,18 +317,24 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 # description read is an engagement step (engagement_sequence).
                 self._glance_at_post()
 
-                # Decide whether to engage this post (probability gate kept — respects the
-                # user's like_probability + a position factor so not every post is liked).
+                # The plan decided how many likes; the draw only chooses which posts get them, and
+                # gives way once the likes owed reach the posts left to see (`should_like_this_post`).
                 if should_like:
-                    base_probability = 0.70
-                    position_factor = 0.8 if unique_posts_seen <= 2 else (1.0 if unique_posts_seen <= 5 else 1.2)
-                    final_probability = base_probability * position_factor
-                    should_like_this_post = random.random() < final_probability
-                    self.logger.debug(f"Post #{posts_seen}: like_probability={final_probability:.2f}")
+                    likes_owed = max_likes - posts_liked
+                    posts_left = max_posts_to_see - posts_seen + 1
+                    like_this_post = should_like_this_post(
+                        likes_owed=likes_owed, posts_left=posts_left, position=unique_posts_seen,
+                    )
+                    self.logger.debug(
+                        f"Post #{posts_seen}: {likes_owed} like(s) owed, {posts_left} post(s) left, "
+                        f"liked: {like_this_post}"
+                    )
+                    if not like_this_post and likes_owed > 0:
+                        stats['passed_by_draw'] += 1
                 else:
-                    should_like_this_post = False
+                    like_this_post = False
 
-                do_like_this = should_like_this_post and posts_liked < max_likes
+                do_like_this = like_this_post and posts_liked < max_likes
                 do_comment_this = (
                     should_comment
                     and posts_commented < max_comments
@@ -336,7 +348,7 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                         do_like_this = False
                     elif already_liked:
                         self.logger.debug(f"Post #{posts_seen} already liked - skipping to avoid unlike")
-                        stats['already_liked'] = stats.get('already_liked', 0) + 1
+                        stats['already_liked'] += 1
                         do_like_this = False
                     if do_like_this or do_comment_this:
                         if do_comment_this:
@@ -349,6 +361,8 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                         liked_ok, commented_ok = self._run_engagement_sequence(
                             sequence, username, custom_comments, config
                         )
+                        if do_like_this and not liked_ok:
+                            stats['likes_refused'] += 1
                         if liked_ok:
                             posts_liked += 1
                             stats['posts_liked'] = posts_liked

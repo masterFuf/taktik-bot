@@ -72,6 +72,33 @@ def test_un_profil_fourni_mais_des_likes_qui_ratent():
     assert motif == 'the likes did not land'
 
 
+def test_un_like_que_l_ecran_refuse_est_nomme_ainsi():
+    motif = why_like_fell_short(
+        technical_failure=False, failure_stage=None, posts_count=1, min_likes=1, likes_refused=1,
+    )
+
+    assert motif == 'the screen did not take 1 like(s)'
+
+
+def test_une_publication_deja_aimee_est_nommee_ainsi():
+    motif = why_like_fell_short(
+        technical_failure=False, failure_stage=None, posts_count=1, min_likes=1, already_liked=1,
+    )
+
+    assert motif == '1 post(s) were liked already'
+
+
+def test_un_tirage_qui_passe_les_publications_est_nomme_tirage():
+    """Le plan voulait un like, la marche a tire contre lui puis n'a plus trouve de publication :
+    c'est le tirage, jamais « did not land »."""
+    motif = why_like_fell_short(
+        technical_failure=False, failure_stage=None, posts_count=None, min_likes=1,
+        passed_by_draw=2, posts_seen=2,
+    )
+
+    assert motif == 'the draw passed 2 post(s) and the posts ran out after 2 post(s)'
+
+
 @pytest.mark.parametrize('valeur', ['', 'beaucoup', object()])
 def test_un_compte_illisible_ne_fait_jamais_lever(valeur):
     assert why_like_fell_short(

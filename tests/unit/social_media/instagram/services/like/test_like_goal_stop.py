@@ -1,4 +1,5 @@
 import taktik.core.social_media.instagram.services.like.orchestration as module
+import taktik.core.shared.behavior.like_method as like_method
 import taktik.core.social_media.instagram.services.like.post_navigation as post_navigation
 from taktik.core.social_media.instagram.services.like.orchestration import (
     LikeOrchestration,
@@ -41,7 +42,7 @@ def test_last_requested_like_stops_before_opening_another_post(monkeypatch):
     host._advance_or_exit_reel = lambda *_args, **_kwargs: advances.append(True) or True
 
     monkeypatch.setattr(module.time, "sleep", lambda _seconds: None)
-    monkeypatch.setattr(module.random, "random", lambda: 0.0)
+    monkeypatch.setattr(like_method.random, "random", lambda: 0.0)
     monkeypatch.setattr(post_navigation, "content_dwell", lambda _prose: 0.0)
     monkeypatch.setattr(module, "plan_engagement_sequence", lambda *_args: ("like",))
 
