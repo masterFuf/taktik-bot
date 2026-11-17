@@ -1,5 +1,7 @@
 """Shared action bundle container for compat action-test diagnostics."""
 
+from typing import Any
+
 from loguru import logger
 
 
@@ -37,7 +39,18 @@ class ActionBundle:
 
     #: Components whose work is recorded against an account. Anything the bundle builds
     #: that is not in here writes nothing, so it needs no identity.
-    _IDENTITY_BEARING = ("comment", "like", "story", "feed", "unfollow", "popup")
+    _IDENTITY_BEARING = ("comment", "like", "story", "feed", "unfollow", "follower", "popup")
+
+    # Set by a platform's builder, never here: the device every action drives, and the components
+    # named above (absent on a platform that builds none of them).
+    device: Any
+    comment: Any
+    like: Any
+    story: Any
+    feed: Any
+    unfollow: Any
+    follower: Any
+    popup: Any
 
     def bind_account(self, account_id, username=None) -> int:
         """Attach every recording component to ``account_id``, and the run to ``username``, its

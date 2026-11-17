@@ -83,6 +83,56 @@ def test_no_liker_engaged_is_a_failure():
     assert engagement.engage_likers(SimpleNamespace(feed=feed), {})["success"] is False
 
 
+def _target_follower(calls, account_id=7):
+    """The bundle's Target business: its direct loop recorded, the loop of the audience refused."""
+    return SimpleNamespace(
+        _get_account_id=lambda: account_id,
+        interact_with_profile_list=lambda **kwargs: calls.append(kwargs) or {"visited": 2},
+        interact_with_followers=_refuse("FollowerBusiness.interact_with_followers"),
+    )
+
+
+def test_the_direct_loop_is_handed_what_a_run_hands_it():
+    """`engagement.target_profiles` drives the loop of a `target_profiles` run
+    (`FollowerBusiness.interact_with_profile_list`) with what the run's own runner hands it for the
+    page's file of the same values: the accounts, the budget, the step's config."""
+    from taktik.core.social_media.instagram.workflows.automation.config_builder import (
+        build_instagram_automation_config,
+    )
+    from taktik.core.social_media.instagram.workflows.automation.workflow_runner import WorkflowRunner
+
+    page_file = {
+        "workflowType": "target_profiles", "target": "a,b",
+        "limits": {"maxProfiles": 2, "minLikesPerProfile": 1, "maxLikesPerProfile": 1},
+        "probabilities": {"like": 100, "follow": 0, "comment": 0, "watchStories": 0, "likeStories": 0},
+        "filters": {"minFollowers": 0, "maxFollowers": 0, "minPosts": 0, "maxFollowing": 0,
+                    "skipFollowsUs": True, "skipAlreadyFollowing": True},
+    }
+    run_calls, lab_calls = [], []
+    runner = WorkflowRunner(SimpleNamespace(interact_with_profiles=lambda **kwargs: run_calls.append(kwargs) or {}))
+    runner._run_profile_list_workflow(build_instagram_automation_config(page_file)["actions"][0])
+
+    result = engagement.target_profiles(SimpleNamespace(follower=_target_follower(lab_calls)),
+                                        {"usernames": "@a, b", "like_percentage": "100"})
+
+    (run,), (lab,) = run_calls, lab_calls
+    assert lab["usernames"] == run["target_usernames"] == ["a", "b"]
+    assert lab["max_interactions"] == run["max_interactions"]
+    assert lab["config"] == run["config"]
+    assert lab["account_id"] == 7 and lab["finalize"] is False
+    assert result["success"] is True
+
+
+@pytest.mark.parametrize("params, account_id", [({"usernames": "a,b"}, None), ({}, 7)],
+                         ids=["no-account", "no-username"])
+def test_the_direct_loop_touches_nothing_without_an_account_or_a_list(params, account_id):
+    calls = []
+
+    result = engagement.target_profiles(SimpleNamespace(follower=_target_follower(calls, account_id)), params)
+
+    assert calls == [] and result["success"] is False
+
+
 @pytest.mark.parametrize("element, answer", [(object(), True), (None, False)], ids=["counter", "none"])
 def test_has_likes_is_the_gate_of_the_likers_popup(element, answer):
     bundle = SimpleNamespace(popup=SimpleNamespace(_find_like_count_element=lambda: element))

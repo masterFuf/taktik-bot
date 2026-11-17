@@ -46,6 +46,7 @@ def build_instagram_action_bundle(device_facade):
     from taktik.core.social_media.instagram.services.like.orchestration import LikeOrchestration
     from taktik.core.social_media.instagram.services.story import StoryBusiness
     from taktik.core.social_media.instagram.workflows.automation.feed.workflow import FeedBusiness
+    from taktik.core.social_media.instagram.workflows.automation.followers.workflow import FollowerBusiness
     from taktik.core.social_media.instagram.workflows.automation.unfollow.workflow import UnfollowBusiness
     from taktik.core.social_media.instagram.actions.base.base_business import BaseBusinessAction
     from taktik.core.shared.behavior.session_state import BehaviorSessionState
@@ -71,11 +72,14 @@ def build_instagram_action_bundle(device_facade):
     bundle.story = StoryBusiness(device_facade, automation=run)
     bundle.feed = FeedBusiness(device_facade, automation=run)
     bundle.unfollow = UnfollowBusiness(device_facade, automation=run)
+    # The Target business: its direct loop (`interact_with_profile_list`) is what a `target_profiles`
+    # run drives, profile after profile.
+    bundle.follower = FollowerBusiness(device_facade, automation=run)
     bundle.popup = BaseBusinessAction(device_facade, automation=run)
     # The Lab bundle has no workflow SessionManager, but its production action facades still need
     # one shared per-bundle memory so repeated feed/profile probes exercise real session bursts.
     for component in (bundle.comment, bundle.like, bundle.story, bundle.feed,
-                      bundle.unfollow, bundle.popup):
+                      bundle.unfollow, bundle.follower, bundle.popup):
         component.behavior_state = behavior_state
         scroll_actions = getattr(component, "scroll_actions", None)
         if scroll_actions is not None:

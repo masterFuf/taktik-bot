@@ -228,6 +228,67 @@ def engage_likers(a, p):
             "details": stats}
 
 
+@action("engagement.target_profiles")
+def target_profiles(a, p):
+    """Interact with the listed accounts themselves, as the Target page runs « Ces comptes »
+    (`target_profiles`): the run's reader of the page's file (`build_instagram_automation_config`),
+    the step's interaction config (`WorkflowConfigBuilder.build_interaction_config`), then the direct
+    loop (`FollowerBusiness.interact_with_profile_list`): each profile searched, read, filtered, the
+    planned interactions made and recorded, and the next one searched from the screen it left.
+    Params: usernames (required, comma-separated), account (required: the loop skips the profiles the
+    base holds as handled for it and files its visits under it, as a run does; without it nothing is
+    touched), like_percentage, follow_percentage, comment_percentage, story_percentage and
+    story_like_percentage (0-100 as the page sets them, 0 by default here: visits only), max_likes
+    (per profile, 1 by default), skip_follows_us and skip_already_following (the account's guards,
+    on by default as on the page). The size filters are off, as « Ces comptes » starts."""
+    from taktik.core.social_media.instagram.workflows.automation.config import WorkflowConfigBuilder
+    from taktik.core.social_media.instagram.workflows.automation.config_builder import (
+        build_instagram_automation_config,
+    )
+
+    usernames = [name.strip().lstrip("@") for name in str(p.get("usernames") or "").split(",") if name.strip()]
+    if not usernames:
+        return {"success": False, "message": "usernames param is required (comma-separated)"}
+    account_id = a.follower._get_account_id()
+    if not account_id:
+        return {"success": False,
+                "message": "account param is required: the loop files its visits under the account and skips "
+                           "the profiles it already handled, as a run does (nothing touched)"}
+    run = build_instagram_automation_config({
+        "workflowType": "target_profiles",
+        "target": ",".join(usernames),
+        "limits": {"maxProfiles": len(usernames), "minLikesPerProfile": 1,
+                   "maxLikesPerProfile": lab_int(p, "max_likes", 1)},
+        "probabilities": {
+            "like": lab_int(p, "like_percentage", 0),
+            "follow": lab_int(p, "follow_percentage", 0),
+            "comment": lab_int(p, "comment_percentage", 0),
+            "watchStories": lab_int(p, "story_percentage", 0),
+            "likeStories": lab_int(p, "story_like_percentage", 0),
+        },
+        # 0 is « no bound » for the four size filters, as the bot reads them.
+        "filters": {"minFollowers": 0, "maxFollowers": 0, "minPosts": 0, "maxFollowing": 0,
+                    "skipFollowsUs": lab_flag(p, "skip_follows_us", True),
+                    "skipAlreadyFollowing": lab_flag(p, "skip_already_following", True)},
+    })
+    step = run["actions"][0]
+    stats = a.follower.interact_with_profile_list(
+        usernames=step["target_usernames"],
+        max_interactions=step["max_interactions"],
+        config=WorkflowConfigBuilder.build_interaction_config(step),
+        account_id=account_id,
+        finalize=False,
+    )
+    stop = stats.get("stop_reason")
+    already = stats.get("already_processed", 0) + stats.get("already_filtered", 0)
+    return {"success": getattr(stop, "code", None) != "crashed" and stats.get("errors", 0) < len(usernames),
+            "message": (f"{len(usernames)} profile(s): {stats.get('visited', 0)} visited, "
+                        f"{stats.get('interacted', 0)} interacted, {stats.get('filtered', 0)} filtered, "
+                        f"{stats.get('errors', 0)} not reached, {already} already handled"
+                        + (f"; stopped: {stop}" if stop else "")),
+            "details": {**stats, "stop_reason": str(stop or "")}}
+
+
 @detection_action("engagement.has_likes")
 def has_likes(a, p):
     """Detection: does the OPEN post show a like counter? The gate of the production opening of
