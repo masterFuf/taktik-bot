@@ -10,9 +10,10 @@ runner drives (targets, chosen profiles, hashtags, post links, feed, unfollow, s
 Under the stop latch (the phone unplugged, its network lost), the crash gives way to what the latch
 saw: the run ends on the latch's motive, the crash's trace stays in the log (`settled_by_halt`).
 
-The critical path of the same loop (an exception outside a step) asks for its trace with
-`exc_info=True`, which loguru ignored: the package's logging setup now honours it
-(`tests/unit/shared/diagnostics/test_log_traces.py`), and the last test proves it on that path.
+The critical path of the same loop (an exception outside a step) files the same status, and writes
+its trace by `logger.exception`. It asked for it with `exc_info=True`, which loguru does not know:
+no trace, and an error whose text holds braces raised KeyError out of the logging call, so no
+`session_stop` left (`scripts/audits/audit_log_exc_info.py` now refuses that keyword).
 
 The real session loop, the real runner and the real end of session run here, on no phone: the Target
 driver raises on the account « nasa ».
@@ -50,8 +51,11 @@ class _Session:
 
 
 class _BrokenSession(_Session):
+    def __init__(self, message='session broke'):
+        self.message = message
+
     def should_continue(self):
-        raise SessionBroke('session broke')
+        raise SessionBroke(self.message)
 
 
 class _Run(InstagramAutomation):
@@ -186,6 +190,24 @@ def test_a_crash_outside_a_step_is_logged_with_its_trace(records):
 
     run.run_workflow()
 
+    traced = [record for record in records if record['exception'] is not None]
+    assert traced, [record['message'] for record in records]
+    assert traced[0]['exception'].type is SessionBroke
+
+
+def test_a_crash_with_braces_in_its_text_still_ends_the_run_with_its_trace(capsys, records):
+    """An HTTP body in the exception's text. The critical path logged with `exc_info=True`: loguru
+    formatted the message with that keyword, the braces raised KeyError out of the logging call,
+    nothing was written and no `session_stop` left, so the app's live card hung on a dead run."""
+    run = _Run([_target('esa')])
+    run.session_manager = _BrokenSession('HTTP 500: {"error": "busy"}')
+
+    run.run_workflow()
+
+    stops = _session_stops(capsys)
+    assert len(stops) == 1, stops
+    assert stops[0]['reason_code'] == 'crashed'
+    assert stops[0]['reason'] == 'Workflow crashed: HTTP 500: {"error": "busy"}'
     traced = [record for record in records if record['exception'] is not None]
     assert traced, [record['message'] for record in records]
     assert traced[0]['exception'].type is SessionBroke

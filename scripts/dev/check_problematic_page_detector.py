@@ -87,7 +87,7 @@ def check_problematic_page_detector(device_id=None):
         
     except Exception as e:
         logger.error(f"Test error: {e}")
-        logger.debug("Details:", exc_info=True)
+        logger.opt(exception=True).debug("Details:")
         return False
 
 
@@ -122,7 +122,7 @@ def test_continuous_monitoring(device_id=None):
         logger.info("Monitoring stopped by user")
     except Exception as e:
         logger.error(f"Monitoring error: {e}")
-        logger.debug("Details:", exc_info=True)
+        logger.opt(exception=True).debug("Details:")
 
 
 def analyze_current_screen(device_id=None):
@@ -191,7 +191,7 @@ def analyze_current_screen(device_id=None):
             
     except Exception as e:
         logger.error(f"Analysis error: {e}")
-        logger.debug("Details:", exc_info=True)
+        logger.opt(exception=True).debug("Details:")
 
 
 if __name__ == "__main__":

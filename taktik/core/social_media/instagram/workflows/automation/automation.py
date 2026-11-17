@@ -420,7 +420,10 @@ class InstagramAutomation:
                 self._finalize_session(status=stop_reasons.terminal_status(stop_reason), reason=stop_reason)
 
         except Exception as e:
-            self.logger.error(f"Critical error executing workflow: {str(e)[:200]}", exc_info=True)
+            # `logger.exception`, never `exc_info=True`: loguru ignores that keyword and formats the
+            # message with it, so braces in the error's text raised KeyError here and no
+            # `session_stop` left (`scripts/audits/audit_log_exc_info.py`).
+            self.logger.exception(f"Critical error executing workflow: {str(e)[:200]}")
             # Emit the terminal event. This path used to log, mark the row ERROR and return, so
             # the desktop never received `session_stop`: its live card hung on a run that was
             # already dead, and the session kept no motive. finalize_session also writes the

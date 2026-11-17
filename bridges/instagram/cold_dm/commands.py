@@ -112,6 +112,6 @@ def run_cold_dm(config: dict) -> None:
         print_cold_dm_result(False, error=str(refused), textRefusal=refused.refusal.as_line())
         sys.exit(1)
     except Exception as e:
-        logger.error(f"Cold DM workflow error: {e}", exc_info=True)
+        logger.exception(f"Cold DM workflow error: {e}")
         print_cold_dm_result(False, error=str(e))
         sys.exit(1)
