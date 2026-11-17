@@ -8,17 +8,13 @@ from taktik.core.social_media.instagram.ui.selectors.locales import L, L_all
 class ProblematicPageSelectors:
     """Selectors for detecting and closing problematic pages."""
     
-    # === Boutons de fermeture X/Close ===
+    # === The QR page's close button (`x_button`) ===
+    # Its own id, on both real captures of the page (410 in English, 447 in French). The labels
+    # this list held (« Close », « Cancel », « Dismiss », « Fermer », « Annuler », a back arrow)
+    # answered on 602 of 2 500 captures: the « Cancel » of the reel and post editors, the cross
+    # that removes a suggested account from a list.
     close_button_selectors: List[Dict[str, str]] = field(default_factory=lambda: [
-        {'resourceId': 'com.instagram.android:id/action_bar_button_back'},
-        {'description': 'Close'},
-        {'description': 'Dismiss'},
-        {'description': 'Cancel'},
-        {'description': 'Fermer'},
-        {'description': 'Annuler'},
-        {'text': '×'},
-        {'text': '✕'},
-        {'className': 'android.widget.ImageView', 'description': 'Back'}
+        {'resourceIdMatches': r'(.*:id/)?close_button'},
     ])
     
     # === Boutons Terminé/Done ===
