@@ -6,7 +6,7 @@ from taktik.core.shared.diagnostics import capture_screen_snapshot, run_halt
 from taktik.core.shared.diagnostics.action_block import look_for_action_block
 from taktik.core.social_media.instagram.ui.detectors.action_block import detector_of
 from taktik.core.social_media.instagram.workflows.common.session import stop_reasons
-from typing import Dict, Any, Optional
+from typing import Callable, Dict, Any, Optional
 
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.social_media.instagram.actions.base.ipc import IPCEmitter
@@ -14,6 +14,17 @@ from taktik.core.social_media.instagram.actions.base.ipc import IPCEmitter
 
 class DirectNavigationMixin:
     """Mixin: setup, recovery, empty screen handling, scroll/end detection."""
+
+    # Read from the business action this mixin is part of (FollowerBusiness), never set here.
+    logger: Any
+    device: Any
+    nav_actions: Any
+    detection_actions: Any
+    scroll_actions: Any
+    profile_business: Any
+    _human_like_delay: Callable[..., Any]
+    _go_back_to_list: Callable[..., Any]
+    _get_session_id: Callable[[], Any]
 
     # A fling only produces travel once the rows it is flinging exist. On a slow phone the
     # list is still loading, so the gesture lands on nothing and the workflow would believe

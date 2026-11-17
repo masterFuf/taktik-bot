@@ -18,7 +18,7 @@ private-zone escape (a private profile in a hand-picked list is just a private p
 not evidence that Instagram reordered a list it never served us).
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from taktik.core.social_media.instagram.actions.base.stats import create_workflow_stats, sync_aliases
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
@@ -30,6 +30,16 @@ from taktik.core.social_media.instagram.workflows.common.revisit_policy import R
 
 class ProfileListWorkflowMixin:
     """Mixin: interact_with_profile_list — interact with each profile of a chosen list."""
+
+    # Read from the business action this mixin is part of (FollowerBusiness), never set here.
+    logger: Any
+    session_manager: Any
+    stats_manager: Any
+    human: Any
+    automation: Any
+    _get_session_id: Callable[[], Any]
+    _maybe_take_break: Callable[[], Any]
+    _process_profile_on_screen: Callable[..., Any]
 
     def interact_with_profile_list(self, usernames: List[str],
                                    max_interactions: int = 30,
