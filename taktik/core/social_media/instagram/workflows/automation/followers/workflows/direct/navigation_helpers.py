@@ -202,9 +202,10 @@ class DirectNavigationMixin:
                 "posts": profile_info.get('media_count', 0) if profile_info else 0,
             }
             print(json.dumps(target_msg), flush=True)
-        except Exception:
-            pass
-        
+        except Exception as error:
+            # The panel only loses the source's card: the setup goes on, the log says why.
+            self.logger.warning(f"Target account event of @{target_username} not sent to the app: {error}")
+
         # Open the followers OR the following list, depending on the interaction type
         interaction_type = config.get('interaction_type', 'followers')
         

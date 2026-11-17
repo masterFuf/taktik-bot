@@ -25,6 +25,8 @@ import json
 import math
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from loguru import logger
+
 DISTRIBUTION_BALANCED = "balanced"
 DISTRIBUTION_SEQUENTIAL = "sequential"
 DISTRIBUTION_INTERLEAVED = "interleaved"
@@ -87,8 +89,9 @@ def ipc_source_progress(workflow_kind: str,
             if failure:
                 event["failure_code"] = getattr(failure, "code", None) or str(failure)
             print(json.dumps(event), flush=True)
-        except Exception:
-            pass
+        except Exception as error:
+            # The panel only loses this line: the run goes on, the log says which one and why.
+            logger.warning(f"Source progress of {source} ({status}) not sent to the app: {error}")
 
     return report
 

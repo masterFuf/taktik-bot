@@ -115,3 +115,25 @@ class TestEdges:
             run, calls = make_runner({"a": 100})
             run_distributed(["a"], 50, mode, run)
             assert calls == [("a", 50, 50)]
+
+
+class TestSourceProgressEvent:
+    """The progress event of a source: one that cannot be sent is said, and the run goes on."""
+
+    def test_an_event_that_cannot_be_sent_is_said_and_the_run_goes_on(self):
+        from loguru import logger
+
+        from taktik.core.social_media.instagram.workflows.common.distribution import ipc_source_progress
+
+        def unreadable_failure(source):
+            raise LookupError(f"no motive kept for {source}")
+
+        said = []
+        sink = logger.add(lambda message: said.append(message.record['message']), level="WARNING")
+        try:
+            report = ipc_source_progress("target", failure_of=unreadable_failure)
+            report("first", 1, 2, 10, 4, "done")
+        finally:
+            logger.remove(sink)
+
+        assert any("first" in line and "no motive kept for first" in line for line in said), said
