@@ -105,8 +105,10 @@ class ProfileListWorkflowMixin:
                             hours_limit=revisit_policy.reinteraction_hours,
                             filtered_max_age_days=revisit_policy.filtered_max_age_days,
                         )
-                    except Exception as e:
-                        self.logger.debug(f"Skip check failed for @{username}: {e}")
+                    except Exception as error:
+                        # A database that cannot answer must not stop the run: the profile is
+                        # treated as unknown and visited, and the log says why.
+                        self.logger.warning(f"Already-handled check failed for @{username}, visited anyway: {error}")
                         should_skip, skip_reason = False, None
                     if should_skip:
                         if skip_reason == "already_filtered":
@@ -199,8 +201,13 @@ class ProfileListWorkflowMixin:
 
             return stats
 
-        except Exception as e:
-            self.logger.error(f"Error in profile-list workflow: {e}")
+        except Exception as error:
+            # A crash is not the end of the list: the run ends on it, with its trace, under the
+            # motive the automation's own crash path names (`crashed`), never as « completed ».
+            self.logger.exception(f"Profile-list workflow crashed: {error}")
             sync_aliases(stats, 'followers_direct')
-            stats.setdefault('stop_reason', '')
+            stats['stop_reason'] = stop_reasons.crashed(error)
+            session_already_ended = getattr(self.automation, 'session_finalized', False)
+            if finalize and self.automation and hasattr(self.automation, 'helpers') and not session_already_ended:
+                self.automation.helpers.finalize_session(reason=stats['stop_reason'])
             return stats
