@@ -363,25 +363,32 @@ class ProfileExtraction(BaseBusinessAction):
         self.logger.info(f"✅ Extraction terminée: {len(profiles)} profils extraits")
         return profiles
     
+    @staticmethod
+    def _count_of_value_node(count_text: Optional[str]) -> Optional[int]:
+        """The number a header's value node shows, 0 included; None when its text holds no digit.
+
+        The number parser answers 0 for a text without digits too, so the readers kept only a count
+        above 0 and dropped a real « 0 » (a new account: « 0 follower »), then said « unknown »."""
+        if not count_text or not any(character.isdigit() for character in count_text):
+            return None
+        from taktik.core.social_media.instagram.ui.extractors import parse_number_from_text
+        return parse_number_from_text(count_text)
+
     def _get_followers_count_robust(self, swipe_up_if_needed: bool = False) -> Optional[int]:
         """The followers count of the profile's header; None when the header cannot be read
         (never a 0 that would say the profile has no followers)."""
         self.logger.debug("Attempting to get followers count (robust method)...")
         
         try:
-            from taktik.core.social_media.instagram.ui.extractors import parse_number_from_text
-            
             # Way 1: try the specific resource-id
             element = self.device.find(
                 resourceId=f"{self.device.app_id}:id/{self.profile_selectors.followers_count_value_resource_id}"
             )
             if element and hasattr(element, 'exists') and element.exists:
                 count_text = element.get_text()
-                if count_text:
-                    # Use the shared number parser, which handles every abbreviated format
-                    parsed = parse_number_from_text(count_text)
-                    if parsed > 0:
-                        return parsed
+                counted = self._count_of_value_node(count_text)
+                if counted is not None:
+                    return counted
             
             followers = self._get_count_from_element_robust(
                 element_type='id',
@@ -428,17 +435,14 @@ class ProfileExtraction(BaseBusinessAction):
         self.logger.debug("Attempting to get following count (robust method)...")
         
         try:
-            from taktik.core.social_media.instagram.ui.extractors import parse_number_from_text
-            
             element = self.device.find(
                 resourceId=f"{self.device.app_id}:id/{self.profile_selectors.following_count_value_resource_id}"
             )
             if element and hasattr(element, 'exists') and element.exists:
                 count_text = element.get_text()
-                if count_text:
-                    parsed = parse_number_from_text(count_text)
-                    if parsed > 0:
-                        return parsed
+                counted = self._count_of_value_node(count_text)
+                if counted is not None:
+                    return counted
             
             following = self._get_count_from_element_robust(
                 element_type='id',
@@ -471,17 +475,14 @@ class ProfileExtraction(BaseBusinessAction):
         self.logger.debug("Attempting to get posts count (robust method)...")
         
         try:
-            from taktik.core.social_media.instagram.ui.extractors import parse_number_from_text
-            
             element = self.device.find(
                 resourceId=f"{self.device.app_id}:id/{self.profile_selectors.posts_count_value_resource_id}"
             )
             if element and hasattr(element, 'exists') and element.exists:
                 count_text = element.get_text()
-                if count_text:
-                    parsed = parse_number_from_text(count_text)
-                    if parsed > 0:
-                        return parsed
+                counted = self._count_of_value_node(count_text)
+                if counted is not None:
+                    return counted
             
             posts = self._get_count_from_element_robust(
                 element_type='id',
