@@ -135,10 +135,12 @@ class TargetProfilesWorkflow(FollowersWorkflow):
             )
             self._end_session('COMPLETED', completion_reason=completion_reason)
 
-        except Exception as e:
-            self.logger.error(f"❌ Error in Target Profiles workflow: {e}")
+        except Exception as error:
+            # A crash is not the end of the list: the session ends on it, with its trace, under the
+            # failure code of TikTok's catalogue (`error`), never on « unknown ».
+            self.logger.exception(f"❌ Target Profiles workflow crashed: {error}")
             self.stats.errors += 1
-            self._end_session('ERROR', str(e))
+            self._end_session('ERROR', str(error), completion_reason='error')
 
         return self.stats
 
@@ -208,7 +210,7 @@ class TargetProfilesWorkflow(FollowersWorkflow):
                 self.logger.info(f"⏭️ @{username} skipped — already interacted in the past 7 days")
                 return True
         except Exception as e:
-            self.logger.debug(f"Error checking interaction history for @{username}: {e}")
+            self.logger.warning(f"Interaction history unreadable for @{username}, visited anyway: {e}")
 
         if self.config.filters:
             try:
@@ -221,7 +223,7 @@ class TargetProfilesWorkflow(FollowersWorkflow):
                     self.logger.info(f"⏭️ @{username} skipped — already rejected by the filters")
                     return True
             except Exception as e:
-                self.logger.debug(f"Error checking filter history for @{username}: {e}")
+                self.logger.warning(f"Filter history unreadable for @{username}, visited anyway: {e}")
 
         return False
 
@@ -242,5 +244,6 @@ class TargetProfilesWorkflow(FollowersWorkflow):
         """Back to a neutral screen before searching the next handle."""
         try:
             return_to_tiktok_home(self.device, logger=self.logger)
-        except Exception as e:
-            self.logger.debug(f"Could not return to home: {e}")
+        except Exception as error:
+            # The next search starts from wherever the screen is: the log says so.
+            self.logger.warning(f"Could not return to home before the next profile: {error}")
