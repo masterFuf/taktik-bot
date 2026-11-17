@@ -616,14 +616,16 @@ def settled_by_halt(reason: Any, halt: Optional[Dict[str, Any]]) -> Any:
     its way (`navigation_lost`) BECAUSE Instagram put its account check on screen, and a run whose
     only profile could not be opened offline ran out of list and ended `completed`. The latch saw
     the cause, so its motive wins, over a failure and over an expected end alike: one rule for
-    every code of the latch. Only a manual stop, a crash and a reason that already is the latch's
-    keep their own motive.
+    every code of the latch. A crash gives way too: a call to a phone that was unplugged or lost
+    its network raises, and the operator must read « phone disconnected », not « workflow
+    crashed »; the crash's trace stays in the log. Only a manual stop and a reason that already is
+    the latch's keep their own motive.
     """
     if not halt:
         return reason
     if getattr(reason, "family", None) == FAMILY_MANUAL:
         return reason
-    if getattr(reason, "code", None) in (halt.get("code"), "crashed"):
+    if getattr(reason, "code", None) == halt.get("code"):
         return reason
     return for_halt(halt)
 

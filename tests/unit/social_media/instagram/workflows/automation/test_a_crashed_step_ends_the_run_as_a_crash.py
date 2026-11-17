@@ -7,6 +7,9 @@ next step, and a pass without progress ended the session `session_stop` COMPLETE
 A run that died on its first step was filed as a run that had nothing left to do, for every workflow the
 runner drives (targets, chosen profiles, hashtags, post links, feed, unfollow, syncs).
 
+Under the stop latch (the phone unplugged, its network lost), the crash gives way to what the latch
+saw: the run ends on the latch's motive, the crash's trace stays in the log (`settled_by_halt`).
+
 The critical path of the same loop (an exception outside a step) asks for its trace with
 `exc_info=True`, which loguru ignored: the package's logging setup now honours it
 (`tests/unit/shared/diagnostics/test_log_traces.py`), and the last test proves it on that path.
@@ -22,6 +25,7 @@ import pytest
 from loguru import logger
 
 import taktik.core.social_media.instagram.workflows.automation.automation as automation_module
+from taktik.core.shared.diagnostics import run_halt
 from taktik.core.social_media.instagram.workflows.automation.automation import InstagramAutomation
 from taktik.core.social_media.instagram.workflows.automation.workflow_runner import WorkflowRunner
 from taktik.core.social_media.instagram.workflows.common.workflow_helpers import WorkflowHelpers
@@ -112,6 +116,28 @@ def test_a_crashed_step_ends_the_run_on_the_crash_not_as_sources_exhausted(capsy
     assert stops[0]['reason_code'] == 'crashed'
     assert stops[0]['status'] == 'INTERRUPTED'
     assert stops[0]['reason'] == 'Workflow crashed: device gone'
+
+
+def test_a_crashed_step_under_the_stop_latch_ends_on_the_latch(capsys, records):
+    """The phone was unplugged during the step: the guard raised the latch, then the step's next
+    call to the phone raised. The run ends on what the latch saw, not as a crash; the crash's trace
+    stays in the log."""
+    run = _Run([_target('nasa')])
+    reach_the_phone = run.interact_with_followers
+
+    def unplugged(target_usernames=None, **kwargs):
+        run_halt.demander_arret(run_halt.DEVICE_DISCONNECTED, 'usb gone')
+        return reach_the_phone(target_usernames=target_usernames, **kwargs)
+
+    run.interact_with_followers = unplugged
+    run.run_workflow()
+
+    stops = _session_stops(capsys)
+    assert len(stops) == 1, stops
+    assert stops[0]['reason_code'] == 'device_disconnected'
+    assert stops[0]['status'] == 'INTERRUPTED'
+    assert any(record['exception'] is not None and record['exception'].type is DeviceGone
+               for record in records), "the crash's trace is gone"
 
 
 def test_the_run_does_not_go_on_after_a_crashed_step():
