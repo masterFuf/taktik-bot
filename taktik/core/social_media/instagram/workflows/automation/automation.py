@@ -382,9 +382,17 @@ class InstagramAutomation:
                         if delay > 0:
                             time.sleep(delay)
 
-                    except Exception as e:
-                        self.logger.error(f"Error executing action: {str(e)[:200]}", exc_info=True)
-                        time.sleep(5)
+                    except Exception as error:
+                        # A step that crashed is not a source gone dry: the run ends on the crash, with
+                        # its trace, on the motive the critical path below names (`crashed`) and the
+                        # status of a failed run (`terminal_status`: INTERRUPTED). This loop used to wait
+                        # and go on with the next step, and a pass without progress ended « sources
+                        # exhausted », COMPLETED.
+                        self.logger.exception(f"Workflow step crashed: {str(error)[:200]}")
+                        if not self.session_finalized:
+                            reason = stop_reasons.crashed(error)
+                            self._finalize_session(status=stop_reasons.terminal_status(reason), reason=reason)
+                        return
 
                 should_continue, stop_reason = self.session_manager.should_continue()
                 if not should_continue:

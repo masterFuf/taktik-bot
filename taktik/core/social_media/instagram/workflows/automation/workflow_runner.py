@@ -30,59 +30,61 @@ class WorkflowRunner:
             return self._dispatch_workflow_step(action)
 
     def _dispatch_workflow_step(self, action: Dict[str, Any]) -> bool:
+        """Run the step's workflow. True: it made progress; False: it found nothing more to do.
+
+        An exception of a workflow is not caught here: the session loop
+        (`InstagramAutomation.run_workflow`) ends the run on it, as a crash, with its trace. This
+        method used to catch it and answer False, the answer of a source gone dry, and the run ended
+        « sources exhausted », COMPLETED.
+        """
         action_type = action.get('type')
-        
+
         if not action_type:
             self.logger.warning("Step without type, ignored")
             return False
-        
+
         self.logger.info(f"Executing step: {action.get('id', action_type)} - {action.get('description', '')}")
-        
-        try:
-            if action_type == 'initialize':
-                self.logger.info("Initialization completed")
-                return True
-                
-            elif action_type == 'interact_with_followers':
-                return self._run_target_workflow(action)
 
-            elif action_type == 'interact_with_profiles':
-                return self._run_profile_list_workflow(action)
+        if action_type == 'initialize':
+            self.logger.info("Initialization completed")
+            return True
 
-            elif action_type == 'hashtag':
-                return self._run_hashtag_workflow(action)
-                
-            elif action_type == 'post_url':
-                return self._run_post_url_workflow(action)
+        elif action_type == 'interact_with_followers':
+            return self._run_target_workflow(action)
 
-            # NOTE: there is no 'notifications' action here. Reading the activity feed is owned
-            # by the notifications ENGAGEMENT bridge (`notifications_bridge`, the one the desktop
-            # Notifications page and the scheduler node drive) — a single implementation, which
-            # also handles persistence, dedup and closing Instagram. The legacy duplicate that
-            # lived here treated notifications as just another profile source.
-            elif action_type == 'unfollow':
-                return self._run_unfollow_workflow(action)
-            
-            elif action_type == 'sync_following':
-                return self._run_sync_following_workflow(action)
-            
-            elif action_type == 'sync_followers_following':
-                return self._run_sync_followers_following_workflow(action)
-            
-            elif action_type == 'scrape_non_followers':
-                return self._run_scrape_non_followers_workflow(action)
-            
-            elif action_type == 'feed':
-                return self._run_feed_workflow(action)
-                
-            else:
-                self.logger.warning(f"Unrecognized action type: {action_type}")
-                return False
-                
-        except Exception as e:
-            self.logger.error(f"Error executing action {action_type}: {e}")
+        elif action_type == 'interact_with_profiles':
+            return self._run_profile_list_workflow(action)
+
+        elif action_type == 'hashtag':
+            return self._run_hashtag_workflow(action)
+
+        elif action_type == 'post_url':
+            return self._run_post_url_workflow(action)
+
+        # NOTE: there is no 'notifications' action here. Reading the activity feed is owned
+        # by the notifications ENGAGEMENT bridge (`notifications_bridge`, the one the desktop
+        # Notifications page and the scheduler node drive) — a single implementation, which
+        # also handles persistence, dedup and closing Instagram. The legacy duplicate that
+        # lived here treated notifications as just another profile source.
+        elif action_type == 'unfollow':
+            return self._run_unfollow_workflow(action)
+
+        elif action_type == 'sync_following':
+            return self._run_sync_following_workflow(action)
+
+        elif action_type == 'sync_followers_following':
+            return self._run_sync_followers_following_workflow(action)
+
+        elif action_type == 'scrape_non_followers':
+            return self._run_scrape_non_followers_workflow(action)
+
+        elif action_type == 'feed':
+            return self._run_feed_workflow(action)
+
+        else:
+            self.logger.warning(f"Unrecognized action type: {action_type}")
             return False
-    
+
     def _run_target_workflow(self, action: Dict[str, Any]) -> bool:
         # Support multi-targets
         target_usernames = action.get('target_usernames', [])
