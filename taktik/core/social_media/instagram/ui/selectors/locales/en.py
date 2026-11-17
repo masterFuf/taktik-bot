@@ -684,6 +684,9 @@ STRINGS: Dict[str, List[str]] = {
     "popup.not_now_selectors": [
         "//android.widget.Button[contains(@text, \"Not Now\")]",
         "//android.widget.TextView[contains(@text, \"Not Now\")]",
+        # Instagram's map card (English capture, April 2026, version not recorded): « Not now », lower
+        # case, on its secondary action, the label in content-desc.
+        "//*[contains(@resource-id, \"igds_headline_secondary_action_text_button\")][@content-desc=\"Not now\"]",
     ],
     "popup.review_account_cancel_button": [
         "//android.widget.Button[@text=\"Cancel\"]",

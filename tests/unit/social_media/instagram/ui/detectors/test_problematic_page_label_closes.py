@@ -12,9 +12,12 @@ captures that is the OK that validates a caption, the Enter key of Google's keyb
 another screen's information window. On the page itself, it is a Button without an id labelled
 « OK »: no other capture has one.
 
+The opposite also happened: the « Not now » of Instagram's map card was never found, and Back was
+the only close left.
+
 Screens: real dumps, anonymized. The QR page of the own profile (410 in English, 447 in French),
-Meta's ad-experience page (English, April 2026, version not recorded), and screens where the old
-fields tapped something else (410, 447).
+Meta's ad-experience page and Instagram's map card (English, April 2026, version not recorded),
+and screens where the old fields tapped something else (410, 447).
 """
 
 import re
@@ -23,7 +26,7 @@ import pytest
 
 from taktik.core.social_media.instagram.ui.detectors import problematic_page
 from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
-from taktik.core.social_media.instagram.ui.selectors import POPUP_SELECTORS, PROBLEMATIC_PAGE_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors import POPUP_SELECTORS, PROBLEMATIC_PAGE_SELECTORS, locales
 from unit.social_media.instagram.actions.atomic.interaction.sheet_phone import (
     SheetPhone, attribute, capture, centre_of, node_with_id)
 
@@ -125,3 +128,41 @@ def test_the_ad_consent_ok_answers_on_no_other_screen(name):
     phone = SheetPhone(capture(name), after=capture(name))
 
     assert not any(phone.xpath(selector).exists for selector in POPUP_SELECTORS.ad_consent_ok_button)
+
+
+MAP_POPUP = "ig_en_instagram_map_popup.xml"
+
+
+@pytest.fixture
+def english():
+    before = locales.active_locale()
+    locales.set_active_locale("en")
+    yield
+    locales.set_active_locale(before)
+
+
+def test_the_map_card_is_closed_by_its_not_now(english):
+    """Its « Not now » is the card's secondary action, labelled on a FrameLayout (« now » in lower
+    case): the close looked for « Not Now » on a Button or a TextView, found nothing, and Back was
+    the only gesture left."""
+    screen = capture(MAP_POPUP)
+    phone = SheetPhone(screen, after=capture("ig410_fr_home_feed.xml"))
+
+    result = ProblematicPageDetector(phone).detect_and_handle_problematic_pages()
+
+    assert result == {"detected": True, "closed": True, "soft_ban": False, "page_type": "instagram_map_popup"}
+    assert phone.gestures == [
+        ("click", *centre_of(node_with_id(screen, ":id/igds_headline_secondary_action_text_button")))]
+
+
+@pytest.mark.parametrize("name", [
+    pytest.param("ig410_en_story_share_information_window.xml", id="information window: View settings"),
+    pytest.param("ig410_en_feed_carousel_cut_by_tab_bar.xml", id="feed card: its own Not now"),
+])
+def test_the_not_now_close_taps_no_other_secondary_action(name, english):
+    screen = capture(name)
+    phone = SheetPhone(screen, after=screen)
+
+    ProblematicPageDetector(phone)._close_via_not_now()
+
+    assert phone.gestures == []

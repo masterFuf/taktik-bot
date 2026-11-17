@@ -684,6 +684,9 @@ STRINGS: Dict[str, List[str]] = {
     "popup.not_now_selectors": [
         "//android.widget.Button[contains(@text, \"Pas maintenant\")]",
         "//android.widget.TextView[contains(@text, \"Pas maintenant\")]",
+        # Instagram's map card: its secondary action. The French label is not captured on the card:
+        # the one of the other popups.
+        "//*[contains(@resource-id, \"igds_headline_secondary_action_text_button\")][@content-desc=\"Pas maintenant\"]",
     ],
     "popup.review_account_cancel_button": [
         "//android.widget.Button[@text=\"Annuler\"]",
