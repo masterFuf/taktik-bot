@@ -85,7 +85,7 @@ def test_a_completed_status_follows_a_failed_motive(capsys):
 
 
 def test_a_status_the_caller_knows_stays(capsys):
-    # A crash is filed ERROR by its caller: deriving the status must not turn it into INTERRUPTED.
+    # A status the caller names (ERROR here) is not derived from the motive: only COMPLETED is a guess.
     _helpers().finalize_session(status='ERROR', reason=sr.crashed('boom'))
 
     assert _emitted_event(capsys)['status'] == 'ERROR'

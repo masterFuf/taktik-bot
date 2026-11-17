@@ -425,13 +425,17 @@ class InstagramAutomation:
             # the desktop never received `session_stop`: its live card hung on a run that was
             # already dead, and the session kept no motive. finalize_session also writes the
             # status and closes the app, so the DB update below it is no longer needed here.
+            # One crash status for the whole loop: a failed run (`terminal_status`: INTERRUPTED), as
+            # a crashed step and the chosen-profiles loop. This path used to file ERROR.
+            reason = stop_reasons.crashed(e)
+            status = stop_reasons.terminal_status(reason)
             try:
-                self._finalize_session(status='ERROR', reason=stop_reasons.crashed(e))
+                self._finalize_session(status=status, reason=reason)
             except Exception as finalize_error:
                 # Never let the cleanup hide the crash that caused it.
                 self.logger.error(f"Failed to finalize crashed session: {finalize_error}")
                 if hasattr(self, 'current_session_id') and self.current_session_id:
-                    self._update_workflow_session(self.current_session_id, status='ERROR')
+                    self._update_workflow_session(self.current_session_id, status=status)
 
     def _finalize_session(self, status='COMPLETED', reason='Limits reached'):
         self.helpers.finalize_session(status, reason)

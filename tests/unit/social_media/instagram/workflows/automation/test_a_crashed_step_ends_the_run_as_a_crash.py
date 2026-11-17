@@ -166,6 +166,20 @@ def test_a_step_without_progress_still_ends_as_sources_exhausted(capsys):
     assert stops[0]['status'] == 'COMPLETED'
 
 
+def test_a_crash_outside_a_step_ends_like_a_crashed_step(capsys):
+    """One crash status for the whole loop: the critical path filed ERROR where a crashed step (and
+    the chosen-profiles loop) file INTERRUPTED, the status of a failed run."""
+    run = _Run([_target('esa')])
+    run.session_manager = _BrokenSession()
+
+    run.run_workflow()
+
+    stops = _session_stops(capsys)
+    assert len(stops) == 1, stops
+    assert stops[0]['reason_code'] == 'crashed'
+    assert stops[0]['status'] == 'INTERRUPTED'
+
+
 def test_a_crash_outside_a_step_is_logged_with_its_trace(records):
     run = _Run([_target('esa')])
     run.session_manager = _BrokenSession()
