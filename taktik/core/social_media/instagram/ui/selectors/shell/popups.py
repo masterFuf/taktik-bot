@@ -246,10 +246,12 @@ class PopupSelectors:
         '//*[contains(@text, "Less-personalized ads")]',
     ])
 
+    # Its « OK »: a Button without an id, labelled OK (Bloks page, English, two captures of April
+    # 2026, version not recorded). Any « OK » of the screen answered on 43 of 2 500 captures: the OK
+    # that validates a caption (410), the Enter key of Google's keyboard (447), another screen's
+    # information window (410). No other capture has an OK Button without an id.
     ad_consent_ok_button: List[str] = field(default_factory=lambda: [
-        '//*[@content-desc="OK"]',
-        '//*[@text="OK"]',
-        '//*[@text="Ok"]',
+        '//android.widget.Button[@content-desc="OK"][@resource-id=""]',
     ])
 
     # === Modale "Autoriser Instagram a acceder a vos contacts ?" ===

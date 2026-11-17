@@ -363,6 +363,17 @@ class ProblematicPageDetector:
         return self._click_button_from_selectors(
             PROBLEMATIC_PAGE_SELECTORS.ok_button_selectors, "OK")
 
+    def _close_via_ad_experience_ok(self) -> bool:
+        """The OK of Meta's ad-experience page, which is also page 3 of the ad consent flow."""
+        for selector in POPUP_SELECTORS.ad_consent_ok_button:
+            element = self.device.xpath(selector)
+            if element is not None and element.exists:
+                element.click()
+                logger.info("✅ Ad experience page dismissed (clicked OK)")
+                return True
+        logger.warning("Ad experience page: no OK button of its own on screen")
+        return False
+
     def _close_via_permission_answer(self) -> bool:
         """Android's permission prompt: granted when the bot works with what it asks (decision of
         2026-11-16), refused by Back otherwise, and the log says which.
@@ -412,6 +423,7 @@ class ProblematicPageDetector:
             'swipe_down_handle': lambda: self._close_via_sheet_drag(page_type),
             'terminate_button': self._close_via_terminate,
             'ok_button': self._close_via_ok,
+            'ad_experience_ok_button': self._close_via_ad_experience_ok,
             'answer_permission_prompt': self._close_via_permission_answer,
             'ad_consent_flow': self._close_via_ad_consent,
         }
@@ -535,14 +547,9 @@ class ProblematicPageDetector:
                 indicator = self.device.xpath(sel)
                 if indicator is not None and indicator.exists:
                     logger.info("🪟 Meta ad consent page 3 (ad experience) detected")
-                    ok_selectors = POPUP_SELECTORS.ad_consent_ok_button
-                    for ok_sel in ok_selectors:
-                        el = self.device.xpath(ok_sel)
-                        if el is not None and el.exists:
-                            el.click()
-                            logger.info("✅ Ad experience page dismissed (clicked OK)")
-                            time.sleep(1.5)
-                            return True
+                    if self._close_via_ad_experience_ok():
+                        time.sleep(1.5)
+                        return True
                     break
             
             return True

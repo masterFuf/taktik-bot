@@ -27,12 +27,14 @@ class ProblematicPageSelectors:
         {'description': 'Done'}
     ])
     
-    # === Boutons OK ===
+    # === The rate-limit dialog's OK (`ok_button`) ===
+    # No capture of the dialog yet: its entries stay as they were, `textContains: OK` aside (on
+    # 2 500 captures it found nothing `text: OK` does not, and alone it would answer « FACEBOOK »).
+    # Meta's ad-experience page has its own OK, `POPUP_SELECTORS.ad_consent_ok_button`.
     ok_button_selectors: List[Dict[str, str]] = field(default_factory=lambda: [
         {'resourceId': 'com.instagram.android:id/igds_alert_dialog_primary_button'},
         {'text': 'OK'},
         {'text': 'Ok'},
-        {'textContains': 'OK'},
         {'description': 'OK'},
         {'description': 'Ok'}
     ])
@@ -169,7 +171,7 @@ class ProblematicPageSelectors:
             'indicators': ['manage your ad experience', 'gérer votre expérience publicitaire',
                           'Personalized ads', 'Publicités personnalisées',
                           'Less-personalized ads', 'Continue with personalized ads'],
-            'close_methods': ['ok_button', 'back_button']
+            'close_methods': ['ad_experience_ok_button', 'back_button']
         },
         'instagram_map_popup': {
             'indicators': ['Introducing the Instagram map', 'Présentation de la carte Instagram',
