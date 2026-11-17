@@ -155,6 +155,10 @@ class InstagramAutomation:
             'skipped': 0
         }
         last_stop_reason = ''
+        # The sources that could not be worked (private, list closed), with their motive: said in
+        # the log, on the panel's line of each source, and the end of a run none of them could serve.
+        failed_sources: Dict[str, Any] = {}
+        worked_sources: set = set()
 
         def run_one_target(target: str, quota: int):
             nonlocal last_stop_reason
@@ -170,6 +174,16 @@ class InstagramAutomation:
             )
             for key in all_results:
                 all_results[key] += result.get(key, 0)
+            source_failure = result.get('source_failure')
+            if source_failure:
+                failed_sources[target] = source_failure
+                if run_halt.arret_demande():
+                    # The stop latch saw the cause (network, phone, app): the run ends on it.
+                    return 0, True
+                # This account only: the next source takes over its budget, as from a source run dry.
+                self.logger.warning(f"📍 Source @{target} not worked ({source_failure.code}), next source")
+                return 0, False
+            worked_sources.add(target)
             stop_reason = result.get('stop_reason') or ''
             if stop_reason:
                 last_stop_reason = stop_reason
@@ -183,8 +197,15 @@ class InstagramAutomation:
             self.logger.info(f"🎯 {len(target_usernames)} targets, distribution: {distribution}")
         outcome = run_distributed(
             target_usernames, max_interactions, distribution, run_one_target,
-            on_progress=ipc_source_progress('target'),
+            on_progress=ipc_source_progress('target', failure_of=failed_sources.get),
         )
+
+        if failed_sources:
+            detail = ", ".join(f"@{source} ({motive.code})" for source, motive in failed_sources.items())
+            self.logger.warning(f"🎯 {len(failed_sources)}/{len(target_usernames)} source(s) not worked: {detail}")
+        # A run none of whose sources could be worked ends on their failure, never as a success.
+        if not last_stop_reason and failed_sources and not worked_sources:
+            last_stop_reason = list(failed_sources.values())[-1]
 
         if not getattr(self, 'session_finalized', False):
             reason = last_stop_reason or stop_reasons.completed(outcome['processed'])

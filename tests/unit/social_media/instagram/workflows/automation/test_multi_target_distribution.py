@@ -55,7 +55,7 @@ class _Driver(InstagramAutomation):
 @pytest.fixture(autouse=True)
 def _no_ipc(monkeypatch):
     import taktik.core.social_media.instagram.workflows.automation.automation as automation
-    monkeypatch.setattr(automation, "ipc_source_progress", lambda kind: None)
+    monkeypatch.setattr(automation, "ipc_source_progress", lambda kind, failure_of=None: None)
 
 
 def test_a_spent_source_hands_over_to_the_next_target():

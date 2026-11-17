@@ -173,6 +173,22 @@ class DirectNavigationMixin:
         capture_screen_snapshot(self.device, label)
         return None, None
 
+    def _source_failed(self, stats, reason, label=None):
+        """This SOURCE cannot be worked (private, or its list does not open): the run can go on.
+
+        The profile was reached, so the app is where it should be: the failure belongs to this
+        account, not to the run. The motive is carried twice, as a post link's is: `stop_reason`
+        for a caller that runs one source and finalises, `source_failure` for the multi-source
+        driver (`InstagramAutomation.interact_with_followers`), which hands over to the next source
+        instead of ending the session. A navigation that fails is not one of these: the app may be
+        lost, and `_fail_setup` ends the run on it.
+        """
+        stats['source_failure'] = reason
+        if label is None:
+            stats['stop_reason'] = reason
+            return None, None
+        return self._fail_setup(stats, reason, label)
+
     def _setup_direct_workflow(self, target_username, stats, config, deep_link_percentage, force_search_for_target):
         """Navigate to target profile, open followers/following list. Returns (followers_count, profile_info) or (None, None) on failure."""
         self.logger.info(f"🎯 Opening followers list of @{target_username}")
@@ -193,8 +209,7 @@ class DirectNavigationMixin:
             self.logger.warning(f"@{target_username} is a private account")
             # NOT a technical failure: a private target has no list to open. The operator has to
             # pick another source, which is a different action from "go and look at the phone".
-            stats['stop_reason'] = stop_reasons.list_unavailable()
-            return None, None
+            return self._source_failed(stats, stop_reasons.list_unavailable())
         
         target_followers_count = profile_info.get('followers_count', 0) if profile_info else 0
         
@@ -224,12 +239,12 @@ class DirectNavigationMixin:
             self.logger.info(f"📋 Opening FOLLOWING list of @{target_username}")
             if not self.nav_actions.open_following_list():
                 self.logger.error("Failed to open following list")
-                return self._fail_setup(stats, stop_reasons.list_unavailable(), 'setup_following_list_unavailable')
+                return self._source_failed(stats, stop_reasons.list_unavailable(), 'setup_following_list_unavailable')
         else:
             self.logger.info(f"📋 Opening FOLLOWERS list of @{target_username}")
             if not self.nav_actions.open_followers_list():
                 self.logger.error("Failed to open followers list")
-                return self._fail_setup(stats, stop_reasons.list_unavailable(), 'setup_followers_list_unavailable')
+                return self._source_failed(stats, stop_reasons.list_unavailable(), 'setup_followers_list_unavailable')
         
         self._human_like_delay('click')
         return target_followers_count, profile_info
