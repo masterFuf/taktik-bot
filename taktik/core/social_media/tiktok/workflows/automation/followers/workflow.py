@@ -35,6 +35,7 @@ from taktik.core.social_media.tiktok.services.followers.scroll_policy import (
 from taktik.core.database.repositories.tiktok.followers import TikTokFollowersRepository
 
 from taktik.core.social_media.tiktok.workflows.common.base_workflow import BaseTikTokWorkflow
+from taktik.core.social_media.tiktok.workflows.common.completion import RunTally, reason_params
 from taktik.core.social_media.tiktok.workflows.automation.followers.filtering import evaluate_tiktok_profile
 from taktik.core.social_media.tiktok.workflows.automation.followers.models import FollowersConfig, FollowersStats
 from taktik.core.social_media.tiktok.workflows.automation.followers.page_detection import PageDetectionMixin
@@ -278,8 +279,10 @@ class FollowersWorkflow(
             error_message: Error message if status is ERROR
             completion_reason: Reason for completion (max_profiles_reached, max_likes_reached, etc.)
         """
-        # Store completion reason for stats
+        # Store completion reason for stats, and the values of its sentence
         self.stats.completion_reason = completion_reason or 'unknown'
+        self.stats.completion_reason_params = reason_params(
+            self.stats.completion_reason, self._run_tally(error_message or ""))
         
         try:
             self._followers_repository.end_session(
@@ -306,6 +309,28 @@ class FollowersWorkflow(
                 self.logger.info(f"📊 Database session {self._session_id} ended: {status} (reason: {completion_reason})")
         except Exception as e:
             self.logger.warning(f"Failed to end database session: {e}")
+
+    def _run_tally(self, error: str) -> RunTally:
+        """What this run counted, under the names of the end sentences (`common/completion.py`)."""
+        seen, total = self._list_seen_and_total()
+        return RunTally(
+            profiles=self.stats.profiles_visited,
+            profiles_limit=getattr(self.config, 'max_followers', 0),
+            likes=self.stats.likes,
+            likes_limit=getattr(self.config, 'max_likes_per_session', 0),
+            follows=self.stats.follows,
+            follows_limit=getattr(self.config, 'max_follows_per_session', 0),
+            seen=seen,
+            total=total,
+            streak=getattr(self.config, 'max_consecutive_known_usernames', 0),
+            interactions=(self.stats.likes + self.stats.follows + self.stats.comments
+                          + self.stats.favorites + self.stats.shares),
+            error=error,
+        )
+
+    def _list_seen_and_total(self) -> tuple:
+        """Accounts read in the target's list; its size is not known."""
+        return self.stats.followers_seen, 0
 
     # ------------------------------------------------------------------
     # Follower processing (core loop body)

@@ -58,6 +58,8 @@ class SyncListsStats:
     stopped_early: bool = False
     errors: int = 0
     completion_reason: str = ""
+    #: The values of its sentence, for the app's markers (`common/completion.py`).
+    completion_reason_params: Dict[str, Any] = field(default_factory=dict)
 
     start_time: float = field(default_factory=time.time)
 
@@ -75,6 +77,7 @@ class SyncListsStats:
             "stopped_early": self.stopped_early,
             "errors": self.errors,
             "completion_reason": self.completion_reason,
+            "completion_reason_params": dict(self.completion_reason_params),
             "elapsed_seconds": elapsed,
             "elapsed_formatted": f"{int(elapsed // 60)}m {int(elapsed % 60)}s",
         }

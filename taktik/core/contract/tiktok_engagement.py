@@ -58,6 +58,8 @@ SYNC_RUN_STATS = Shape(
         )),
         Field("stopped_early", "bool", "The run stopped before the end of a list."),
         Field("completion_reason", TIKTOK_COMPLETION_REASON_OR_NONE, "Why the run ended."),
+        Field("completion_reason_params", MapOf("json"), "The values of its sentence (`reason_params` of the end "
+              "line)."),
         Field("elapsed_seconds", "number", "Time spent."),
         Field("elapsed_formatted", "string", "The same, for a person."),
     ),

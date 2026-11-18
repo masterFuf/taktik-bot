@@ -14,7 +14,7 @@ criterion are both sent, the last one of the payload wins.
 
 from __future__ import annotations
 
-from .schema import HOST, Computed, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
+from .schema import HOST, Computed, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
 from .shared import AI_REQUEST_BLOCK, ERROR_EVENT, STATUS_EVENT, network_reset_field
 from .stop_reasons import TIKTOK_COMPLETION_REASON_OR_NONE
 from .tiktok_automation import AI_SETTINGS
@@ -121,6 +121,8 @@ PROFILE_RUN_STATS = Shape(
         Field("shares", "int", "Videos shared.", optional=True),
         Field("completion_reason", TIKTOK_COMPLETION_REASON_OR_NONE, "Why the run ended (final stats); empty before.",
               optional=True),
+        Field("completion_reason_params", MapOf("json"), "The values of its sentence (`reason_params` of the end "
+              "line); empty before.", optional=True),
         Field("elapsed_seconds", "number", "Time spent.", optional=True),
         Field("elapsed_formatted", "string", "The same, for a person.", optional=True),
         Field("current_target", "string", "The account whose followers are walked (followers).", optional=True),

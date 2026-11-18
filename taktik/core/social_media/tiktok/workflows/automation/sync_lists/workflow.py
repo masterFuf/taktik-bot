@@ -36,6 +36,7 @@ from taktik.core.social_media.tiktok.services.profile.username import (
 from taktik.core.social_media.tiktok.ui.labels import is_following_button, is_friends_button
 
 from taktik.core.social_media.tiktok.workflows.common.base_workflow import BaseTikTokWorkflow
+from taktik.core.social_media.tiktok.workflows.common.completion import RunTally, reason_params
 from taktik.core.social_media.tiktok.workflows.automation.sync_lists.models import SyncListsConfig, SyncListsStats
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
 
@@ -89,6 +90,15 @@ class SyncListsWorkflow(BaseTikTokWorkflow):
 
             if not self.stats.completion_reason:
                 self.stats.completion_reason = "completed"
+            self.stats.completion_reason_params = reason_params(self.stats.completion_reason, RunTally(
+                seen=self.stats.rows_seen,
+                # Read to its end: what was seen is the whole list.
+                total=self.stats.rows_seen,
+                scrolls=self.config.max_scrolls,
+                # One known handle stops an incremental sync.
+                streak=1,
+                interactions=self.stats.new_count + self.stats.updated_count,
+            ))
 
             self.logger.info(
                 f"✅ Sync done: {self.stats.rows_seen} rows, {self.stats.new_count} new, "

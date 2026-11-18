@@ -25,6 +25,7 @@ from taktik.core.social_media.tiktok.actions.atomic.interaction.click_actions im
 from taktik.core.social_media.tiktok.actions.atomic.navigation.navigation_actions import NavigationActions
 from taktik.core.social_media.tiktok.actions.atomic.scroll.scroll_actions import ScrollActions
 from taktik.core.social_media.tiktok.actions.atomic.detection.detection_actions import DetectionActions
+from taktik.core.social_media.tiktok.workflows.common.completion import RunTally, reason_params
 from taktik.core.social_media.tiktok.workflows.common.popup_handler import PopupHandler
 
 #: The motive of a run that died on an exception: the code Instagram's crash path names.
@@ -39,6 +40,10 @@ class BaseTikTokWorkflow:
     #: onto it unprompted; a workflow that reads the inbox declares it here, once,
     #: instead of opting out at every popup check.
     OWNED_SURFACES: frozenset = frozenset()
+
+    #: The run's counters, set by each subclass's run (its own stats dataclass, with `to_dict()`
+    #: and `completion_reason_params`).
+    stats: Any
 
     def __init__(self, device, *, module_name: str = "tiktok-workflow"):
         self.device = device
@@ -206,14 +211,19 @@ class BaseTikTokWorkflow:
 
         `crashed`, unless the stop latch had already stopped the run: a call to an unplugged phone
         raises, and the operator must read « phone disconnected », not « crashed » (Instagram's
-        `settled_by_halt` rule). Call it from inside the `except`, where the trace still is.
+        `settled_by_halt` rule). Call it from inside the `except`, where the trace still is. The
+        values of the motive's sentence go on `self.stats` (the error's text for a crash, none for
+        the latch's codes).
         """
         self.logger.exception(f"❌ {workflow_name} workflow crashed: {error}")
         halt = run_halt.arret_demande()
         if halt and halt.get("code"):
             self.logger.warning(f"The stop latch had already stopped the run ({halt['code']}): the run ends on it")
-            return halt["code"]
-        return STOP_CRASHED
+            reason = halt["code"]
+        else:
+            reason = STOP_CRASHED
+        self.stats.completion_reason_params = reason_params(reason, RunTally(error=str(error)))
+        return reason
 
     # ------------------------------------------------------------------
     # Popup handling

@@ -29,6 +29,7 @@ from taktik.core.kernel.handler_params import merge_invocation_payload
 from taktik.core.social_media.tiktok.workflows.common.agent_runtime import (
     attach_profile_callbacks,
 )
+from taktik.core.social_media.tiktok.workflows.common.completion import RunTally, reason_params
 from taktik.core.social_media.tiktok.workflows.automation.followers.payload import (
     bot_username_from_payload,
     followers_config_for_target,
@@ -135,11 +136,13 @@ def run_tiktok_followers(
     targets = [target for target, share in zip(targets, shares) if share > 0]
     budgets = [share for share in shares if share > 0]
     remaining_likes, remaining_follows = session_limits_from_payload(payload)
+    session_likes, session_follows = remaining_likes, remaining_follows
     logger.info(f"Distribution: {budgets} profiles per target (total: {total_budget})")
 
     totals = new_session_totals()
     factory = workflow_factory or _default_workflow_factory()
     completion_reason = "completed"
+    last_params: dict[str, Any] = {}
 
     for index, target in enumerate(targets):
         if remaining_likes <= 0 and remaining_follows <= 0:
@@ -167,6 +170,7 @@ def run_tiktok_followers(
         remaining_likes -= stats.likes
         remaining_follows -= stats.follows
         completion_reason = getattr(stats, "completion_reason", "unknown")
+        last_params = dict(getattr(stats, "completion_reason_params", None) or {})
         logger.info(f"Target @{target} completed: {stats.profiles_visited} profiles, {stats.likes} likes")
 
         if completion_reason in _SESSION_ENDING_REASONS:
@@ -180,6 +184,20 @@ def run_tiktok_followers(
                 logger.warning("Could not navigate to home, trying next target anyway...")
 
     totals["completion_reason"] = completion_reason
+    # The sentence's values over the whole session: its caps are the session's, not the last
+    # target's share; what only the last target knows (the error, the streak) is taken from it.
+    totals["completion_reason_params"] = reason_params(completion_reason, RunTally(
+        profiles=totals["profiles_visited"],
+        profiles_limit=total_budget,
+        likes=totals["likes"],
+        likes_limit=session_likes,
+        follows=totals["follows"],
+        follows_limit=session_follows,
+        seen=totals["followers_seen"],
+        streak=int(last_params.get("streak", 0) or 0),
+        interactions=totals["likes"] + totals["follows"] + totals["favorites"],
+        error=str(last_params.get("error", "")),
+    ))
     logger.success(f"Multi-target workflow completed: {totals}")
     if on_finished is not None:
         on_finished(totals, targets)

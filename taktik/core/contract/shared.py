@@ -6,7 +6,7 @@ from __future__ import annotations
 from .error_codes import BRIDGE_ERROR_CODE
 from typing import Any, Optional
 
-from .schema import HOST, OPERATOR, AiRequest, Event, Field, OneOf, Shape
+from .schema import HOST, OPERATOR, AiRequest, Event, Field, MapOf, OneOf, Shape
 from .stop_reasons import TIKTOK_COMPLETION_REASON
 
 #: `enforce_pre_session_ip_rotation` (`bridges/common/network.py`), before the session.
@@ -86,6 +86,13 @@ STATUS_EVENT = Event(
             "completion_reason",
             TIKTOK_COMPLETION_REASON,
             "Why a run ended on its own (`action_blocked`, `feed_stuck`...); only TikTok bridges send it.",
+            optional=True,
+        ),
+        Field(
+            "reason_params",
+            MapOf("json"),
+            "The values of the sentence of `completion_reason` (`count`, `limit`, `error`...), as Instagram's "
+            "`session_stop` names them; empty when the sentence names none.",
             optional=True,
         ),
     ),

@@ -95,6 +95,7 @@ def test_the_followers_loop_ends_a_crash_on_crashed(caplog):
     assert ended["status"] == "ERROR"
     assert ended["stats"]["completion_reason"] == "crashed"
     assert stats.completion_reason == "crashed"
+    assert stats.completion_reason_params == {"error": "screen gone"}
     _assert_crash_logged_with_trace(caplog)
 
 
@@ -106,6 +107,7 @@ def test_a_video_feed_ends_a_crash_on_crashed(cls, caplog):
         stats = workflow.run()
 
     assert stats.completion_reason == "crashed"
+    assert stats.completion_reason_params == {"error": "screen gone"}
     _assert_crash_logged_with_trace(caplog)
 
 
@@ -116,6 +118,7 @@ def test_the_list_sync_ends_a_crash_on_crashed(caplog):
         stats = workflow.run(bot_username="account_1")
 
     assert stats.completion_reason == "crashed"
+    assert stats.completion_reason_params == {"error": "screen gone"}
     _assert_crash_logged_with_trace(caplog)
 
 
@@ -127,5 +130,6 @@ def test_under_the_stop_latch_a_crash_ends_on_the_latch_motive(caplog):
         stats = workflow.run(bot_username=None)
 
     assert stats.completion_reason == "device_disconnected"
+    assert stats.completion_reason_params == {}, "the latch's sentence names no value"
     assert workflow._followers_repository.ended[-1]["stats"]["completion_reason"] == "device_disconnected"
     _assert_crash_logged_with_trace(caplog)

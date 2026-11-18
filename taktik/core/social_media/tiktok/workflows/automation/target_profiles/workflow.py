@@ -159,6 +159,11 @@ class TargetProfilesWorkflow(FollowersWorkflow):
                 targets.append(username)
         return targets
 
+    def _list_seen_and_total(self) -> tuple:
+        """The list is the operator's: walked to its end, every account of it was seen."""
+        total = len(self._resolve_targets())
+        return total, total
+
     def _open_session(self, bot_username: Optional[str], targets: List[str]) -> None:
         """Open the DB session, under its own workflow type.
 
