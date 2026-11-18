@@ -55,9 +55,10 @@ SESSION_COUNTERS = (
     "consecutive_known_usernames", "errors",
 )
 
-#: A target ending on one of these ends the session.
+#: A target ending on one of these ends the session. A crashed target ends it too: the run ends on
+#: its crash, not on the motive of a target that came after it.
 _SESSION_ENDING_REASONS = frozenset({
-    "max_likes_reached", "max_follows_reached", "stopped_by_user", "navigation_failed", "ERROR",
+    "max_likes_reached", "max_follows_reached", "stopped_by_user", "navigation_failed", "crashed",
 })
 
 
