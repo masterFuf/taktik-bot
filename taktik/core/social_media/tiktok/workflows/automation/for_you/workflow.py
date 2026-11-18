@@ -200,9 +200,9 @@ class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
             
             self.logger.success(f"✅ Workflow completed: {self.stats.to_dict()}")
             
-        except Exception as e:
-            self.logger.error(f"❌ Workflow error: {e}")
+        except Exception as error:
             self.stats.errors += 1
+            self.stats.completion_reason = self._crash_reason("For You", error)
         
         finally:
             self._running = False

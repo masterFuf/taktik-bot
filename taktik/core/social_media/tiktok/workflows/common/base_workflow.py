@@ -27,6 +27,9 @@ from taktik.core.social_media.tiktok.actions.atomic.scroll.scroll_actions import
 from taktik.core.social_media.tiktok.actions.atomic.detection.detection_actions import DetectionActions
 from taktik.core.social_media.tiktok.workflows.common.popup_handler import PopupHandler
 
+#: The motive of a run that died on an exception: the code Instagram's crash path names.
+STOP_CRASHED = "crashed"
+
 
 class BaseTikTokWorkflow:
     """Lightweight base for TikTok workflows that share atomic actions and lifecycle."""
@@ -197,6 +200,20 @@ class BaseTikTokWorkflow:
     def _halted() -> bool:
         """Is the run's stop latch set? Then no way back either: Back would close the dialog."""
         return run_halt.arret_demande() is not None
+
+    def _crash_reason(self, workflow_name: str, error: BaseException) -> str:
+        """The motive a run ends on when its loop raised: logs the full trace, then names it.
+
+        `crashed`, unless the stop latch had already stopped the run: a call to an unplugged phone
+        raises, and the operator must read « phone disconnected », not « crashed » (Instagram's
+        `settled_by_halt` rule). Call it from inside the `except`, where the trace still is.
+        """
+        self.logger.exception(f"❌ {workflow_name} workflow crashed: {error}")
+        halt = run_halt.arret_demande()
+        if halt and halt.get("code"):
+            self.logger.warning(f"The stop latch had already stopped the run ({halt['code']}): the run ends on it")
+            return halt["code"]
+        return STOP_CRASHED
 
     # ------------------------------------------------------------------
     # Popup handling

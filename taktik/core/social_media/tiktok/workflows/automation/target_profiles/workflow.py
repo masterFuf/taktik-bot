@@ -136,11 +136,10 @@ class TargetProfilesWorkflow(FollowersWorkflow):
             self._end_session('COMPLETED', completion_reason=completion_reason)
 
         except Exception as error:
-            # A crash is not the end of the list: the session ends on it, with its trace, under the
-            # failure code of TikTok's catalogue (`error`), never on « unknown ».
-            self.logger.exception(f"❌ Target Profiles workflow crashed: {error}")
+            # A crash is not the end of the list: the session ends on it, with its trace, never on
+            # « unknown ».
             self.stats.errors += 1
-            self._end_session('ERROR', str(error), completion_reason='error')
+            self._end_session('ERROR', str(error), completion_reason=self._crash_reason("Target Profiles", error))
 
         return self.stats
 

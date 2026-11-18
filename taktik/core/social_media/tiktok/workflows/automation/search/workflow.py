@@ -183,9 +183,9 @@ class SearchWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
             
             self.logger.info(f"✅ Search workflow completed: {self.stats.videos_watched} videos watched")
             
-        except Exception as e:
-            self.logger.error(f"❌ Error in Search workflow: {e}")
+        except Exception as error:
             self.stats.errors += 1
+            self.stats.completion_reason = self._crash_reason("Search", error)
         
         return self.stats
     

@@ -264,10 +264,9 @@ class FollowersWorkflow(
             self.logger.info(f"✅ Followers workflow completed: {self.stats.profiles_visited} profiles, {self.stats.likes} likes, {self.stats.follows} follows (reason: {completion_reason})")
             self._end_session('COMPLETED', completion_reason=completion_reason)
             
-        except Exception as e:
-            self.logger.error(f"❌ Error in Followers workflow: {e}")
+        except Exception as error:
             self.stats.errors += 1
-            self._end_session('ERROR', str(e))
+            self._end_session('ERROR', str(error), completion_reason=self._crash_reason("Followers", error))
         
         return self.stats
     

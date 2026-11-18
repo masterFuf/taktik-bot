@@ -99,10 +99,9 @@ class SyncListsWorkflow(BaseTikTokWorkflow):
                     f"⚠️ {self.stats.unidentified} row(s) had no handle on screen and were NOT "
                     f"recorded. Enable resolve_missing_handles to open those profiles."
                 )
-        except Exception as e:
-            self.logger.error(f"❌ Error during sync: {e}")
+        except Exception as error:
             self.stats.errors += 1
-            self.stats.completion_reason = "error"
+            self.stats.completion_reason = self._crash_reason("Sync lists", error)
 
         return self.stats
 

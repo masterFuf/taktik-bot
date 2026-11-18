@@ -1,7 +1,7 @@
 """The loop of hand-picked TikTok profiles says what went wrong.
 
-A crash in the loop is not the end of the list: the session ends on the failure code TikTok's
-catalogue names (`error`), with the trace in the log, never on `unknown` with the text alone. A home
+A crash in the loop is not the end of the list: the session ends on `crashed`, the motive Instagram
+names for a crash too, with the trace in the log, never on `unknown` with the text alone. A home
 screen the loop cannot reach again is said as a warning, not hidden at debug level. Instagram's
 direct loop got the same fix (`.../instagram/.../profile_list/test_the_loop_says_what_went_wrong.py`).
 """
@@ -55,8 +55,8 @@ def test_a_crash_in_the_loop_ends_the_session_as_a_failure_with_its_trace(caplog
 
     assert isinstance(stats, FollowersStats)
     assert repo.ended[-1]["status"] == "ERROR"
-    assert repo.ended[-1]["stats"]["completion_reason"] == "error"
-    assert stats.completion_reason == "error"
+    assert repo.ended[-1]["stats"]["completion_reason"] == "crashed"
+    assert stats.completion_reason == "crashed"
     crash_lines = [r for r in caplog.records if "crashed" in r.getMessage()]
     assert crash_lines, "the crash is not logged"
     assert crash_lines[0].levelno == logging.ERROR

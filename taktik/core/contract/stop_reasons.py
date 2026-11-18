@@ -62,7 +62,7 @@ TIKTOK_COMPLETION_REASON = OneOf(
         "completed", "unknown",
         # failed
         "navigation_failed", "list_unreachable", "no_targets", "no_account", "feed_stuck",
-        "unfollow_unconfirmed", "error",
+        "unfollow_unconfirmed", "crashed",
         # the stop latch
         *RUN_HALT_CODE.values,
         # manual
