@@ -55,7 +55,6 @@ class InstagramAutomation:
         
         self.nav_actions = self.actions.profile_business.nav_actions
         self.profile_actions = self.actions.profile_business
-        self.like_actions = self.actions.like_business
         self.follow_actions = self.actions.follower_business
         
         self.session_name = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -107,20 +106,6 @@ class InstagramAutomation:
             self.logger.error(f"Error loading configuration: {e}")
             return False
     
-    def like_profile_posts(self, username: str, max_posts: int = 9, like_posts: bool = True, 
-                         max_likes: int = 3, scroll_attempts: int = 3) -> Dict[str, int]:
-        self.logger.info(f"Starting post liking for @{username} via LikeProfilePostsManager")
-        
-        stats = self.like_actions.like_profile_posts(
-            username=username,
-            max_posts=max_posts,
-            like_posts=like_posts,
-            max_likes=max_likes,
-            scroll_attempts=scroll_attempts
-        )
-        
-        return stats
-
     def interact_with_followers(self, target_username: str = None, target_usernames: List[str] = None,
                            max_interactions: int = 100, like_posts: bool = True,
                            max_likes_per_profile: int = 2, skip_processed: bool = True,

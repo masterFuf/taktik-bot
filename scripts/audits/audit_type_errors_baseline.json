@@ -188,7 +188,7 @@
   "taktik/core/social_media/instagram/workflows/agent/agent_handler.py": 1,
   "taktik/core/social_media/instagram/workflows/agent/autopilot.py": 11,
   "taktik/core/social_media/instagram/workflows/automation/agent_handler.py": 1,
-  "taktik/core/social_media/instagram/workflows/automation/automation.py": 14,
+  "taktik/core/social_media/instagram/workflows/automation/automation.py": 11,
   "taktik/core/social_media/instagram/workflows/automation/config_builder.py": 2,
   "taktik/core/social_media/instagram/workflows/automation/feed/post_actions.py": 25,
   "taktik/core/social_media/instagram/workflows/automation/feed/suggestions.py": 55,
