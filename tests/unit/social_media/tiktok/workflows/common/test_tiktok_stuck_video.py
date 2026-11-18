@@ -95,7 +95,9 @@ def test_the_final_status_carries_the_motive_to_the_desktop(monkeypatch):
     monkeypatch.setattr(video_callbacks, "send_stats", lambda **_: None)
     monkeypatch.setattr(video_callbacks, "send_status", lambda status, message="": sent.append(
         {"type": "status", "status": status, "message": message}))
-    monkeypatch.setattr(video_callbacks, "send_message", lambda msg_type, **kw: sent.append({"type": msg_type, **kw}))
+    # The end line leaves through `ipc.send_run_end`, which prints with ipc's `send_message`.
+    from bridges.tiktok.common import ipc
+    monkeypatch.setattr(ipc, "send_message", lambda msg_type, **kw: sent.append({"type": msg_type, **kw}))
 
     stuck = VideoWorkflowStats(completion_reason="feed_stuck")
     video_callbacks.send_final_video_stats(stuck, "For You workflow")

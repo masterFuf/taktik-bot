@@ -60,11 +60,22 @@ def _register_telemetry_sink() -> None:
 _register_telemetry_sink()
 
 
+def send_run_end(message: str, completion_reason: str, reason_params=None) -> None:
+    """The line that ends a TikTok run: its motive, and the values of the motive's sentence.
+
+    `reason_params` is the name Instagram's `session_stop` gives them: the app fills the markers of
+    the sentence (`{count}`, `{error}`...) with it (`workflows/common/completion.py`).
+    """
+    send_message("status", status="completed", message=message, completion_reason=completion_reason,
+                 reason_params=dict(reason_params or {}))
+
+
 __all__ = [
     "_ipc",
     "logger",
     "send_message",
     "send_status",
+    "send_run_end",
     "send_error",
     "send_log",
     "send_progress",

@@ -277,6 +277,10 @@
           "stats": {
             "already_friends": 0,
             "completion_reason": "max_profiles_reached",
+            "completion_reason_params": {
+              "count": 2,
+              "limit": 3
+            },
             "consecutive_known_usernames": 0,
             "errors": 0,
             "favorites": 0,
@@ -296,6 +300,10 @@
         {
           "completion_reason": "max_profiles_reached",
           "message": "Visited 2 profiles across 2 targets",
+          "reason_params": {
+            "count": 2,
+            "limit": 3
+          },
           "status": "completed"
         }
       ]
@@ -635,6 +643,10 @@
           "stats": {
             "already_friends": 0,
             "completion_reason": "max_profiles_reached",
+            "completion_reason_params": {
+              "count": 2,
+              "limit": 3
+            },
             "consecutive_known_usernames": 0,
             "errors": 0,
             "favorites": 0,
@@ -654,6 +666,10 @@
         {
           "completion_reason": "max_profiles_reached",
           "message": "Visited 2 profiles across 2 targets",
+          "reason_params": {
+            "count": 2,
+            "limit": 3
+          },
           "status": "completed"
         }
       ]
@@ -861,6 +877,10 @@
           "stats": {
             "already_friends": 0,
             "completion_reason": "max_profiles_reached",
+            "completion_reason_params": {
+              "count": 1,
+              "limit": 1
+            },
             "consecutive_known_usernames": 0,
             "errors": 0,
             "favorites": 0,
@@ -880,6 +900,10 @@
         {
           "completion_reason": "max_profiles_reached",
           "message": "Visited 1 profiles across 1 targets",
+          "reason_params": {
+            "count": 1,
+            "limit": 1
+          },
           "status": "completed"
         }
       ]
@@ -1073,6 +1097,10 @@
           "stats": {
             "already_friends": 0,
             "completion_reason": "max_profiles_reached",
+            "completion_reason_params": {
+              "count": 1,
+              "limit": 6
+            },
             "consecutive_known_usernames": 0,
             "errors": 0,
             "favorites": 0,
@@ -1092,6 +1120,10 @@
         {
           "completion_reason": "max_profiles_reached",
           "message": "Visited 1 profiles across 3 targets",
+          "reason_params": {
+            "count": 1,
+            "limit": 6
+          },
           "status": "completed"
         }
       ]
@@ -1283,6 +1315,10 @@
           "stats": {
             "already_friends": 0,
             "completion_reason": "max_likes_reached",
+            "completion_reason_params": {
+              "count": 1,
+              "limit": 40
+            },
             "consecutive_known_usernames": 0,
             "errors": 0,
             "favorites": 0,
@@ -1302,6 +1338,10 @@
         {
           "completion_reason": "max_likes_reached",
           "message": "Visited 1 profiles across 2 targets",
+          "reason_params": {
+            "count": 1,
+            "limit": 40
+          },
           "status": "completed"
         }
       ]
@@ -1470,6 +1510,7 @@
           "stats": {
             "already_friends": 0,
             "completion_reason": "navigation_failed",
+            "completion_reason_params": {},
             "consecutive_known_usernames": 0,
             "errors": 0,
             "favorites": 0,
@@ -1489,6 +1530,7 @@
         {
           "completion_reason": "navigation_failed",
           "message": "Visited 0 profiles across 2 targets",
+          "reason_params": {},
           "status": "completed"
         }
       ]
@@ -1781,6 +1823,10 @@
           "stats": {
             "already_friends": 0,
             "completion_reason": "max_profiles_reached",
+            "completion_reason_params": {
+              "count": 1,
+              "limit": 3
+            },
             "consecutive_known_usernames": 0,
             "errors": 0,
             "favorites": 0,
@@ -1800,6 +1846,10 @@
         {
           "completion_reason": "max_profiles_reached",
           "message": "Visited 1 profiles across 2 targets",
+          "reason_params": {
+            "count": 1,
+            "limit": 3
+          },
           "status": "completed"
         }
       ]
@@ -2115,6 +2165,10 @@
           "stats": {
             "already_friends": 0,
             "completion_reason": "max_profiles_reached",
+            "completion_reason_params": {
+              "count": 2,
+              "limit": 3
+            },
             "consecutive_known_usernames": 0,
             "errors": 0,
             "favorites": 0,
@@ -2134,6 +2188,10 @@
         {
           "completion_reason": "max_profiles_reached",
           "message": "Visited 2 profiles across 2 targets",
+          "reason_params": {
+            "count": 2,
+            "limit": 3
+          },
           "status": "completed"
         }
       ]
@@ -2432,6 +2490,10 @@
           "stats": {
             "already_friends": 0,
             "completion_reason": "max_profiles_reached",
+            "completion_reason_params": {
+              "count": 2,
+              "limit": 3
+            },
             "consecutive_known_usernames": 0,
             "errors": 0,
             "favorites": 0,
@@ -2451,6 +2513,10 @@
         {
           "completion_reason": "max_profiles_reached",
           "message": "Visited 2 profiles across 2 targets",
+          "reason_params": {
+            "count": 2,
+            "limit": 3
+          },
           "status": "completed"
         }
       ]
@@ -2632,6 +2698,7 @@
             "already_friends": 0,
             "comments": 0,
             "completion_reason": "max_profiles_reached",
+            "completion_reason_params": {},
             "consecutive_known_usernames": 0,
             "elapsed_formatted": "0m 0s",
             "elapsed_seconds": 0,
@@ -2655,6 +2722,7 @@
         {
           "completion_reason": "max_profiles_reached",
           "message": "Visited 1 commenter(s) of this video",
+          "reason_params": {},
           "status": "completed"
         }
       ]
@@ -2857,6 +2925,7 @@
             "already_friends": 0,
             "comments": 0,
             "completion_reason": "max_profiles_reached",
+            "completion_reason_params": {},
             "consecutive_known_usernames": 0,
             "elapsed_formatted": "0m 0s",
             "elapsed_seconds": 0,
@@ -2880,6 +2949,7 @@
         {
           "completion_reason": "max_profiles_reached",
           "message": "Visited 1 of 2 profiles",
+          "reason_params": {},
           "status": "completed"
         }
       ]
@@ -3069,6 +3139,7 @@
             "already_friends": 0,
             "comments": 0,
             "completion_reason": "max_profiles_reached",
+            "completion_reason_params": {},
             "consecutive_known_usernames": 0,
             "elapsed_formatted": "0m 0s",
             "elapsed_seconds": 0,
@@ -3092,6 +3163,7 @@
         {
           "completion_reason": "max_profiles_reached",
           "message": "Visited 1 of 4 profiles",
+          "reason_params": {},
           "status": "completed"
         }
       ]

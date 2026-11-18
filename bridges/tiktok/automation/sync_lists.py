@@ -18,6 +18,7 @@ from bridges.tiktok.common.ipc import (
     logger,
     send_error,
     send_message,
+    send_run_end,
     send_status,
     set_workflow,
 )
@@ -55,14 +56,13 @@ def _bind_workflow(workflow, list_type: str, bot_username: str) -> None:
 def _send_final_stats(stats, list_type: str) -> None:
     stats_dict = stats.to_dict()
     send_message("sync_stats", stats=stats_dict)
-    send_message(
-        "status",
-        status="completed",
-        message=(
+    send_run_end(
+        (
             f"{stats.rows_seen} row(s) recorded, {stats.new_count} new"
             + (f", {stats.unidentified} without a readable handle" if stats.unidentified else "")
         ),
-        completion_reason=stats_dict.get("completion_reason", "completed"),
+        stats_dict.get("completion_reason", "completed"),
+        stats_dict.get("completion_reason_params"),
     )
     logger.success(f"TikTok {list_type} sync completed: {stats_dict}")
 

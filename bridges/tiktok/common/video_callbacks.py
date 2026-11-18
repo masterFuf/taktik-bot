@@ -5,6 +5,7 @@ from bridges.tiktok.common.ipc import (
     send_action,
     send_message,
     send_pause,
+    send_run_end,
     send_stats,
     send_status,
     send_video_info,
@@ -99,6 +100,6 @@ def send_final_video_stats(stats, workflow_name: str = "Workflow") -> None:
     )
     reason = getattr(stats, "completion_reason", "")
     if reason:
-        send_message("status", status="completed", message=message, completion_reason=reason)
+        send_run_end(message, reason, getattr(stats, "completion_reason_params", None))
     else:
         send_status("completed", message)

@@ -96,6 +96,7 @@
         {
           "stats": {
             "completion_reason": "known_reached",
+            "completion_reason_params": {},
             "elapsed_formatted": "0m 0s",
             "elapsed_seconds": 0,
             "errors": 0,
@@ -116,6 +117,7 @@
         {
           "completion_reason": "known_reached",
           "message": "1 row(s) recorded, 1 new",
+          "reason_params": {},
           "status": "completed"
         }
       ]
@@ -298,6 +300,7 @@
         {
           "stats": {
             "completion_reason": "known_reached",
+            "completion_reason_params": {},
             "elapsed_formatted": "0m 0s",
             "elapsed_seconds": 0,
             "errors": 0,
@@ -318,6 +321,7 @@
         {
           "completion_reason": "known_reached",
           "message": "1 row(s) recorded, 1 new",
+          "reason_params": {},
           "status": "completed"
         }
       ]
@@ -435,6 +439,7 @@
         {
           "stats": {
             "completion_reason": "known_reached",
+            "completion_reason_params": {},
             "elapsed_formatted": "0m 0s",
             "elapsed_seconds": 0,
             "errors": 0,
@@ -455,6 +460,7 @@
         {
           "completion_reason": "known_reached",
           "message": "1 row(s) recorded, 1 new",
+          "reason_params": {},
           "status": "completed"
         }
       ]
@@ -572,6 +578,7 @@
         {
           "stats": {
             "completion_reason": "known_reached",
+            "completion_reason_params": {},
             "elapsed_formatted": "0m 0s",
             "elapsed_seconds": 0,
             "errors": 0,
@@ -592,6 +599,7 @@
         {
           "completion_reason": "known_reached",
           "message": "1 row(s) recorded, 1 new",
+          "reason_params": {},
           "status": "completed"
         }
       ]
@@ -709,6 +717,7 @@
         {
           "stats": {
             "completion_reason": "known_reached",
+            "completion_reason_params": {},
             "elapsed_formatted": "0m 0s",
             "elapsed_seconds": 0,
             "errors": 0,
@@ -729,6 +738,7 @@
         {
           "completion_reason": "known_reached",
           "message": "1 row(s) recorded, 1 new",
+          "reason_params": {},
           "status": "completed"
         }
       ]
@@ -846,6 +856,7 @@
         {
           "stats": {
             "completion_reason": "known_reached",
+            "completion_reason_params": {},
             "elapsed_formatted": "0m 0s",
             "elapsed_seconds": 0,
             "errors": 0,
@@ -866,6 +877,7 @@
         {
           "completion_reason": "known_reached",
           "message": "3 row(s) recorded, 2 new, 2 without a readable handle",
+          "reason_params": {},
           "status": "completed"
         }
       ]
@@ -998,6 +1010,7 @@
         {
           "stats": {
             "completion_reason": "known_reached",
+            "completion_reason_params": {},
             "elapsed_formatted": "0m 0s",
             "elapsed_seconds": 0,
             "errors": 0,
@@ -1018,6 +1031,7 @@
         {
           "completion_reason": "known_reached",
           "message": "1 row(s) recorded, 1 new",
+          "reason_params": {},
           "status": "completed"
         }
       ]
@@ -1135,6 +1149,7 @@
         {
           "stats": {
             "completion_reason": "error",
+            "completion_reason_params": {},
             "elapsed_formatted": "0m 0s",
             "elapsed_seconds": 0,
             "errors": 1,
@@ -1155,6 +1170,7 @@
         {
           "completion_reason": "error",
           "message": "1 row(s) recorded, 1 new",
+          "reason_params": {},
           "status": "completed"
         }
       ]
@@ -1272,6 +1288,7 @@
         {
           "stats": {
             "completion_reason": "known_reached",
+            "completion_reason_params": {},
             "elapsed_formatted": "0m 0s",
             "elapsed_seconds": 0,
             "errors": 0,
@@ -1292,6 +1309,7 @@
         {
           "completion_reason": "known_reached",
           "message": "1 row(s) recorded, 1 new",
+          "reason_params": {},
           "status": "completed"
         }
       ]

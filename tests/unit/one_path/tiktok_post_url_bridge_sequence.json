@@ -163,6 +163,7 @@
             "already_friends": 0,
             "comments": 0,
             "completion_reason": "max_profiles_reached",
+            "completion_reason_params": {},
             "consecutive_known_usernames": 0,
             "elapsed_formatted": "0m 0s",
             "elapsed_seconds": 0,
@@ -186,6 +187,7 @@
         {
           "completion_reason": "max_profiles_reached",
           "message": "Visited 1 commenter(s) of this video",
+          "reason_params": {},
           "status": "completed"
         }
       ]
@@ -411,6 +413,7 @@
             "already_friends": 0,
             "comments": 0,
             "completion_reason": "max_profiles_reached",
+            "completion_reason_params": {},
             "consecutive_known_usernames": 0,
             "elapsed_formatted": "0m 0s",
             "elapsed_seconds": 0,
@@ -434,6 +437,7 @@
         {
           "completion_reason": "max_profiles_reached",
           "message": "Visited 1 commenter(s) of this video",
+          "reason_params": {},
           "status": "completed"
         }
       ]
@@ -636,6 +640,7 @@
             "already_friends": 0,
             "comments": 0,
             "completion_reason": "max_profiles_reached",
+            "completion_reason_params": {},
             "consecutive_known_usernames": 0,
             "elapsed_formatted": "0m 0s",
             "elapsed_seconds": 0,
@@ -659,6 +664,7 @@
         {
           "completion_reason": "max_profiles_reached",
           "message": "Visited 1 commenter(s) of this video",
+          "reason_params": {},
           "status": "completed"
         }
       ]
@@ -845,6 +851,7 @@
             "already_friends": 0,
             "comments": 0,
             "completion_reason": "max_profiles_reached",
+            "completion_reason_params": {},
             "consecutive_known_usernames": 0,
             "elapsed_formatted": "0m 0s",
             "elapsed_seconds": 0,
@@ -868,6 +875,7 @@
         {
           "completion_reason": "max_profiles_reached",
           "message": "Visited 1 commenter(s) of this video",
+          "reason_params": {},
           "status": "completed"
         }
       ]
@@ -1052,6 +1060,7 @@
             "already_friends": 0,
             "comments": 0,
             "completion_reason": "max_profiles_reached",
+            "completion_reason_params": {},
             "consecutive_known_usernames": 0,
             "elapsed_formatted": "0m 0s",
             "elapsed_seconds": 0,
@@ -1075,6 +1084,7 @@
         {
           "completion_reason": "max_profiles_reached",
           "message": "Visited 1 commenter(s) of this video",
+          "reason_params": {},
           "status": "completed"
         }
       ]
@@ -1259,6 +1269,7 @@
             "already_friends": 0,
             "comments": 0,
             "completion_reason": "max_profiles_reached",
+            "completion_reason_params": {},
             "consecutive_known_usernames": 0,
             "elapsed_formatted": "0m 0s",
             "elapsed_seconds": 0,
@@ -1282,6 +1293,7 @@
         {
           "completion_reason": "max_profiles_reached",
           "message": "Visited 1 commenter(s) of this video",
+          "reason_params": {},
           "status": "completed"
         }
       ]
@@ -1479,6 +1491,7 @@
             "already_friends": 0,
             "comments": 0,
             "completion_reason": "no_targets",
+            "completion_reason_params": {},
             "consecutive_known_usernames": 0,
             "elapsed_formatted": "0m 0s",
             "elapsed_seconds": 0,
@@ -1502,6 +1515,7 @@
         {
           "completion_reason": "no_targets",
           "message": "Visited 0 commenter(s) of this video",
+          "reason_params": {},
           "status": "completed"
         }
       ]
@@ -1686,6 +1700,7 @@
             "already_friends": 0,
             "comments": 0,
             "completion_reason": "max_profiles_reached",
+            "completion_reason_params": {},
             "consecutive_known_usernames": 0,
             "elapsed_formatted": "0m 0s",
             "elapsed_seconds": 0,
@@ -1709,6 +1724,7 @@
         {
           "completion_reason": "max_profiles_reached",
           "message": "Visited 1 commenter(s) of this video",
+          "reason_params": {},
           "status": "completed"
         }
       ]

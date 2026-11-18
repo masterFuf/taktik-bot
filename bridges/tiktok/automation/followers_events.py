@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from bridges.tiktok.common.ipc import send_message
+from bridges.tiktok.common.ipc import send_message, send_run_end
 
 
 def send_target_switch(current_target: str, target_idx: int, target_list: List[str]) -> None:
@@ -31,11 +31,10 @@ def send_followers_workflow_start(current_target: str, target_list: List[str], t
 def send_final_followers_stats(total_stats: Dict[str, Any], target_count: int) -> None:
     """Emit final aggregated stats and terminal status."""
     send_message("followers_stats", stats=total_stats)
-    send_message(
-        "status",
-        status="completed",
-        message=f"Visited {total_stats['profiles_visited']} profiles across {target_count} targets",
-        completion_reason=total_stats.get("completion_reason", "completed"),
+    send_run_end(
+        f"Visited {total_stats['profiles_visited']} profiles across {target_count} targets",
+        total_stats.get("completion_reason", "completed"),
+        total_stats.get("completion_reason_params"),
     )
 
 

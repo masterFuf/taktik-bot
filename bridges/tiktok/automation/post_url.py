@@ -21,6 +21,7 @@ from bridges.tiktok.common.ipc import (
     logger,
     send_error,
     send_message,
+    send_run_end,
     send_status,
     set_workflow,
 )
@@ -63,11 +64,10 @@ def _bind_workflow(workflow, post_url: str) -> None:
 def _send_final_stats(stats) -> None:
     stats_dict = stats.to_dict()
     send_message("followers_stats", stats=stats_dict)
-    send_message(
-        "status",
-        status="completed",
-        message=f"Visited {stats.profiles_visited} commenter(s) of this video",
-        completion_reason=stats_dict.get("completion_reason", "completed"),
+    send_run_end(
+        f"Visited {stats.profiles_visited} commenter(s) of this video",
+        stats_dict.get("completion_reason", "completed"),
+        stats_dict.get("completion_reason_params"),
     )
     logger.success(f"Post URL workflow completed: {stats_dict}")
 
