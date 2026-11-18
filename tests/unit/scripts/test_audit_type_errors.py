@@ -17,6 +17,58 @@ import audit_type_errors as audit  # noqa: E402
 ROOT = Path("C:/engine") if sys.platform == "win32" else Path("/engine")
 
 
+@pytest.fixture
+def lock_environment(monkeypatch):
+    """main() run as in an environment of the lock: these tests judge pyright's report, not the packages."""
+    monkeypatch.setattr(audit, "environment_drift", lambda root=audit.ROOT: [])
+
+
+def test_a_pin_counts_only_where_its_marker_holds_and_a_later_file_wins():
+    lock = ("# generated\nadbutils==2.12.0\n    # via uiautomator2\n"
+            "colorama==0.4.6 ; sys_platform == 'nobody-runs-this'\nmitmproxy==11.0.2\n")
+    media = "# optional\nmitmproxy==12.3.1\n"
+    pins = audit.pinned_versions({"requirements.lock": lock, "requirements-media.txt": media})
+    assert pins == {"adbutils": ("2.12.0", "requirements.lock:2"),
+                    "mitmproxy": ("12.3.1", "requirements-media.txt:2")}
+
+
+def test_a_line_that_is_not_an_exact_pin_is_refused():
+    with pytest.raises(ValueError, match="requirements.lock:1 is not an exact pin"):
+        audit.pinned_versions({"requirements.lock": "sqlalchemy>=2.0\n"})
+
+
+def test_a_package_at_another_version_or_missing_is_a_drift():
+    pins = {"adbutils": ("2.12.0", "requirements.lock:3"), "sqlalchemy": ("2.0.55", "requirements.lock:128"),
+            "pyyaml": ("6.0.3", "requirements.lock:111")}
+    drift = audit.version_drift(pins, {"adbutils": "2.9.3", "pyyaml": "6.0.3", "unpinned": "1.0"})
+    assert drift == [f"adbutils==2.12.0 (requirements.lock:3): 2.9.3 installed in {sys.executable}",
+                     f"sqlalchemy==2.0.55 (requirements.lock:128): not installed in {sys.executable}"]
+
+
+def test_a_drift_is_red_and_pyright_is_not_run(monkeypatch, capsys):
+    # adbutils 2.9.3 and SQLAlchemy 1.4.54 typed adb.py, orm/engine.py and validate_entities.py with one
+    # error each, files absent from the baseline: the gate accused code nobody had touched.
+    monkeypatch.setattr(audit, "environment_drift", lambda root=audit.ROOT: ["sqlalchemy==2.0.55: 1.4.54 installed"])
+
+    def pyright_must_not_run():
+        raise AssertionError("pyright ran in an environment that is not the lock")
+
+    monkeypatch.setattr(audit, "find_pyright", pyright_must_not_run)
+    assert audit.main([]) == 1
+    out = capsys.readouterr().out
+    assert "FAIL: sqlalchemy==2.0.55: 1.4.54 installed" in out
+    assert "pyright not run" in out
+
+
+def test_the_drift_is_read_from_the_engine_requirement_files(tmp_path):
+    (tmp_path / "requirements.lock").write_text("a-package-nobody-installed==1.0\n", encoding="utf-8")
+    (tmp_path / "requirements-media.txt").write_text("", encoding="utf-8")
+    drift = audit.environment_drift(tmp_path)
+    assert drift == [f"a-package-nobody-installed==1.0 (requirements.lock:1): not installed in {sys.executable}"]
+    (tmp_path / "requirements-media.txt").unlink()
+    assert "requirements-media.txt not found" in audit.environment_drift(tmp_path)[0]
+
+
 def _diagnostic(path, message, rule="reportAttributeAccessIssue", severity="error", line=4):
     return {"file": str(ROOT / path), "severity": severity, "message": message, "rule": rule,
             "range": {"start": {"line": line, "character": 0}, "end": {"line": line, "character": 1}}}
@@ -61,7 +113,7 @@ def test_a_report_that_analysed_nothing_is_red():
     assert reading.failures() and "analysed no file" in reading.failures()[0]
 
 
-def test_without_pyright_the_gate_is_red_and_says_how_to_get_it(monkeypatch, capsys):
+def test_without_pyright_the_gate_is_red_and_says_how_to_get_it(monkeypatch, capsys, lock_environment):
     monkeypatch.setattr(audit, "find_pyright", lambda: None)
     assert audit.main([]) == 1
     out = capsys.readouterr().out
@@ -69,14 +121,14 @@ def test_without_pyright_the_gate_is_red_and_says_how_to_get_it(monkeypatch, cap
     assert f"pip install pyright=={audit.PYRIGHT_VERSION}" in out
 
 
-def test_another_version_of_pyright_is_red(monkeypatch, capsys):
+def test_another_version_of_pyright_is_red(monkeypatch, capsys, lock_environment):
     monkeypatch.setattr(audit, "find_pyright", lambda: "pyright")
     monkeypatch.setattr(audit, "pyright_version", lambda executable: "1.1.300")
     assert audit.main([]) == 1
     assert f"pyright 1.1.300 found, the gate counts with {audit.PYRIGHT_VERSION}" in capsys.readouterr().out
 
 
-def test_the_gate_judges_the_counts_against_its_baseline(monkeypatch, tmp_path, capsys):
+def test_the_gate_judges_the_counts_against_its_baseline(monkeypatch, tmp_path, capsys, lock_environment):
     baseline = tmp_path / "baseline.json"
     baseline.write_text('{"taktik/a.py": 2}', encoding="utf-8")
     monkeypatch.setattr(audit, "BASELINE", baseline)

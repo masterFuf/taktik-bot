@@ -18,10 +18,15 @@ PATH. It is never a requirement of the bot. Without it the gate is red and says 
 Imports are resolved with the Python that runs the gate (``--pythonpath``), which must have the
 packages of ``requirements.lock`` and ``requirements-media.txt``, at their exact versions: the
 baseline is measured with them, and another version of a package types its API differently
-(SQLAlchemy 1.4 and 2.0 did not give the same counts). An absolute import that pyright cannot resolve is not counted: it is
-reported as an incomplete environment and the gate is red, because a module without types hides
-every misuse of it and would lower the counts silently. A relative import that does not resolve is
-an error of the code and is counted.
+(SQLAlchemy 1.4 and 2.0 did not give the same counts). The gate checks it before running pyright
+(``environment_drift``): a package pinned by those files, for this Python and platform, that is
+missing or at another version turns it red and pyright is not run, because its counts would accuse
+files nobody touched (a Python with adbutils 2.9.3 and SQLAlchemy 1.4.54 gave one error each in
+``adb.py``, ``orm/engine.py`` and ``validate_entities.py``). Packages the files do not pin
+(what ``requirements-media.txt`` pulls in) are not judged. An absolute import that pyright cannot
+resolve is not counted: it is reported as an incomplete environment and the gate is red, because
+a module without types hides every misuse of it and would lower the counts silently. A relative
+import that does not resolve is an error of the code and is counted.
 
 Count: the diagnostics of severity ``error``, per file. Ratchet: ``scripts/audits/ratchet.py``, baseline
 ``scripts/audits/audit_type_errors_baseline.json``.
@@ -46,7 +51,7 @@ import tempfile
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Mapping, Optional, Sequence
+from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 from ratchet import Ratchet, enforce, print_listing
 
@@ -55,6 +60,8 @@ CONFIG_NAME = "pyrightconfig.json"
 BASELINE = ROOT / "scripts" / "audits" / "audit_type_errors_baseline.json"
 PYRIGHT_VERSION = "1.1.414"
 NOUN = "type error(s)"
+# Installed in this order; a later file's pin wins, as the later `pip install` does.
+REQUIREMENTS = ("requirements.lock", "requirements-media.txt")
 INSTALL = (f"python -m venv .venv, then .venv/Scripts/python -m pip install pyright=={PYRIGHT_VERSION} "
            "-r requirements.lock -r requirements-media.txt "
            "(.venv/bin/python outside Windows), from the root of the engine; or TAKTIK_PYRIGHT=<path to "
@@ -104,6 +111,65 @@ def read_report(report: Mapping, root: Path) -> Reading:
     reading.counts = dict(counts)
     reading.rules = dict(rules)
     return reading
+
+
+def pinned_versions(texts: Mapping[str, str]) -> Dict[str, Tuple[str, str]]:
+    """{canonical name: (version, "file:line")} of the `name==version` lines whose marker holds here.
+
+    `texts` maps a file name to its content, in install order. A line that is not an exact pin
+    (an option such as `-r`, a range) raises ValueError: the gate cannot say which version counts.
+    """
+    from packaging.requirements import Requirement
+    from packaging.utils import canonicalize_name
+
+    pins: Dict[str, Tuple[str, str]] = {}
+    for name, text in texts.items():
+        for number, raw in enumerate(text.splitlines(), 1):
+            line = raw.split(" #", 1)[0].strip()
+            if not line or line.startswith("#"):
+                continue
+            requirement = Requirement(line)
+            specifiers = list(requirement.specifier)
+            if len(specifiers) != 1 or specifiers[0].operator != "==":
+                raise ValueError(f"{name}:{number} is not an exact pin (name==version): {line}")
+            if requirement.marker is not None and not requirement.marker.evaluate():
+                continue
+            pins[canonicalize_name(requirement.name)] = (specifiers[0].version, f"{name}:{number}")
+    return pins
+
+
+def version_drift(pins: Mapping[str, Tuple[str, str]], installed: Mapping[str, str]) -> List[str]:
+    """One line per pinned package missing from `installed` ({canonical name: version}) or at another version."""
+    lines = []
+    for name, (version, origin) in sorted(pins.items()):
+        found = installed.get(name)
+        if found != version:
+            state = "not installed" if found is None else f"{found} installed"
+            lines.append(f"{name}=={version} ({origin}): {state} in {sys.executable}")
+    return lines
+
+
+def environment_drift(root: Path = ROOT) -> List[str]:
+    """The packages of REQUIREMENTS that the Python running the gate does not have at their pinned version."""
+    try:
+        from importlib.metadata import distributions
+
+        from packaging.utils import canonicalize_name
+    except ImportError as exc:
+        return [f"{sys.executable} cannot read its packages ({exc}): it is not the engine's environment"]
+    texts = {}
+    for name in REQUIREMENTS:
+        path = root / name
+        if not path.exists():
+            return [f"{path} not found: the gate reads its environment from it"]
+        texts[name] = path.read_text(encoding="utf-8")
+    try:
+        pins = pinned_versions(texts)
+    except ValueError as exc:
+        return [str(exc)]
+    installed: Dict[str, str] = {str(canonicalize_name(d.metadata["Name"])): d.version
+                                 for d in distributions() if d.metadata["Name"]}
+    return version_drift(pins, installed)
 
 
 class ToolFailure(Exception):
@@ -234,6 +300,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     try:
         if "--self-test" in argv:
             return self_test()
+        drift = environment_drift(ROOT)
+        if drift:
+            for line in drift:
+                print(f"FAIL: {line}")
+            print(f"FAIL: pyright not run: its imports resolve with {sys.executable}, which must hold "
+                  f"{' and '.join(REQUIREMENTS)} at their exact versions. {INSTALL}")
+            return 1
         reading = measure(ROOT)
     except ToolFailure as exc:
         print(f"FAIL: {exc}")
