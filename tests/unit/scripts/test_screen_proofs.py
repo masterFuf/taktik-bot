@@ -117,7 +117,7 @@ def test_the_child_runs_the_production_reads_on_a_capture(tmp_path):
     answers = _child(tmp_path, VIDEO, "43.1.4")
     feed = answers["video_info_feed"]
     assert feed["answer"]["author"] == "demo_author" and feed["answer"]["is_ad"] is False
-    assert feed["gestures"] == ["click"]  # production taps a cut English caption open
+    assert feed["gestures"] == ["long_click"]  # production taps a cut English caption open, a human press
     assert feed["dumps"] > 0 and answers["comments"]["answer"] is False
 
 
