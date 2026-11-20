@@ -38,7 +38,7 @@ from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtracto
 from taktik.core.database.local.service import get_local_database
 
 from taktik.core.social_media.instagram.workflows.scraping.post_scraping_helpers import ScrapingPostHelpersMixin
-from taktik.core.social_media.instagram.workflows.scraping.list_scraping import ScrapingListMixin
+from taktik.core.social_media.instagram.workflows.scraping.list_scraping import ScrapingListMixin, say_source_not_opened
 from taktik.core.social_media.instagram.workflows.scraping.profile_posts_scraping import ProfilePostsScrapingMixin
 from taktik.core.social_media.instagram.workflows.scraping.persistence import ScrapingPersistenceMixin
 from taktik.core.social_media.instagram.workflows.scraping.session import should_continue_session
@@ -283,7 +283,7 @@ class ScrapingWorkflow(
             
             # Navigate to target profile
             if not self.nav_actions.navigate_to_profile(target):
-                self.logger.warning(f"Failed to navigate to @{target}")
+                say_source_not_opened(self.nav_actions, self.logger, target)
                 sources_failed += 1
                 continue
             

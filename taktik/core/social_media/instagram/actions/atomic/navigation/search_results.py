@@ -81,6 +81,22 @@ class ProfileNavigationFailure:
         """The search did not answer in time: the account may well exist."""
         return self.reason is ProfileNavigationFailureReason.SEARCH_SLOW
 
+    @property
+    def unopened_code(self) -> str:
+        """The code a profile not opened is told to the app with (its table of skip reasons):
+        `not_found`, `search_slow`, else `navigation_failed`."""
+        if self.account_not_found:
+            return UNOPENED_NOT_FOUND
+        if self.search_slow:
+            return UNOPENED_SEARCH_SLOW
+        return UNOPENED_NAVIGATION_FAILED
+
+
+#: The codes of a profile not opened, as the app's table of skip reasons reads them.
+UNOPENED_NOT_FOUND = "not_found"
+UNOPENED_SEARCH_SLOW = "search_slow"
+UNOPENED_NAVIGATION_FAILED = "navigation_failed"
+
 
 def settle_profile_navigation_failure(
     search: Optional[ProfileNavigationFailure],
@@ -101,6 +117,9 @@ __all__ = [
     "ProfileNavigationFailure",
     "ProfileNavigationFailureReason",
     "SearchResultsState",
+    "UNOPENED_NAVIGATION_FAILED",
+    "UNOPENED_NOT_FOUND",
+    "UNOPENED_SEARCH_SLOW",
     "read_search_results",
     "settle_profile_navigation_failure",
 ]

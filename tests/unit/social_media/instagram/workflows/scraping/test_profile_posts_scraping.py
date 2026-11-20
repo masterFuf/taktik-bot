@@ -273,8 +273,33 @@ def test_an_unreachable_account_is_reported(monkeypatch):
     _urls(monkeypatch, ["https://www.instagram.com/p/A/"])
     h = _Harness(_Repo(), {"target_usernames": ["bob"]}, navigable=False)
 
-    assert h._scrape_profile_posts()["targets_info"][0]["error"] == "navigation failed"
+    assert h._scrape_profile_posts()["targets_info"][0]["error"] == "navigation_failed"
     assert h.navigator.opened_first == 0
+
+
+@pytest.mark.parametrize("reason, code", [("not_listed", "not_found"), ("search_slow", "search_slow")])
+def test_an_account_the_search_did_not_open_is_told_by_its_code(monkeypatch, reason, code):
+    """A target that does not exist and a search that had no time to load: two news, two codes,
+    each told to the app as a profile left out (the phrase of its table of skip reasons)."""
+    from taktik.core.social_media.instagram.actions.atomic.navigation.search_results import (
+        ProfileNavigationFailure,
+        ProfileNavigationFailureReason,
+    )
+    from taktik.core.social_media.instagram.actions.base.ipc import IPCEmitter
+
+    told = []
+    IPCEmitter.configure_bridge_adapter(SimpleNamespace(
+        send_profile_skipped=lambda username, reason=None, detail=None: told.append((username, reason))))
+    try:
+        _urls(monkeypatch, ["https://www.instagram.com/p/A/"])
+        h = _Harness(_Repo(), {"target_usernames": ["bob"]}, navigable=False)
+        h.nav_actions.last_profile_navigation_failure = ProfileNavigationFailure(
+            "search", ProfileNavigationFailureReason(reason))
+
+        assert h._scrape_profile_posts()["targets_info"][0]["error"] == code
+    finally:
+        IPCEmitter.clear_bridge_adapter()
+    assert told == [("bob", code)]
 
 
 def test_nothing_is_stored_when_persistence_is_off(monkeypatch):

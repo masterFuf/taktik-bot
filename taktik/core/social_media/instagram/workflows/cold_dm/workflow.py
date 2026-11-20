@@ -46,9 +46,14 @@ from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy impor
 
 #: `reach_and_send` outcomes other than the recipient policy's skip reasons.
 SENT = "sent"
-#: The production profile search opened no profile of this handle: no row of it among the results,
-#: the search not reached, or the profile opened another one.
+#: The answered search lists no row of this handle: the account is not found.
 NOT_FOUND = "not_found"
+#: The search was still loading when its wait ended: nothing is known of the account, and the
+#: recipient is left for another run (nothing recorded, as for every recipient not written to).
+SEARCH_SLOW = "search_slow"
+#: The search opened no profile of this handle for another reason: not reached, the row not
+#: tapped, another profile opened.
+NOT_OPENED = "not_opened"
 NO_CONVERSATION = "no_conversation"
 NO_MESSAGE = "no_message"
 #: The text the AI mode wrote breaks the rule of a DM written by an AI: nothing typed.
@@ -94,6 +99,8 @@ class ColdDMWorkflow(
         self.dms_success = 0
         self.dms_failed = 0
         self.dms_pending = 0
+        self.dms_not_found = 0
+        self.dms_search_slow = 0
         self.private_profiles = 0
         self.verified_profiles = 0
         self.texts_refused = 0
@@ -178,6 +185,10 @@ class ColdDMWorkflow(
                     self.private_profiles += 1
                 elif outcome == SKIP_VERIFIED:
                     self.verified_profiles += 1
+                elif outcome == NOT_FOUND:
+                    self.dms_not_found += 1
+                elif outcome == SEARCH_SLOW:
+                    self.dms_search_slow += 1
                 elif outcome == SENT:
                     apply_cold_dm_send_result(
                         workflow=self,
@@ -224,13 +235,12 @@ class ColdDMWorkflow(
         `compose` is called only once the conversation is open (an AI message costs a call).
         `rules`: the composed text was written by an AI and is held to them before it is typed.
         Returns `outcome` (`SENT`, a `recipient_policy.SKIP_*` reason, or one of the
-        `NOT_FOUND`, `NOT_ON_PROFILE`, `NO_CONVERSATION`, `NO_MESSAGE`
+        `NOT_FOUND`, `SEARCH_SLOW`, `NOT_OPENED`, `NOT_ON_PROFILE`, `NO_CONVERSATION`, `NO_MESSAGE`
         failures, or `TEXT_REFUSED` with its `refusal` and the refused `message`), with `message`
         and `send_result` once sent. Counting and recording are the caller's.
         """
         if not self.open_recipient_profile(recipient):
-            logger.warning(f"The profile search opened no profile of {recipient}")
-            return {"outcome": NOT_FOUND}
+            return {"outcome": self._unopened_outcome(recipient)}
         open_result = self.open_dm_from_profile(policy, recipient)
         if open_result == NOT_ON_PROFILE:
             logger.warning(f"The search for {recipient} did not open a profile: nothing tapped")
@@ -252,6 +262,19 @@ class ColdDMWorkflow(
         if look_for_action_block(ProblematicPageDetector(self.device), after='dm', target=recipient):
             return {"outcome": ACTION_BLOCKED, "message": message, "send_result": ReplyOutcome.NOT_SENT}
         return {"outcome": SENT, "message": message, "send_result": send_result}
+
+    def _unopened_outcome(self, recipient: str) -> str:
+        """Why the search opened no profile of `recipient`, read on the search's own failure."""
+        failure = self.recipient_navigation_failure
+        if failure is not None and failure.account_not_found:
+            logger.warning(f"Recipient {recipient} not found: the search lists no such account")
+            return NOT_FOUND
+        if failure is not None and failure.search_slow:
+            logger.warning(f"The search for {recipient} did not load in time (network): left for another run")
+            return SEARCH_SLOW
+        reason = failure.reason.value if failure is not None else "unknown"
+        logger.warning(f"The profile search opened no profile of {recipient} ({reason})")
+        return NOT_OPENED
 
     def _detect_app_language(self) -> None:
         """Pick the selector language once, on the app's first screen (best effort).

@@ -36,11 +36,7 @@ def unopened_profile_reason(failure: Optional[ProfileNavigationFailure]) -> str:
     `error` when the profile was opened and something else failed."""
     if not isinstance(failure, ProfileNavigationFailure):
         return "error"
-    if failure.account_not_found:
-        return "not_found"
-    if failure.search_slow:
-        return "search_slow"
-    return "navigation_failed"
+    return failure.unopened_code
 
 
 class ProfileListWorkflowMixin:

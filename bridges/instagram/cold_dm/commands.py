@@ -96,6 +96,8 @@ def run_cold_dm(config: dict) -> None:
             dmsSuccess=result.get("dms_success", 0),
             dmsFailed=result.get("dms_failed", 0),
             dmsPending=result.get("dms_pending", 0),
+            dmsNotFound=result.get("dms_not_found", 0),
+            dmsSearchSlow=result.get("dms_search_slow", 0),
             error=result.get("error"),
             textsRefused=result.get("texts_refused", 0),
             **({"stopReason": result["stop_reason"]} if result.get("stop_reason") else {}),

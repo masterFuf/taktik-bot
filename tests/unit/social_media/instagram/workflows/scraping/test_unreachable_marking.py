@@ -157,3 +157,50 @@ class TestAProfileNotOpenedWithoutNetworkIsNotGone:
     def test_a_network_that_cannot_be_measured_marks_nothing(self, monkeypatch):
         reason, _ = self._reason(monkeypatch, None)
         assert reason == NOT_OPENED_OFFLINE_REASON
+
+
+class TestTheSearchSaysWhyTheProfileWasNotOpened:
+    """Since 2026-11-20 the search says why it opened nothing (`last_profile_navigation_failure`).
+    A slow search on a phone whose ping answered (5.6 kbit/s still answers a ping) said
+    `UNREACHABLE_REASON`, and the account was marked unreachable: retired from every later run for a
+    network too slow to load its search. A slow search now marks nothing and needs no ping; an
+    account the answered search lists nowhere is `not_found`, marked."""
+
+    def _reason(self, monkeypatch, reason):
+        import taktik.core.social_media.instagram.workflows.scraping.list_scraping as list_scraping
+        from taktik.core.social_media.instagram.actions.atomic.navigation.search_results import (
+            ProfileNavigationFailure,
+        )
+
+        workflow = _NotOpened(ONLINE)
+        workflow.profile_manager.nav_actions = SimpleNamespace(
+            last_profile_navigation_failure=ProfileNavigationFailure("search", reason))
+        monkeypatch.setattr(list_scraping, "measure_network_baseline", workflow.measure, raising=False)
+        found = workflow._capture_profile_on_screen(username="someone", profile_data={}, navigate=True)
+        return found, workflow.pinged
+
+    def test_a_slow_search_marks_nothing(self, monkeypatch):
+        from taktik.core.social_media.instagram.actions.atomic.navigation.search_results import (
+            ProfileNavigationFailureReason as Reason,
+        )
+
+        reason, pinged = self._reason(monkeypatch, Reason.SEARCH_SLOW)
+        assert reason == "search_slow" and pinged == []
+        assert _run({"someone": reason}, ["someone"]).marked == []
+
+    def test_an_account_the_answered_search_lists_nowhere_is_not_found_and_marked(self, monkeypatch):
+        from taktik.core.social_media.instagram.actions.atomic.navigation.search_results import (
+            ProfileNavigationFailureReason as Reason,
+        )
+
+        reason, _ = self._reason(monkeypatch, Reason.NOT_LISTED)
+        assert reason == "not_found"
+        assert _run({"someone": reason}, ["someone"]).marked == ["someone"]
+
+    def test_another_failure_keeps_the_rule_of_the_network(self, monkeypatch):
+        from taktik.core.social_media.instagram.actions.atomic.navigation.search_results import (
+            ProfileNavigationFailureReason as Reason,
+        )
+
+        reason, pinged = self._reason(monkeypatch, Reason.ROW_NOT_TAPPED)
+        assert reason == UNREACHABLE_REASON and pinged == ["phone-1"]

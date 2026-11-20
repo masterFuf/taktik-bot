@@ -43,6 +43,10 @@ def build_cold_dm_summary(workflow) -> dict:
         "dms_success": workflow.dms_success,
         "dms_failed": workflow.dms_failed,
         "dms_pending": workflow.dms_pending,
+        # Not written to, and not failures of the run: an account the answered search lists
+        # nowhere, and a search that did not load in time (network), left for another run.
+        "dms_not_found": workflow.dms_not_found,
+        "dms_search_slow": workflow.dms_search_slow,
         "private_profiles": workflow.private_profiles,
         "verified_profiles": getattr(workflow, "verified_profiles", 0),
         "texts_refused": workflow.texts_refused,

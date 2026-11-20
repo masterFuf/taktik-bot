@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 from loguru import logger
+from taktik.core.social_media.instagram.actions.atomic.navigation.search_results import ProfileNavigationFailure
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy import (
     ColdDmRecipientPolicy,
@@ -60,10 +61,17 @@ class ColdDMNavigationMixin:
 
         return MessagingBusiness(self.device_manager)
 
+    #: Why the last `open_recipient_profile` opened nobody (the search's `ProfileNavigationFailure`),
+    #: None after a success: read it after a False, like `lastError` in TypeScript.
+    recipient_navigation_failure: Optional[ProfileNavigationFailure] = None
+
     def open_recipient_profile(self, recipient: str) -> bool:
         """Open the recipient's profile through the production profile search, never a deep link
         (as the cold DM always reached its recipients): the row of that exact handle, or nobody."""
-        return self._cold_dm_navigation().navigate_to_profile(recipient, force_search=True)
+        navigation = self._cold_dm_navigation()
+        opened = navigation.navigate_to_profile(recipient, force_search=True)
+        self.recipient_navigation_failure = None if opened else navigation.last_profile_navigation_failure
+        return opened
 
     def find_message_button(self):
         """The profile's Message button, looked for inside the profile header only, or None: the

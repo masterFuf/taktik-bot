@@ -10,6 +10,12 @@ from typing import Dict, Any, List, Optional
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 
+from taktik.core.social_media.instagram.actions.atomic.navigation.search_results import (
+    UNOPENED_NAVIGATION_FAILED,
+    UNOPENED_NOT_FOUND,
+    UNOPENED_SEARCH_SLOW,
+    ProfileNavigationFailure,
+)
 from taktik.core.social_media.instagram.actions.base.ipc import IPCEmitter
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.shared.device.network_probe import measure_network_baseline
@@ -36,6 +42,10 @@ ENRICHED_PROFILE_FIELDS = SCRAPED_PROFILE_FIELDS + ('linked_accounts', 'profile_
 # could not be opened at all. Named once so the workflow and the marker cannot drift apart.
 UNREACHABLE_REASON = 'profile unreachable (deleted, renamed or banned)'
 
+# The reasons that mark the profile unreachable: the one above, and an account the answered
+# search lists nowhere (`not_found`, the code the app's table says « Compte introuvable »).
+MARKED_UNREACHABLE_REASONS = (UNREACHABLE_REASON, UNOPENED_NOT_FOUND)
+
 # A profile we could not open on a phone that has no proven network: it says nothing about the
 # account. Without network Instagram opens a profile blank, with no handle, and writes
 # « Utilisateur(ice) introuvable » on it, the words it shows for an account that does not exist.
@@ -44,6 +54,18 @@ NOT_OPENED_OFFLINE_REASON = 'profile not opened, and the phone has no proven net
 # The profile on screen is not the one the row named: the tap landed on another row. Its numbers
 # belong to that other account and are neither filtered nor saved under this name.
 OTHER_PROFILE_REASON = 'another profile on screen (tap landed on another row)'
+
+
+def say_source_not_opened(nav_actions: Any, logger: Any, target: str) -> str:
+    """A source account `nav_actions.navigate_to_profile` could not open, told to the app as a
+    profile left out with the search's code (`not_found`, `search_slow`, else `navigation_failed`):
+    an account that does not exist and a search that had no time to load are not the same news.
+    Returns the code."""
+    failure = getattr(nav_actions, 'last_profile_navigation_failure', None)
+    code = failure.unopened_code if isinstance(failure, ProfileNavigationFailure) else UNOPENED_NAVIGATION_FAILED
+    logger.warning(f"Failed to navigate to @{target} ({code})")
+    IPCEmitter.emit_profile_skipped(target, code)
+    return code
 
 
 def _read_nothing(profile_data: Dict[str, Any]) -> bool:
@@ -142,7 +164,7 @@ class ScrapingListMixin(DeepQualifyMixin):
             # Unless the phone has no network: then the profile opened blank, and the same words
             # say nothing about the account (phone session of 2026-10-24).
             if navigate:
-                return UNREACHABLE_REASON if self._phone_network_proven() else NOT_OPENED_OFFLINE_REASON
+                return self._unopened_reason()
 
         # The page gave us NOTHING — do not qualify a profile we never read.
         #
@@ -210,6 +232,21 @@ class ScrapingListMixin(DeepQualifyMixin):
                 self.logger.debug(f"AI screenshot capture failed for @{username}: {_e}")
 
         return None
+
+    def _unopened_reason(self) -> str:
+        """Why a profile this scrape navigated to was not opened. The search says it when it can:
+        an account its answer lists nowhere (`not_found`: marked unreachable, the answer proves the
+        network), a search still loading (`search_slow`: nothing is known of the account, nothing
+        marked). Any other failure keeps the rule of the phone's network."""
+        navigation = getattr(self.profile_manager, 'nav_actions', None)
+        failure = getattr(navigation, 'last_profile_navigation_failure', None)
+        if isinstance(failure, ProfileNavigationFailure):
+            if failure.account_not_found:
+                return UNOPENED_NOT_FOUND
+            if failure.search_slow:
+                self.logger.warning("The search did not load in time (network): the profile is not marked unreachable")
+                return UNOPENED_SEARCH_SLOW
+        return UNREACHABLE_REASON if self._phone_network_proven() else NOT_OPENED_OFFLINE_REASON
 
     def _phone_network_proven(self) -> bool:
         """True when the phone's ping reaches the Internet, the one condition under which a profile
@@ -321,7 +358,7 @@ class ScrapingListMixin(DeepQualifyMixin):
                 # record it so it stops being queued, and so a later purge has something to read.
                 # Every other reason is a filter decision — the profile is alive and was simply
                 # not wanted this time, which must never mark it as gone.
-                if filter_reason == UNREACHABLE_REASON:
+                if filter_reason in MARKED_UNREACHABLE_REASONS:
                     self._mark_unreachable(username)
                 continue
 

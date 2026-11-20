@@ -189,7 +189,9 @@ def send_cold_dm(a, p):
     page sends them), conversation, send, then the conversation read (`reply_check`, the check of every
     DM send). Params: username and text (required). Succeeds only on a message the conversation shows
     sent; `send_result` says `sent`, `pending` (waiting to be sent: Instagram sends it, never send it
-    again), `not_sent` or `invite_sent`. Not written to the base: the Lab has no session."""
+    again), `not_sent` or `invite_sent`. With no profile opened, `outcome` says why: `not_found` (the
+    search answered without this account), `search_slow` (still loading: nothing sent) or
+    `not_opened`. Not written to the base: the Lab has no session."""
     from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy import (
         ColdDmRecipientPolicy,
     )

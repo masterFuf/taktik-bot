@@ -107,6 +107,11 @@ INSTAGRAM_COLD_DM = WorkflowContract(
             Field("dmsPending", "int", "Messages the conversation shows waiting to be sent (no network): Instagram "
                   "sends them by itself. Not counted as sent, never sent again (`DM_SEND_PENDING`).",
                   optional=True),
+            Field("dmsNotFound", "int", "Recipients the answered profile search lists nowhere: not written to, "
+                  "not counted in `dmsFailed`.", optional=True),
+            Field("dmsSearchSlow", "int", "Recipients whose profile search did not load in time (network): not "
+                  "written to, nothing recorded, so another run takes them again; not counted in `dmsFailed`.",
+                  optional=True),
             Field("error", "string", "What went wrong, for a person.", optional=True, nullable=True),
             Field("stopReason", RUN_HALT_CODE, "Why the run stopped early (`action_blocked`...).", optional=True),
             Field("textsRefused", "int", "Texts the AI mode wrote and the rule refused: not sent, each one said on "

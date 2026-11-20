@@ -39,8 +39,14 @@ from taktik.core.social_media.instagram.actions.atomic.navigation.deep_link_navi
 from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.instagram.workflows.cold_dm.navigation import NOT_ON_PROFILE
-from taktik.core.social_media.instagram.workflows.cold_dm.workflow import NOT_FOUND, ColdDMWorkflow
+from taktik.core.social_media.instagram.workflows.cold_dm.workflow import (
+    NOT_FOUND,
+    NOT_OPENED,
+    SEARCH_SLOW,
+    ColdDMWorkflow,
+)
 from unit.social_media.instagram.actions.atomic.navigation.search_screens_phone import (
+    FIXTURES,
     PKG,
     SEARCH_410,
     SEARCH_447,
@@ -63,7 +69,6 @@ def run_on(monkeypatch):
     monkeypatch.setattr(search_navigation, "get_active_package", lambda: PKG)
     monkeypatch.setattr(search_navigation, "SEARCH_RESULTS_TIMEOUT_S", 0.0)
     monkeypatch.setattr(base_action_module, "ensure_taktik_keyboard", lambda *_a, **_k: True)
-    monkeypatch.setattr(base_action_module, "clear_text_with_taktik_keyboard", lambda *_a, **_k: True)
     seen = SimpleNamespace(checked=[], decided=[], deep_links=[], composed=[])
     monkeypatch.setattr(DeepLinkNavigationMixin, "_navigate_via_deep_link",
                         lambda _self, username, *a, **k: seen.deep_links.append(username) or False)
@@ -74,14 +79,17 @@ def run_on(monkeypatch):
     set_active_locale("fr")
     versions = ExitStack()
 
-    def run(screens, recipient):
+    def run(screens, recipient, results_of=None):
         versions.enter_context(selectors_of(screens))
-        phone = SearchPhone(screens)
+        phone = SearchPhone(screens, results_of=results_of)
+        monkeypatch.setattr(base_action_module, "clear_text_with_taktik_keyboard",
+                            lambda *_a, **_k: phone.keyboard_clears() or True)
         monkeypatch.setattr(base_action_module, "type_text_checked",
                             lambda _device, _serial, text, **_k: phone.keyboard_types(text) or True)
         proxy = CloneAwareDeviceProxy(phone, PKG)
         workflow = ColdDMWorkflow(DeviceFacade(proxy), SimpleNamespace(device=proxy))
         seen.phone = phone
+        seen.workflow = workflow
         seen.reached = workflow.reach_and_send(recipient, lambda: seen.composed.append(1) or "Bonjour")
         return seen
 
@@ -102,10 +110,11 @@ def test_an_account_the_results_list_only_in_a_keyword_row_is_reached_through_th
 
 
 def test_an_account_the_results_do_not_list_opens_nobody(run_on):
-    """`user_3x` is listed (an account row), `user_3` too (a keyword row); `user_3y` is not."""
+    """`user_3x` is listed (an account row), `user_3` too (a keyword row); `user_3y` is not. These
+    results are another query's (no row of `user_3y` itself): no answer for it, never "not found"."""
     seen = run_on(SEARCH_447, "user_3y")
 
-    assert seen.reached == {"outcome": NOT_FOUND}
+    assert seen.reached == {"outcome": NOT_OPENED}
     assert seen.phone.typed == ["user_3y"]
     # The search bar is tapped to type; no row is, and no deep link reaches the profile instead.
     assert seen.phone.rows_tapped() == []
@@ -123,3 +132,23 @@ def test_the_recipient_is_opened_by_the_row_of_its_handle(run_on, screens):
     # Then the cold DM decides on the profile, as before.
     assert len(seen.decided) == 1 and seen.reached == {"outcome": NOT_ON_PROFILE}
     assert seen.deep_links == [] and seen.composed == []
+
+
+# The captures of 2026-11-20 (Pixel 6a, Instagram 447, French, network throttled), as the search's
+# own tests read them (`test_profile_search_says_why_it_failed.py`).
+LOADED_ABSENT = (FIXTURES / "ig447_fr_search_results_loaded_absent_account.xml").read_text(encoding="utf-8")
+LOADING_EXISTING = (FIXTURES / "ig447_fr_search_results_loading_existing_account.xml").read_text(encoding="utf-8")
+
+
+def test_an_account_the_answered_search_lists_nowhere_is_not_found(run_on):
+    seen = run_on(SEARCH_447, "user_3", results_of={"user_3": LOADED_ABSENT})
+
+    assert seen.reached == {"outcome": NOT_FOUND}
+    assert seen.phone.rows_tapped() == [] and seen.decided == [] and seen.composed == []
+
+
+def test_a_search_still_loading_is_slow_never_not_found(run_on):
+    seen = run_on(SEARCH_447, "user_1", results_of={"user_1": LOADING_EXISTING})
+
+    assert seen.reached == {"outcome": SEARCH_SLOW}
+    assert seen.phone.rows_tapped() == [] and seen.decided == [] and seen.composed == []

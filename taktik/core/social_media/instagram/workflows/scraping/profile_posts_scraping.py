@@ -28,6 +28,7 @@ from rich.console import Console
 from taktik.core.social_media.instagram.ui.language import detect_and_optimize
 from taktik.core.social_media.instagram.workflows.common.detection import is_reel_post
 from taktik.core.social_media.instagram.workflows.common.post_navigation import get_post_url_from_share
+from taktik.core.social_media.instagram.workflows.scraping.list_scraping import say_source_not_opened
 
 if TYPE_CHECKING:
     from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
@@ -104,8 +105,7 @@ class ProfilePostsScrapingMixin:
         console.print(f"\n[cyan]Collecting the posts of @{target}...[/cyan]")
 
         if not self.nav_actions.navigate_to_profile(target):
-            self.logger.warning(f"Failed to navigate to @{target}")
-            info["error"] = "navigation failed"
+            info["error"] = say_source_not_opened(self.nav_actions, self.logger, target)
             return info
         time.sleep(1.5)
 
