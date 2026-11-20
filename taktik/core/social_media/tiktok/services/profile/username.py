@@ -3,16 +3,22 @@
 from __future__ import annotations
 
 import time
+import unicodedata
 from typing import Any
 
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 UNKNOWN_USERNAME = "unknown"
+#: The placeholder an inline image leaves in a text: the badge of a verified account, after its handle.
+OBJECT_REPLACEMENT = "\ufffc"
 
 
 def clean_profile_username(value: Any) -> str:
-    """Return a profile username without the leading at-sign."""
-    text = str(value or "").strip()
+    """Return a profile username without the leading at-sign, its badge or its bidi marks."""
+    text = "".join(
+        char for char in str(value or "")
+        if char != OBJECT_REPLACEMENT and unicodedata.category(char) != "Cf"
+    ).strip()
     if not text:
         return ""
     return text.lstrip("@").strip()
