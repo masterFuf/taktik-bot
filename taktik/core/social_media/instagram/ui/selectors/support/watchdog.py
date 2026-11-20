@@ -21,8 +21,8 @@ class WatchdogSelectors:
             "recovery": ["back"],
         },
         {
-            "name": "follow_options_bottom_sheet",
-            "label": "Follow options bottom sheet",
+            "name": "dimmed_bottom_sheet",
+            "label": "Bottom sheet over a dimmer",
             "indicators": [
                 'id/bottom_sheet_container"',
                 'id/background_dimmer"',

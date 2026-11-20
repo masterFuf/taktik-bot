@@ -23,9 +23,9 @@ import time
 from typing import Optional, Dict, Any, List, Callable
 from loguru import logger
 
-from taktik.core.shared.behavior.gesture_primitives import human_drag_between_raw
-from taktik.core.shared.device.screen import screen_size_of
 from taktik.core.shared.device.snapshot import SnapshotUnavailable
+from taktik.core.social_media.instagram.actions.atomic.interaction.bottom_sheet import (
+    drag_sheet_off_screen, sheet_outside_tap_point)
 
 from taktik.core.social_media.instagram.ui.selectors.support.watchdog import WATCHDOG_SELECTORS
 
@@ -170,16 +170,29 @@ class WorkflowWatchdog:
                            data={})
         return blocked
 
+    def _dump(self) -> Optional[str]:
+        """The screen's XML, through whatever the watchdog was handed."""
+        if hasattr(self.device, 'get_xml_dump'):
+            return self.device.get_xml_dump()
+        if hasattr(self.device, 'dump_hierarchy'):
+            return self.device.dump_hierarchy()
+        if hasattr(self.device, 'device') and hasattr(self.device.device, 'dump_hierarchy'):
+            return self.device.device.dump_hierarchy()
+        return None
+
+    @staticmethod
+    def _signature(name: str) -> Optional[Dict[str, Any]]:
+        return next((s for s in WATCHDOG_SELECTORS.overlay_signatures if s["name"] == name), None)
+
+    @staticmethod
+    def _signature_matches(sig: Dict[str, Any], xml: str) -> bool:
+        """Does `xml` show the overlay `sig` describes (enough of its indicators)?"""
+        return sum(1 for ind in sig["indicators"] if ind in xml) >= sig["min_matches"]
+
     def _analyze_current_screen(self) -> Optional[Dict[str, Any]]:
         """Dump UI hierarchy and analyze what's on screen."""
         try:
-            xml = None
-            if hasattr(self.device, 'get_xml_dump'):
-                xml = self.device.get_xml_dump()
-            elif hasattr(self.device, 'dump_hierarchy'):
-                xml = self.device.dump_hierarchy()
-            elif hasattr(self.device, 'device') and hasattr(self.device.device, 'dump_hierarchy'):
-                xml = self.device.device.dump_hierarchy()
+            xml = self._dump()
 
             if not xml:
                 log.warning("🐕 Cannot get UI dump for analysis")
@@ -196,8 +209,8 @@ class WorkflowWatchdog:
 
             # ── Check for known overlays ──
             for sig in WATCHDOG_SELECTORS.overlay_signatures:
-                matches = sum(1 for ind in sig["indicators"] if ind in xml)
-                if matches >= sig["min_matches"]:
+                if self._signature_matches(sig, xml):
+                    matches = sum(1 for ind in sig["indicators"] if ind in xml)
                     result["overlay"] = sig["name"]
                     result["overlay_label"] = sig["label"]
                     result["recovery_actions"] = sig["recovery"]
@@ -259,23 +272,25 @@ class WorkflowWatchdog:
                     time.sleep(1.5)
 
                 elif action == "tap_outside":
-                    log.info("🐕 Recovery: tapping outside overlay")
-                    try:
-                        w, h = screen_size_of(self.device)
-                        # Tap upper quarter of screen (above bottom sheet)
-                        self.device.click(w // 2, h // 4)
-                    except Exception as exc:
-                        log.warning(f"🐕 Recovery: tap outside the overlay failed: {exc}")
+                    # The one tap outside a sheet (`sheet_outside_tap_point`): above it, below the
+                    # shade zone. A quarter of the screen landed on an expanded sheet's own rows.
+                    point = sheet_outside_tap_point(self.device)
+                    if point is None:
+                        log.info("🐕 Recovery: the sheet leaves nothing to tap outside it, no tap")
+                        continue
+                    log.info(f"🐕 Recovery: tapping outside the sheet at {point}")
+                    self.device.click(*point)
                     time.sleep(1.5)
 
                 elif action == "swipe_down":
-                    log.info("🐕 Recovery: swiping bottom sheet down")
-                    # The shared drag takes the facade the watchdog is given as well as a raw
-                    # device: `swipe(..., duration=)` raised on the facade every time and only a
-                    # silent fallback to the raw device ever moved the sheet.
-                    w, h = screen_size_of(self.device)
-                    human_drag_between_raw(
-                        self.device, (w // 2, int(h * 0.6)), (w // 2, int(h * 0.95)), 0.4, log
+                    # The one sheet drag (`drag_sheet_off_screen`): from the grab bar, until this
+                    # overlay's signature leaves the screen.
+                    log.info("🐕 Recovery: dragging the bottom sheet down")
+                    sig = self._signature(overlay_name)
+                    drag_sheet_off_screen(
+                        self.device,
+                        lambda: sig is not None and self._signature_matches(sig, self._dump() or ""),
+                        log,
                     )
                     time.sleep(1.5)
 
@@ -297,18 +312,13 @@ class WorkflowWatchdog:
                     time.sleep(1.5)
 
                 # ── Verify recovery worked ──
-                post_xml = None
-                if hasattr(self.device, 'get_xml_dump'):
-                    post_xml = self.device.get_xml_dump()
-                elif hasattr(self.device, 'dump_hierarchy'):
-                    post_xml = self.device.dump_hierarchy()
+                post_xml = self._dump()
 
                 if post_xml:
                     # Check if the overlay is gone
-                    sig = next((s for s in WATCHDOG_SELECTORS.overlay_signatures if s["name"] == overlay_name), None)
+                    sig = self._signature(overlay_name)
                     if sig:
-                        matches = sum(1 for ind in sig["indicators"] if ind in post_xml)
-                        if matches < sig["min_matches"]:
+                        if not self._signature_matches(sig, post_xml):
                             log.success(f"🐕 Recovery SUCCESS: {overlay_name} dismissed via {action}")
                             self.stats["recoveries_succeeded"] += 1
                             self._send_ipc("action_event", action="recovery_success",

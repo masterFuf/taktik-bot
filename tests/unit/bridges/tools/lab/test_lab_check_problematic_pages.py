@@ -104,7 +104,7 @@ def test_the_options_sheet_is_closed_by_one_tap_above_it():
 
     assert result["success"] is True
     assert result["details"] == {"unreadable": False, "detected": True, "closed": True,
-                                 "pageType": "follow_options_bottom_sheet", "softBan": False}
+                                 "pageType": "dimmed_bottom_sheet", "softBan": False}
     assert len(phone.gestures) == 1 and phone.gestures[0][0] == "click"
     assert phone.gestures[0][2] < 609  # above the sheet's grab bar on the capture
 

@@ -76,7 +76,7 @@ def test_the_options_sheet_is_closed_by_a_tap_above_it_never_on_its_rows():
     result = ProblematicPageDetector(phone).detect_and_handle_problematic_pages()
 
     assert result == {"detected": True, "closed": True, "soft_ban": False,
-                      "page_type": "follow_options_bottom_sheet"}
+                      "page_type": "dimmed_bottom_sheet"}
     kind, _x, y = phone.gestures[0]
     assert kind == "click" and y < _sheet_top(OPTIONS_SHEET), phone.gestures
     assert len(phone.gestures) == 1
@@ -93,7 +93,7 @@ def test_a_close_that_crashes_after_the_detection_names_the_page_left_open(monke
 
     assert detector.detect_and_handle_problematic_pages() == {
         "detected": True, "closed": False, "soft_ban": False,
-        "page_type": "follow_options_bottom_sheet"}
+        "page_type": "dimmed_bottom_sheet"}
 
 
 def test_an_alert_whose_dismissal_crashes_is_named_left_open(monkeypatch):
@@ -137,7 +137,7 @@ def test_an_expanded_sheet_is_dragged_off_from_its_grab_bar_never_flung(journal)
     result = ProblematicPageDetector(phone).detect_and_handle_problematic_pages()
 
     assert result == {"detected": True, "closed": True, "soft_ban": False,
-                      "page_type": "follow_options_bottom_sheet"}
+                      "page_type": "dimmed_bottom_sheet"}
     # Nothing above the sheet to tap: the first gesture is the drag, and the only one.
     assert [g[0] for g in phone.gestures] == ["drag"], phone.gestures
     (_kind, points), ((start, end, ms),) = phone.gestures[0], drags_journaled(journal)
@@ -166,7 +166,7 @@ def test_a_sheet_still_on_the_next_screen_is_never_said_closed():
     result = ProblematicPageDetector(phone).detect_and_handle_problematic_pages()
 
     assert result == {"detected": True, "closed": False, "soft_ban": False,
-                      "page_type": "follow_options_bottom_sheet"}
+                      "page_type": "dimmed_bottom_sheet"}
     # One drag: the grab bar did not move, a second one would change nothing. Then the next
     # close of the pattern, Back, which does not close it either.
     assert [g[0] for g in phone.gestures] == ["drag", "press"], phone.gestures
@@ -193,7 +193,7 @@ def test_a_sheet_is_never_said_closed_on_a_screen_that_is_not_instagrams():
     result = ProblematicPageDetector(phone).detect_and_handle_problematic_pages()
 
     assert result == {"detected": True, "closed": False, "soft_ban": False,
-                      "page_type": "follow_options_bottom_sheet"}
+                      "page_type": "dimmed_bottom_sheet"}
     # Its grab bar gone from a screen that still does not prove the sheet closed, the drag does
     # not drag again on whatever is there; the next close of the pattern, Back, is tried.
     assert [g[0] for g in phone.gestures] == ["drag", "press"], phone.gestures

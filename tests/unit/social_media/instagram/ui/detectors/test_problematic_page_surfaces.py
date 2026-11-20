@@ -114,7 +114,7 @@ def test_a_share_sheet_is_still_closed():
 def test_a_profile_options_sheet_is_closed_as_a_sheet_not_as_the_qr_page():
     result, _phone = _handle(PROFILE_OPTIONS_SHEET, behind=OTHER_PROFILE)
     assert result["detected"] and result["closed"]
-    assert result["page_type"] == "follow_options_bottom_sheet"
+    assert result["page_type"] == "dimmed_bottom_sheet"
 
 
 CORPUS = Path(os.environ.get("TAKTIK_DEBUG_UI") or CORE / "debug_ui")

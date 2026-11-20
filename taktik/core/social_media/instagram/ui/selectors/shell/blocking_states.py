@@ -140,7 +140,9 @@ class ProblematicPageSelectors:
             'indicators': ['Update Instagram', 'Get the latest version', 'Update', 'Not Now', 'available on Google Play'],
             'close_methods': ['not_now_button', 'back_button', 'tap_outside']
         },
-        'follow_options_bottom_sheet': {
+        # Any sheet drawn over a dimmer, not only the follow options: its two ids are enough, so the
+        # comments and likers sheets land here too (named `follow_options_bottom_sheet` until 2026-11).
+        'dimmed_bottom_sheet': {
             'indicators': ['Ajouter à la liste Ami(e)s proches', 'Ajouter aux favoris', 'Sourdine', 
                           'Restreindre', 'Ne plus suivre', 'bottom_sheet_container', 'background_dimmer'],
             # The tap above the sheet, on the part of the dimmer it leaves visible. Never the
