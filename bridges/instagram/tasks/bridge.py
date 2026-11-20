@@ -18,9 +18,11 @@ import signal
 
 from taktik.core.shared.device.app_manager import AppService
 from bridges.common.entrypoint import send_run_error
+from bridges.common.network import send_run_refusal
 from bridges.common.run_setup import connect_run_device
 from bridges.common.signal_handler import setup_signal_handlers
 from bridges.instagram.common.ipc import _ipc, send_error, send_message, send_status
+from taktik.core.shared.diagnostics.run_halt import RunRefused
 from taktik.core.social_media.instagram.workflows.common.startup import InstagramStartError
 
 TASK_ID_PREFIX = "instagram.task."
@@ -94,6 +96,7 @@ class TaskBridge:
         registry = WorkflowRegistry()
         register_instagram_task_handlers(
             registry,
+            device_id=self.device_id,
             instagram_task_connect=lambda package_name: self._restart_instagram(device, package_name),
         )
 
@@ -110,6 +113,10 @@ class TaskBridge:
             # merge cannot apply them twice.
             invocation = WorkflowInvocation(platform="instagram", workflow_id=self.task_id)
             report = handler(invocation, self.params)
+        except RunRefused as refused:
+            # The launcher's door, before the restart: nothing was opened nor relayed.
+            send_run_refusal(refused, "Task")
+            return 1
         except Exception as exc:  # noqa: BLE001
             send_run_error(f"Task error: {exc}", exc)
             return 1

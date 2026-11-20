@@ -6,9 +6,12 @@ device, its app lifecycle and the stdout IPC as notifier.
 
 from __future__ import annotations
 
+import sys
 from typing import Any, Optional
 
+from bridges.common.network import send_run_refusal
 from bridges.tiktok.common.ipc import _ipc, send_error
+from taktik.core.shared.diagnostics.run_halt import RunRefused
 from taktik.core.social_media.tiktok.workflows.account.agent_handler import (
     run_tiktok_account,
     tiktok_account_params,
@@ -26,14 +29,21 @@ class TikTokAccountLaunchMixin:
             return None
 
     def _launch_account(self, device, workflow_id: str, params: dict[str, Any]) -> dict[str, Any]:
-        return run_tiktok_account(
-            workflow_id,
-            params,
-            device=device,
-            device_id=self.device_id,
-            app=self._app,
-            notifier=_ipc,
-        )
+        """The flow through the launcher. A phone its door refuses ends the bridge here, exit 1, on its
+        coded `error` line: each flow reports any other failure as an uncoded error, which would hide
+        the motive from the desktop (the TikTok session start does the same)."""
+        try:
+            return run_tiktok_account(
+                workflow_id,
+                params,
+                device=device,
+                device_id=self.device_id,
+                app=self._app,
+                notifier=_ipc,
+            )
+        except RunRefused as refused:
+            send_run_refusal(refused, "Account")
+            sys.exit(1)
 
 
 __all__ = ["TikTokAccountLaunchMixin"]

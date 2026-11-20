@@ -20,6 +20,7 @@ from loguru import logger
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.handler_params import merge_invocation_payload, package_name_from_payload
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
+from taktik.core.shared.diagnostics.run_door import open_run_door
 from taktik.core.social_media.instagram.workflows.common.startup import InstagramStartError
 from taktik.core.social_media.instagram.workflows.tasks.story_relay import (
     DEFAULT_MAX_STORIES,
@@ -59,13 +60,17 @@ def story_relay_request_from_payload(payload: Mapping[str, Any]) -> StoryRelayRe
 def run_instagram_story_relay(
     payload: Mapping[str, Any],
     *,
+    device_id: Optional[str],
     connect: Connect,
     relay: Callable[..., dict[str, Any]] = relay_source_stories,
 ) -> dict[str, Any]:
     """The one launcher of the story relay: read the payload, then run one pass on the phone the host
-    connects, on the payload's Instagram. An Instagram that did not restart stops the pass before the
+    connects, on the payload's Instagram. A locked phone or a phone without network raises
+    `RunRefused` before the restart. An Instagram that did not restart stops the pass before the
     relay, with its reason: the relay would read whatever screen the phone was left on."""
     request = story_relay_request_from_payload(payload)
+    # A locked phone or a phone without network does not start its run, from any host (`RunRefused`).
+    open_run_door(device_id)
     try:
         device = connect(package_name_from_payload(payload))
     except InstagramStartError as exc:
@@ -81,8 +86,9 @@ def run_instagram_story_relay(
     )
 
 
-def build_instagram_task_handler(*, instagram_task_connect: Optional[Connect] = None) -> WorkflowHandler:
-    """Build an injectable Instagram task handler: the launcher, on the host's connection."""
+def build_instagram_task_handler(*, device_id: Optional[str] = None,
+                                 instagram_task_connect: Optional[Connect] = None) -> WorkflowHandler:
+    """Build an injectable Instagram task handler: the launcher, on the host's phone and connection."""
 
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
         if instagram_task_connect is None:
@@ -90,7 +96,7 @@ def build_instagram_task_handler(*, instagram_task_connect: Optional[Connect] = 
         merged = merge_invocation_payload(invocation, payload)
 
         if invocation.workflow_id == INSTAGRAM_TASK_STORY_RELAY_WORKFLOW_ID:
-            return run_instagram_story_relay(merged, connect=instagram_task_connect)
+            return run_instagram_story_relay(merged, device_id=device_id, connect=instagram_task_connect)
 
         raise ValueError(f"Unsupported Instagram task workflow id: {invocation.workflow_id}")
 
@@ -100,10 +106,11 @@ def build_instagram_task_handler(*, instagram_task_connect: Optional[Connect] = 
 def register_instagram_task_handlers(
     registry: WorkflowRegistry,
     *,
+    device_id: Optional[str] = None,
     instagram_task_connect: Optional[Connect] = None,
 ) -> WorkflowRegistry:
     """Register Instagram task handlers into an injected Agent registry."""
-    handler = build_instagram_task_handler(instagram_task_connect=instagram_task_connect)
+    handler = build_instagram_task_handler(device_id=device_id, instagram_task_connect=instagram_task_connect)
     for workflow_id in INSTAGRAM_TASK_WORKFLOW_IDS:
         registry.register(workflow_id, handler)
     return registry

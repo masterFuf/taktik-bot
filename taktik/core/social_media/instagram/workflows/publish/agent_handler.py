@@ -20,6 +20,7 @@ from loguru import logger
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.handler_params import merge_invocation_payload
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
+from taktik.core.shared.diagnostics.run_door import open_run_door
 from taktik.core.social_media.instagram.workflows.publish.payload import (
     publish_request_from_payload,
     published_kind,
@@ -56,9 +57,12 @@ def run_instagram_publish(
 ) -> dict[str, Any]:
     """Publish what a payload asks. Raises `PublishRequestError` before touching the phone when
     there is nothing to publish; returns the workflow's result otherwise (`success`, `message`,
-    `error_type`, `confirmed`)."""
+    `error_type`, `confirmed`). A locked phone or a phone without network raises `RunRefused` once
+    connected, before the app opens."""
     request = publish_request_from_payload(payload)
     device = connect()
+    # A locked phone or a phone without network does not start its run, from any host (`RunRefused`).
+    open_run_door(device_id)
     workflow = (workflow_factory or _default_workflow_factory())(
         device,
         device_id,

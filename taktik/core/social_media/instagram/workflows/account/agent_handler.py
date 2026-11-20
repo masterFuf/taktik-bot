@@ -26,6 +26,7 @@ from taktik.core.kernel.handler_params import (
     text_param,
 )
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
+from taktik.core.shared.diagnostics.run_door import open_run_door
 from taktik.core.social_media.instagram.workflows.account.change_language_workflow import (
     ChangeLanguageWorkflow,
 )
@@ -91,10 +92,13 @@ def run_instagram_account(
     change_language_workflow_factory: WorkflowFactory = ChangeLanguageWorkflow,
     switch_workflow_factory: WorkflowFactory = SwitchAccountWorkflow,
 ) -> dict[str, Any]:
-    """Run one Instagram account flow with already-read params."""
+    """Run one Instagram account flow with already-read params. A locked phone or a phone without
+    network raises `RunRefused` before the app is touched."""
     if workflow_id not in INSTAGRAM_ACCOUNT_WORKFLOW_IDS:
         raise ValueError(f"Unsupported Instagram account workflow id: {workflow_id}")
 
+    # A locked phone or a phone without network does not start its run, from any host (`RunRefused`).
+    open_run_door(device_id)
     if app is not None:
         start_instagram_for_account(app, workflow_id, on_status)
 

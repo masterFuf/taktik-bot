@@ -21,6 +21,7 @@ from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.database.account_health import witness_for
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.diagnostics.action_block import look_for_action_block
+from taktik.core.shared.diagnostics.run_door import open_run_door
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.kernel.handler_params import merge_invocation_payload
 from taktik.core.social_media.tiktok.workflows.common.agent_runtime import (
@@ -149,11 +150,14 @@ def run_tiktok_publish(
     workflow_factory: Optional[TikTokUploadWorkflowFactory] = None,
 ) -> dict[str, Any]:
     """Publish what a payload asks on `device`. Raises `PublishRequestError` before touching the
-    phone when there is nothing to publish."""
+    phone when there is nothing to publish, and `RunRefused` before the app opens on a locked phone
+    or a phone without network."""
     from taktik.core.social_media.tiktok.workflows.common.notifier import LoggingWorkflowNotifier
 
     notifier = notifier if notifier is not None else LoggingWorkflowNotifier()
     request = publish_request_from_payload(payload)
+    # A locked phone or a phone without network does not start its run, from any host (`RunRefused`).
+    open_run_door(device_id)
     # A refused publication becomes one entry of the account's health history, as in every run.
     run_halt.configurer_temoin(witness_for(
         "tiktok", lambda: request.bot_username, source_type=lambda: "PUBLISH"))

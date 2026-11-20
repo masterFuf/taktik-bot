@@ -67,7 +67,7 @@ def _cold_dm(payload, connect):
 def _story_relay(payload, connect):
     from taktik.core.social_media.instagram.workflows.tasks.agent_handler import run_instagram_story_relay
 
-    return run_instagram_story_relay({"source_username": "source", **payload}, connect=connect)
+    return run_instagram_story_relay({"source_username": "source", **payload}, device_id="SERIAL", connect=connect)
 
 
 def _automation(payload, connect):

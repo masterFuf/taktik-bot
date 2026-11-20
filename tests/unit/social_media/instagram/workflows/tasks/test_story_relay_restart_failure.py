@@ -26,7 +26,7 @@ def test_the_launcher_stops_the_pass_when_instagram_does_not_start():
         raise InstagramStartError("Instagram did not start cleanly; the task was not started")
 
     report = agent_handler.run_instagram_story_relay(
-        {"source_username": "@source_account"}, connect=connect, relay=_relay_never_called,
+        {"source_username": "@source_account"}, device_id="SERIAL", connect=connect, relay=_relay_never_called,
     )
 
     assert report["success"] is False

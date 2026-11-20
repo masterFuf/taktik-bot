@@ -69,4 +69,4 @@ def test_every_launcher_opens_the_run_door_and_none_the_network_door_alone():
             openers[relative] = "network"
 
     assert "network" not in openers.values(), openers
-    assert len(openers) >= 8, openers
+    assert len(openers) >= 13, openers

@@ -15,6 +15,7 @@ from typing import Any, Callable, Mapping, Optional
 
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
+from taktik.core.shared.diagnostics.run_door import open_run_door
 from taktik.core.kernel.handler_params import (
     merge_invocation_payload,
     package_name_from_payload,
@@ -76,10 +77,13 @@ def run_tiktok_account(
     signup_workflow_factory: WorkflowFactory = TikTokSignupWorkflow,
     change_language_workflow_factory: WorkflowFactory = TikTokChangeLanguageWorkflow,
 ) -> dict[str, Any]:
-    """Run one TikTok account flow with already-read params."""
+    """Run one TikTok account flow with already-read params. A locked phone or a phone without
+    network raises `RunRefused` before the app is touched."""
     if workflow_id not in TIKTOK_ACCOUNT_WORKFLOW_IDS:
         raise ValueError(f"Unsupported TikTok account workflow id: {workflow_id}")
 
+    # A locked phone or a phone without network does not start its run, from any host (`RunRefused`).
+    open_run_door(device_id)
     if app is not None:
         start_tiktok_for_account(app, notifier)
 

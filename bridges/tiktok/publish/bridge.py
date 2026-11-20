@@ -14,6 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from taktik.core.shared.device.connection import ConnectionService
+from taktik.core.shared.diagnostics.run_halt import RunRefused
+from bridges.common.network import send_run_refusal
 from bridges.common.signal_handler import setup_signal_handlers
 from bridges.tiktok.common.ipc import _ipc, send_error, send_log, send_status
 
@@ -84,13 +86,18 @@ class TikTokPublishBridge:
             send_error("Device object unavailable after connection")
             return 1
 
-        result = run_tiktok_publish(
-            self.config,
-            device=device,
-            device_id=self.device_id,
-            notifier=_ipc,
-            step_hook=lambda phase: self._capture_phase(device, phase),
-        )
+        try:
+            result = run_tiktok_publish(
+                self.config,
+                device=device,
+                device_id=self.device_id,
+                notifier=_ipc,
+                step_hook=lambda phase: self._capture_phase(device, phase),
+            )
+        except RunRefused as refused:
+            # The launcher's door, once the phone is connected: nothing was opened nor published.
+            send_run_refusal(refused, "Publish")
+            return 1
         return 0 if result.get("success") else 1
 
 

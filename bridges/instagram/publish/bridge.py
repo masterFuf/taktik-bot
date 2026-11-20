@@ -12,6 +12,8 @@ from __future__ import annotations
 import signal
 
 from taktik.core.shared.device.connection import ConnectionService
+from taktik.core.shared.diagnostics.run_halt import RunRefused
+from bridges.common.network import send_run_refusal
 from bridges.common.signal_handler import setup_signal_handlers
 from bridges.instagram.common.ipc import _ipc, send_error, send_log, send_status
 
@@ -62,6 +64,10 @@ class InstagramPublishBridge:
             )
         except PublishRequestError as exc:
             send_error(str(exc))
+            return 1
+        except RunRefused as refused:
+            # The launcher's door, once the phone is connected: nothing was opened nor published.
+            send_run_refusal(refused, "Publish")
             return 1
         except DeviceConnectionFailed as exc:
             send_error(str(exc), "DEVICE_CONNECTION_FAILED")
