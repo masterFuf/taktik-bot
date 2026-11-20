@@ -54,6 +54,11 @@ def active_locale() -> Optional[str]:
     return _active
 
 
+def L_in(lang: str, key: str) -> List[str]:
+    """The fragments of ``key`` in ``lang``, whatever the active language (``[]`` if absent)."""
+    return list(_LOCALES.get(lang, {}).get(key, []))
+
+
 def L(key: str) -> List[str]:
     """Language-specific selector fragments for ``key`` in the active locale.
 
