@@ -175,34 +175,8 @@ class ColdDMWorkflow(
                     rules=ai_dm_rules if use_ai else None,
                 )
                 outcome = reached["outcome"]
-                if outcome == TEXT_REFUSED:
-                    self.texts_refused += 1
-                    logger.warning(f"Text for {recipient} refused ({reached['refusal'].reason}): not sent")
-                    if self._refused is not None:
-                        self._refused(current=i + 1, username=recipient, message=reached["message"],
-                                      refusal=reached["refusal"])
-                elif outcome in PRIVATE_SKIP_REASONS:
-                    self.private_profiles += 1
-                elif outcome == SKIP_VERIFIED:
-                    self.verified_profiles += 1
-                elif outcome == NOT_FOUND:
-                    self.dms_not_found += 1
-                elif outcome == SEARCH_SLOW:
-                    self.dms_search_slow += 1
-                elif outcome == SENT:
-                    apply_cold_dm_send_result(
-                        workflow=self,
-                        recipient=recipient,
-                        message=reached["message"],
-                        send_result=reached["send_result"],
-                        account_id=account_id,
-                        session_id=session_id,
-                    )
-                    if reached["send_result"] is ReplyOutcome.SENT and self._sent is not None:
-                        self._sent(current=i + 1, username=recipient, message=reached["message"],
-                                   ai_written=ai_dm_rules is not None)
-                else:
-                    self.dms_failed += 1
+                self._record_outcome(reached, current=i + 1, recipient=recipient, account_id=account_id,
+                                     session_id=session_id, ai_written=ai_dm_rules is not None)
                 if outcome == ACTION_BLOCKED:
                     # No way back home: its Back would close the dialog, which is acting again.
                     break
@@ -225,6 +199,39 @@ class ColdDMWorkflow(
                 self.go_home()
 
         return build_cold_dm_summary(self)
+
+    def _record_outcome(self, reached: dict, *, current: int, recipient: str, account_id: int,
+                        session_id: Optional[str], ai_written: bool) -> None:
+        """Count one recipient's outcome, and record and announce a text sent."""
+        outcome = reached["outcome"]
+        if outcome == TEXT_REFUSED:
+            self.texts_refused += 1
+            logger.warning(f"Text for {recipient} refused ({reached['refusal'].reason}): not sent")
+            if self._refused is not None:
+                self._refused(current=current, username=recipient, message=reached["message"],
+                              refusal=reached["refusal"])
+        elif outcome in PRIVATE_SKIP_REASONS:
+            self.private_profiles += 1
+        elif outcome == SKIP_VERIFIED:
+            self.verified_profiles += 1
+        elif outcome == NOT_FOUND:
+            self.dms_not_found += 1
+        elif outcome == SEARCH_SLOW:
+            self.dms_search_slow += 1
+        elif outcome == SENT:
+            apply_cold_dm_send_result(
+                workflow=self,
+                recipient=recipient,
+                message=reached["message"],
+                send_result=reached["send_result"],
+                account_id=account_id,
+                session_id=session_id,
+            )
+            if reached["send_result"] is ReplyOutcome.SENT and self._sent is not None:
+                self._sent(current=current, username=recipient, message=reached["message"],
+                           ai_written=ai_written)
+        else:
+            self.dms_failed += 1
 
     def reach_and_send(self, recipient: str, compose, policy: ColdDmRecipientPolicy | None = None,
                        *, rules: AiDmRules | None = None) -> dict:
