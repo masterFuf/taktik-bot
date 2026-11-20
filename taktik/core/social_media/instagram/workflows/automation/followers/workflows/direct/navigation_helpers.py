@@ -230,9 +230,11 @@ class DirectNavigationMixin:
             target_msg = {
                 "type": "target_account",
                 "username": target_username,
-                "followers": target_followers_count,
-                "following": (profile_info.get('following_count') if profile_info else None) or 0,
-                "posts": profile_info.get('media_count', 0) if profile_info else 0,
+                # A counter not read is null down to the panel, never 0 (`posts` read `media_count`,
+                # a key no profile read carries, and was always 0).
+                "followers": profile_info.get('followers_count') if profile_info else None,
+                "following": profile_info.get('following_count') if profile_info else None,
+                "posts": profile_info.get('posts_count') if profile_info else None,
             }
             print(json.dumps(target_msg), flush=True)
         except Exception as error:

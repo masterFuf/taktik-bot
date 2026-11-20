@@ -31,7 +31,7 @@ def _setup():
         open_following_list=lambda: setup.opened.append('following') or True,
     )
     setup.profile_business = SimpleNamespace(get_complete_profile_info=lambda *args, **kwargs: {
-        'is_private': False, 'followers_count': 5400, 'following_count': 300, 'media_count': _PostCount(),
+        'is_private': False, 'followers_count': 5400, 'following_count': 300, 'posts_count': _PostCount(),
     })
     return setup
 
@@ -49,3 +49,21 @@ def test_the_event_not_sent_is_said_and_the_list_still_opened():
     assert followers_count == 5400 and profile_info is not None
     assert setup.opened == ['followers'], "the list must be opened whether the line was sent or not"
     assert any('@a_target' in line and 'not JSON serializable' in line for line in said), said
+
+
+def test_a_counter_of_the_target_not_read_reaches_the_app_as_unknown(monkeypatch):
+    from taktik.core.social_media.instagram.workflows.automation.followers.workflows.direct import navigation_helpers
+
+    setup = _setup()
+    setup.profile_business = SimpleNamespace(get_complete_profile_info=lambda *args, **kwargs: {
+        'is_private': False, 'followers_count': None, 'following_count': None, 'posts_count': 12,
+    })
+    sent = []
+    monkeypatch.setattr(navigation_helpers, 'print', lambda line, **_k: sent.append(line), raising=False)
+
+    followers_count, _ = setup._setup_direct_workflow('a_target', {}, {'interaction_type': 'followers'}, 0, False)
+
+    import json
+    event = next(json.loads(line) for line in sent if '"target_account"' in line)
+    assert (event['followers'], event['following'], event['posts']) == (None, None, 12)
+    assert followers_count == 0, "the loop keeps its own « total unknown »"

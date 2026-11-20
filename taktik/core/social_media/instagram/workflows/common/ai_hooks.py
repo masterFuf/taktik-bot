@@ -29,6 +29,11 @@ LogCallback = Callable[[str, str], None]
 DecisionProvider = Callable[[Mapping[str, Any]], dict[str, Any]]
 
 
+def _count_or_unknown(value: Any) -> "int | None":
+    """A profile counter for the decision: None (null) when it was not read, never 0."""
+    return None if value is None else int(value)
+
+
 def _noop_log(_level: str, _message: str) -> None:
     return None
 
@@ -664,9 +669,10 @@ def install_instagram_ai_hooks(
                         "comment": bool(engagement.get("comment")),
                     },
                     "profile": {
-                        "followersCount": int(profile_data.get("followers_count", 0) or 0),
-                        "followingCount": int(profile_data.get("following_count", 0) or 0),
-                        "postsCount": int(profile_data.get("posts_count", 0) or 0),
+                        # A counter not read is null, as the other facts not known.
+                        "followersCount": _count_or_unknown(profile_data.get("followers_count")),
+                        "followingCount": _count_or_unknown(profile_data.get("following_count")),
+                        "postsCount": _count_or_unknown(profile_data.get("posts_count")),
                         "followButtonState": profile_data.get("follow_button_state"),
                         "relationship": (
                             profile_data.get("relationship")

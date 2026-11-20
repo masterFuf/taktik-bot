@@ -440,6 +440,59 @@ def test_cached_profile_fails_open_when_verdict_errors(monkeypatch):
     assert "ai_engagement" not in captured["profile_data"]
 
 
+def test_decide_mode_sends_a_counter_not_read_as_unknown(monkeypatch):
+    # A counter the visit could not read reaches the decision as null, as its other absent facts.
+    _patch_db(monkeypatch, [CACHED_ROW])
+    captured = {}
+
+    class FakeAI:
+        def engagement_verdict_for_known_profile(self, **kwargs):
+            return {"success": True, "engagement": {
+                "relevant": True, "follow": True, "comment": False, "like": True,
+                "score": 0.9, "reason": "strong",
+                "relevance_tier": "direct", "evidence": "Same professional niche",
+            }}
+
+    response = {
+        "ok": True,
+        "plan": {"likes": 1, "follow": True},
+        "decision": {"dryRun": True, "score": 0.9, "reason": "strong", "notes": []},
+    }
+
+    def decide(facts):
+        captured["facts"] = facts
+        return response
+
+    engine_cls = _install_profile_hook(
+        monkeypatch,
+        FakeAI(),
+        {
+            "profileAnalysis": True,
+            "accountNiche": "beauty_wellness",
+            "decision": {"mode": "decide", "dryRun": True},
+        },
+        captured,
+        decision_provider=decide,
+    )
+    profile_data = {"followers_count": None, "following_count": 900, "posts_count": None}
+
+    engine_cls._perform_interactions_on_profile(
+        object(),
+        "known",
+        {
+            "max_likes_per_profile": 3,
+            "max_comments_per_profile": 0,
+            "max_stories_per_profile": 0,
+            "max_story_likes_per_profile": 0,
+        },
+        profile_data,
+    )
+
+    assert captured["facts"]["profile"]["followersCount"] is None
+    assert captured["facts"]["profile"]["followingCount"] == 900
+    assert captured["facts"]["profile"]["postsCount"] is None
+
+
 def test_decide_mode_requests_front_plan_for_cached_profile(monkeypatch):
     _patch_db(monkeypatch, [CACHED_ROW])
     captured = {}

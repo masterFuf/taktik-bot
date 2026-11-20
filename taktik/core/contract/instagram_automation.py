@@ -440,9 +440,9 @@ DECISION_PROFILE = Shape(
     name="InstagramAgentDecisionProfile",
     doc="What the profile shows.",
     fields=(
-        Field("followersCount", "int", "Followers."),
-        Field("followingCount", "int", "Accounts followed."),
-        Field("postsCount", "int", "Posts."),
+        Field("followersCount", "int", "Followers; null when not read.", nullable=True),
+        Field("followingCount", "int", "Accounts followed; null when not read.", nullable=True),
+        Field("postsCount", "int", "Posts; null when not read.", nullable=True),
         Field("followButtonState", "string", "The follow button as read.", nullable=True),
         Field("relationship", "string", "Its relation to the account.", nullable=True),
         Field("niche", "string", "Its niche.", nullable=True),
@@ -516,9 +516,9 @@ EVENTS = (
     )),
     Event("target_account", doc="A target account about to be worked.", fields=(
         Field("username", "string", "Its handle."),
-        Field("followers", "int", "Its followers."),
-        Field("following", "int", "The accounts it follows."),
-        Field("posts", "int", "Its posts."),
+        Field("followers", "int", "Its followers; null when not read.", nullable=True),
+        Field("following", "int", "The accounts it follows; null when not read.", nullable=True),
+        Field("posts", "int", "Its posts; null when not read.", nullable=True),
     )),
     Event("source_progress", doc="A target, hashtag or post URL of a run with several: started or done.", fields=(
         Field("workflow", _SOURCE_WORKFLOWS, "The kind of source."),
