@@ -46,6 +46,8 @@ class ProfilePostsScrapingMixin:
     #: The host's extractors, built with the reader of the framed post (`ScrapingWorkflow`):
     #: declared here as an interface would be, set by the host.
     ui_extractors: "InstagramUIExtractors"
+    #: The host's navigation (`NavigationActions`), set by `ScrapingWorkflow`.
+    nav_actions: Any
 
     def _scrape_profile_posts(self) -> Dict[str, Any]:
         """Walk each target's posts and collect them."""

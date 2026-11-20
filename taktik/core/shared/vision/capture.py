@@ -93,7 +93,7 @@ def crop_jpeg_data_url(image, bounds, *, padding: int = 2, scale: int = 1, quali
         return None
     cropped = image.crop(box).convert("RGB")
     if scale > 1:
-        cropped = cropped.resize((cropped.size[0] * scale, cropped.size[1] * scale), resample=Image.LANCZOS)
+        cropped = cropped.resize((cropped.size[0] * scale, cropped.size[1] * scale), resample=Image.Resampling.LANCZOS)
     buffer = io.BytesIO()
     cropped.save(buffer, format="JPEG", quality=quality)
     return "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")

@@ -28,6 +28,9 @@ def row_avatar_bounds(username_bounds, avatars):
 class ListDetectionMixin(BaseAction):
     """Mixin: followers/following list state detection, username extraction, click on follower."""
 
+    #: The detection catalogue (`DETECTION_SELECTORS`), set by `DetectionActions`.
+    detection_selectors: Any
+
     def is_followers_list_open(self) -> bool:
         return self._detect_element(self.detection_selectors.followers_list_indicators, "Followers list")
     
@@ -89,7 +92,8 @@ class ListDetectionMixin(BaseAction):
         photo = self._turn_photo()
         if photo is None:
             return followers
-        avatars = [bounds for selector in self.detection_selectors.follow_list_avatar_selectors
+        selectors = self.detection_selectors.follow_list_avatar_selectors
+        avatars = [bounds for selector in selectors
                    for bounds in (tuple(el.bounds) for el in photo.elements(selector)) if len(bounds) == 4]
 
         for selector in self.detection_selectors.follow_list_username_selectors:

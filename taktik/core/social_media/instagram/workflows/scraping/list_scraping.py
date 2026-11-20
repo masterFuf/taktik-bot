@@ -121,6 +121,9 @@ class ScrapingListMixin(DeepQualifyMixin):
 
     # Set by `ScrapingWorkflow.__init__`, the class that composes this mixin.
     config: Dict[str, Any]
+    device: Any
+    nav_actions: Any
+    profile_manager: Any
 
     def _has_profile_filters(self) -> bool:
         """True when the operator asked for ANY profile filter.
