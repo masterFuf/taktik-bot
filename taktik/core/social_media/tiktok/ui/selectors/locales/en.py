@@ -1113,11 +1113,15 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Share video\")]",
     ],
     # --- video_media ---
-    "video_media.description_expand_labels": [
-        "more",
-    ],
     "video_media.description_more_labels": [
         "more",
+    ],
+    # Read on 46.9.3 as a button of its own (tt4693_en_for_you_video); the 47 inline form is not captured in English.
+    # The word of the « Publication 1 | » link that opens a photo post, at the start of a caption:
+    # not captured in English yet.
+    "video_media.caption_link_prefixes": [],
+    "video_media.description_translate_labels": [
+        "See translation",
     ],
     "video_media.sound_button": [
         "//android.widget.Button[contains(@content-desc, \"Sound:\")]",

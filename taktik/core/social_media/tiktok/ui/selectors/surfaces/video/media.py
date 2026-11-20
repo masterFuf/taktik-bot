@@ -36,10 +36,14 @@ class VideoMediaSelectors:
         return L("video_media.description_more_labels")
 
     @property
-    def description_expand_labels(self) -> List[str]:
-        """Those of the words above whose caption the bot taps open. The tap lands on the caption's
-        centre, which can be a hashtag: a language is added here only once a run has proven it."""
-        return L("video_media.description_expand_labels")
+    def caption_link_prefixes(self) -> List[str]:
+        """The word of the link a caption may start with ("Publication 1 | ": a photo post)."""
+        return L("video_media.caption_link_prefixes")
+
+    @property
+    def description_translate_labels(self) -> List[str]:
+        """The link TikTok may write after a caption's last word ("plus | Voir la traduction")."""
+        return L("video_media.description_translate_labels")
 
     video_container: List[str] = field(default_factory=lambda: [
         *resource_ids_with("long_press_layout", xpath_filter='[@content-desc="Video"]'),

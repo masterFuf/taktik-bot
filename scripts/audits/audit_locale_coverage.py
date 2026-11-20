@@ -76,8 +76,9 @@ def _locale_file(langue: str) -> str:
 def _properties():
     """Every (name, selectors class, property name, its module) of the TikTok catalogues."""
     for package in (surfaces_package, shell_package):
-        for _, module_name, _ in pkgutil.iter_modules(package.__path__):
-            module = importlib.import_module(f"{package.__name__}.{module_name}")
+        # Every module, sub-packages included (surfaces/video/...), each class where it is defined.
+        for _, module_name, _ in pkgutil.walk_packages(package.__path__, f"{package.__name__}."):
+            module = importlib.import_module(module_name)
             for class_name, cls in inspect.getmembers(module, inspect.isclass):
                 if not class_name.endswith("Selectors") or cls.__module__ != module.__name__:
                     continue

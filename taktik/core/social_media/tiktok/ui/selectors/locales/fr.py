@@ -1283,11 +1283,17 @@ STRINGS: Dict[str, List[str]] = {
     ],
     # --- video_media ---
     # Legende tronquee : « … plus » ou « …plus » selon la video.
-    # Lue telle qu'affichee, sans tap : le tap au centre de la legende peut tomber sur un hashtag
-    # et ouvrir sa page. Aucun run francais ne l'a prouve.
-    "video_media.description_expand_labels": [],
     "video_media.description_more_labels": [
         "plus",
+    ],
+    # Mesure le 2026-11-20 (47.0.3, Pixel 6a) : ecrit dans le texte meme de la legende, apres « plus », separe par « | » ; en 46.9.3 un bouton a part (tt4693_fr_search_result_video).
+    # Le mot du lien « Publication 1 | » qui ouvre une publication en photos, en tete de legende.
+    # Mesure le 2026-11-20 (47.0.3, Pixel 6a) : « Publication\u00a01\u00a0|\u00a0 », espaces insecables.
+    "video_media.caption_link_prefixes": [
+        "Publication",
+    ],
+    "video_media.description_translate_labels": [
+        "Voir la traduction",
     ],
     "video_media.sound_button": [
         "//android.widget.Button[contains(@content-desc, \"Son :\")]",

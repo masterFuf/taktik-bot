@@ -8,14 +8,19 @@ answer on it without waiting; without, they wait for their own target as before.
 """
 
 import re
+import time
 from typing import Optional, Dict, Any, List, Tuple
 from loguru import logger
 
-from taktik.core.shared.device.ui_dump import parse_ui_dump
+from taktik.core.shared.device.ui_dump import parse_bounds, parse_ui_dump
 from taktik.core.shared.vision.screen_text import screenshot_pil as shared_screenshot_pil
 
 from taktik.core.social_media.tiktok.actions.base.base_action import BaseAction
-from taktik.core.social_media.tiktok.ui.labels import is_expandable_description, strip_more_suffix
+from taktik.core.social_media.tiktok.actions.base.base_action import _photo_of
+from taktik.core.social_media.tiktok.ui.labels import (
+    caption_as_displayed, caption_starts_plain, caption_tap_zone, is_expandable_description,
+    same_caption_opened, strip_more_suffix,
+)
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import VIDEO_SELECTORS
 from taktik.core.social_media.tiktok.actions.atomic.detection.screen_reading import TikTokScreen, read_until
 
@@ -141,32 +146,54 @@ class VideoDetector(BaseAction):
         return self._get_element_text(self.video_selectors.video_description, timeout=1, screen=screen)
 
     def get_video_description_full(self, screen=None) -> Optional[str]:
-        """Get the complete video description, expanding '…more' if present.
+        """Get the complete video description, expanding '…more' if present, as displayed
+        (`caption_as_displayed`: no layout marks, no translation link after it).
 
-        Clicks the description element to expand it when truncated, then
-        re-reads the full text.  Returns the raw (unparsed) full string.
+        Taps the start of a cut caption's first line (`_open_cut_caption`), then re-reads it.
         A gesture: the expanded text is read on new photos, never on `screen`.
         """
+        self.last_caption_tap = {"tapped": False, "point": None, "expanded": False, "reason": "not_cut"}
         raw = self._get_element_text(self.video_selectors.video_description, timeout=1, screen=screen)
         if not raw:
             return None
-
         if is_expandable_description(raw):
-            try:
-                for sel in self.video_selectors.video_description:
-                    elem = self.device.xpath(sel)
-                    if elem.exists:
-                        elem.click()
-                        import time
-                        time.sleep(0.4)
-                        break
-                expanded = self._get_element_text(self.video_selectors.video_description, timeout=2)
-                if expanded and len(expanded) > len(raw):
-                    raw = expanded
-            except Exception as e:
-                self.logger.debug(f"Error expanding description: {e}")
+            raw = self._open_cut_caption(raw, screen)
+        return caption_as_displayed(raw)
 
-        return raw
+    def _open_cut_caption(self, cut: str, screen=None) -> str:
+        """Tap the start of a cut caption's first line, and read it opened; `cut` when not.
+
+        Recorded in `last_caption_tap` (tapped, point, expanded, reason), which the Lab returns.
+        """
+        tap = self.last_caption_tap
+        if not caption_starts_plain(cut):
+            tap["reason"] = "starts_with_link"
+            return cut
+        photo = _photo_of(screen) if screen is not None else self._turn_photo()
+        node = next((elements[0] for _, elements in self._each_found(photo, self.video_selectors.video_description)), None)
+        bounds = parse_bounds(node.attrib.get("bounds", "")) if node is not None else None
+        if not bounds:
+            self.logger.warning("caption: no bounds for the cut caption, not tapped")
+            tap["reason"] = "no_bounds"
+            return cut
+        point = self.device.human_tap(caption_tap_zone(bounds))
+        if point is None:
+            self.logger.warning(f"caption: the tap in {bounds} failed, read as displayed")
+            tap["reason"] = "tap_failed"
+            return cut
+        tap.update(tapped=True, point=list(point))
+        time.sleep(0.4)
+        shown = self._get_element_text(self.video_selectors.video_description, timeout=2)
+        if not same_caption_opened(cut, shown):
+            self.logger.warning(f"caption: the tap at {point} left the video, going back")
+            self._press_back()
+            tap["reason"] = "left_the_video"
+            return cut
+        if len(caption_as_displayed(shown)) > len(caption_as_displayed(cut)):
+            tap.update(expanded=True, reason="opened")
+            return shown
+        tap["reason"] = "not_opened"
+        return cut
 
     def get_video_description_parsed(self, screen=None) -> Dict[str, Any]:
         """Get the full description split into clean text and hashtags.

@@ -2,6 +2,7 @@
   "dead": [
     "en:popup.update_prompt_dismiss_words",
     "en:popup.update_prompt_title_words",
+    "en:video_media.caption_link_prefixes",
     "fr:profile.unable_to_send_message"
   ]
 }

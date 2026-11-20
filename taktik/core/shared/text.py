@@ -439,6 +439,11 @@ _LAYOUT_MARKS = dict.fromkeys(map(ord, "\u200e\u200f\u202a\u202b\u202c\u202d\u20
                                        "\u2066\u2067\u2068\u2069\u2060\ufeff"), None)
 
 
+def strip_layout_marks(text: Optional[str]) -> str:
+    """`text` without the layout marks an app writes into it (see `_LAYOUT_MARKS`), nothing else."""
+    return (text or "").translate(_LAYOUT_MARKS)
+
+
 def clean_shown_text(text: Optional[str]) -> str:
     """A text as a person reads it on screen: no layout marks, single spaces, nothing around.
 
@@ -449,7 +454,7 @@ def clean_shown_text(text: Optional[str]) -> str:
     """
     if not text:
         return ""
-    cleaned = unicodedata.normalize("NFC", text).translate(_LAYOUT_MARKS)
+    cleaned = strip_layout_marks(unicodedata.normalize("NFC", text))
     return re.sub(r"\s+", " ", cleaned).strip()
 
 

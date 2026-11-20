@@ -91,7 +91,8 @@ def get_video_description(a, p):
     desc = a.video_detector.get_video_description_full(screen)
     logger.info(f"Video description: {len(desc or '')} chars ({screen.kind})")
     if desc:
-        return {"success": True, "message": f"{len(desc)} chars", "details": {"description": desc}}
+        return {"success": True, "message": f"{len(desc)} chars",
+                "details": {"description": desc, "caption_tap": a.video_detector.last_caption_tap}}
     if screen.kind == "live":
         return not_applicable(action_id, "the For You item on screen is a LIVE: no description")
     if a.video_detector.is_stories_card(screen):
