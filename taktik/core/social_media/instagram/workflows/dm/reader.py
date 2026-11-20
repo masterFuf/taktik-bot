@@ -71,6 +71,10 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
             flush=True,
         )
 
+    #: The last `read_conversations` lost the inbox after a scroll: what it returns is what it read
+    #: before, a part of the list. Read it after the call, like `lastError` in TypeScript.
+    last_read_partial: bool = False
+
     def read_conversations(self, limit: int) -> list | DmListNotRead:
         """Read DM conversations. ``limit <= 0`` means read all (until the inbox bottom).
 
@@ -80,6 +84,7 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
         « 0 conversation(s) read » as a success), and neither is a list that has not loaded, or that
         Instagram could not load (`dm_list_without_rows`).
         """
+        self.last_read_partial = False
         if not dm_inbox_shown(self.device):
             not_read = inbox_not_shown()
             logger.error(not_read.error)
@@ -114,6 +119,7 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                 else:
                     logger.error(f"The DM inbox is no longer on screen: reading stopped after "
                                  f"{conversations_read} conversation(s)")
+                    self.last_read_partial = True
                 break
 
             # Only the rows whole inside the thread list: a row cut by its bottom runs under the tab

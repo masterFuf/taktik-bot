@@ -140,6 +140,8 @@ def _read(runtime, limit: int, emit: Optional[Emit]) -> dict[str, Any]:
         "success": True,
         "conversations": conversations,
         "total": len(conversations),
+        # The inbox was lost after a scroll: a success, on a part of the list (said, not hidden).
+        "partial": runtime.last_read_partial,
         # Which of our accounts owns this inbox (read from the inbox header). Lets the
         # front load that account's AI persona for reply generation.
         "account_username": getattr(runtime, "_dm_account_username", None),
@@ -175,6 +177,7 @@ def _read_requests(runtime, limit: int) -> dict[str, Any]:
         "success": True,
         "conversations": conversations,
         "total": len(conversations),
+        "partial": runtime.last_read_partial,
         "is_requests": True,
         "account_username": account_username,
     }

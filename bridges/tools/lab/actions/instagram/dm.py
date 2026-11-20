@@ -77,7 +77,8 @@ def list_unread(a, p):
         limit = int(p.get("limit", 5))
     except (TypeError, ValueError):
         limit = 5
-    convs = _dm_runtime(a).read_conversations(limit)
+    runtime = _dm_runtime(a)
+    convs = runtime.read_conversations(limit)
     if isinstance(convs, DmListNotRead):
         # Not read, never 0 conversation: the inbox off screen, a list not loaded or failed to load.
         return {"success": False, "message": convs.error, "details": {"error_code": convs.error_code}}
@@ -89,8 +90,10 @@ def list_unread(a, p):
             "messages": len(get("messages", []) or []),
         })
     logger.info(f"dm.list_unread: prod reader returned {len(items)} conversation(s)")
-    return {"success": True, "count": len(items), "conversations": items,
-            "message": f"{len(items)} conversation(s) read"}
+    partial = runtime.last_read_partial
+    return {"success": True, "count": len(items), "conversations": items, "partial": partial,
+            "message": f"{len(items)} conversation(s) read" + (" (inbox lost after a scroll: a part of the list)"
+                                                              if partial else "")}
 
 
 @action("dm.open_thread")

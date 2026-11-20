@@ -204,6 +204,8 @@ INSTAGRAM_DM_READ = WorkflowContract(
             Field("total", "int", "How many.", optional=True),
             Field("account_username", "string", "The account the inbox belongs to.", optional=True, nullable=True),
             Field("is_requests", "bool", "Read from the requests folder.", optional=True),
+            Field("partial", "bool", "The list was lost on screen after a scroll: `conversations` holds what was "
+                  "read before, a part of the list.", optional=True),
         ),
     ),
 )
