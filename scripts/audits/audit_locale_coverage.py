@@ -99,7 +99,7 @@ def _empty_properties(locale: str) -> Dict[str, Set[str]]:
             return _original(key)
 
         if original is not None:
-            module.L = recording
+            setattr(module, "L", recording)
         try:
             value = getattr(cls(), prop_name)
         except Exception as error:  # a catalogue that cannot be built is not a measure: said, not counted
@@ -107,7 +107,7 @@ def _empty_properties(locale: str) -> Dict[str, Set[str]]:
             continue
         finally:
             if original is not None:
-                module.L = original
+                setattr(module, "L", original)
         if isinstance(value, list) and not value:
             empty[name] = read
     return empty
