@@ -27,6 +27,17 @@ from taktik.core.shared.input.taktik_keyboard import (
 )
 
 
+def _tappable_bounds(element) -> Optional[tuple]:
+    """(left, top, right, bottom) of an element when they enclose an area, else None."""
+    try:
+        bounds = tuple(element.bounds)
+    except (AttributeError, TypeError, ValueError):  # no bounds, or not four numbers
+        return None
+    if len(bounds) != 4 or bounds[2] <= bounds[0] or bounds[3] <= bounds[1]:
+        return None
+    return bounds
+
+
 class SharedBaseAction:
     """Base class for all social media actions with common functionality.
     
@@ -108,6 +119,11 @@ class SharedBaseAction:
         `report_miss=False`: a miss the caller expects (it probes a screen that may not show the
         element) says nothing above debug and keeps no screen: `_report_selector_miss` is then the
         caller's, once, if its last probe fails too.
+
+        Each turn asks every selector of one photo of the screen and taps the first element found
+        from that photo's bounds (step 5 of the one-photo spec, L4): no dump per selector, no
+        second dump to read the bounds. An element whose bounds cannot be tapped is not tapped
+        (no centre click, which landed on a corner of the screen for an element without size).
         """
         if isinstance(selectors, str):
             selectors = [selectors]
@@ -131,40 +147,49 @@ class SharedBaseAction:
         self.logger.debug(f"🔍 Searching for elements with {len(selectors)} selectors")
 
         while time.time() - start_time < timeout:
-            for i, selector in enumerate(selectors):
+            try:
+                photo = self.device.snapshot()
+            except SnapshotUnavailable as e:
+                photo, last_error = None, e
+                self.logger.debug(f"❌ Screen not read this turn: {str(e)[:100]}")
+            for i, selector in enumerate(selectors if photo is not None else ()):
                 try:
-                    element = self.device.xpath(selector)
-                    if element.exists:
-                        self.logger.debug(f"✅ Element found with selector #{i+1}: {selector[:50]}...")
-                        # Tap a varied point inside the element (never its exact centre);
-                        # fall back to a plain centre click if the bounds are unreadable.
-                        tapped_human = self._human_tap_element(element, keep_out=keep_out)
-                        if not tapped_human and keep_out:
-                            self.logger.warning(
-                                f"🚫 Not tapped: no part of the target is known to be clear of "
-                                f"{keep_out[0][:60]}...")
-                            return False
-                        if not tapped_human:
-                            element.click()
-                        self._method_stats['clicks'] += 1
-                        emit_step(
-                            "button_click",
-                            action="human_tap" if tapped_human else "center_click",
-                            target=selector[:80], selector_index=i + 1,
-                            find_ms=round((time.time() - start_time) * 1000),
-                        )
-
-                        if human_delay:
-                            self._human_like_delay('click')
-
-                        return True
+                    elements = photo.elements(selector)
                 except Exception as e:
                     last_error = e
                     self.logger.debug(f"❌ Selector #{i+1} failed: {str(e)[:100]}")
                     continue
-            
+                if not elements:
+                    continue
+                self.logger.debug(f"✅ Element found with selector #{i+1}: {selector[:50]}...")
+                bounds = _tappable_bounds(elements[0])
+                if bounds is None:
+                    self.logger.warning(f"🚫 Not tapped: found, but its bounds cannot be tapped "
+                                        f"({elements[0].attrib.get('bounds')}): {selector[:60]}")
+                    return False
+                if not self._human_tap_bounds_clear_of(bounds, keep_out, photo):
+                    if keep_out:
+                        self.logger.warning(
+                            f"🚫 Not tapped: no part of the target is known to be clear of "
+                            f"{keep_out[0][:60]}...")
+                    else:
+                        self.logger.warning(f"🚫 Not tapped: the tap in {bounds} failed")
+                    return False
+                self._method_stats['clicks'] += 1
+                emit_step(
+                    "button_click",
+                    action="human_tap",
+                    target=selector[:80], selector_index=i + 1,
+                    find_ms=round((time.time() - start_time) * 1000),
+                )
+
+                if human_delay:
+                    self._human_like_delay('click')
+
+                return True
+
             time.sleep(0.5)
-        
+
         if not report_miss:
             # A miss the caller expects (a tab a screen may not show, looked for again after each
             # Back): the caller says it once, if it ends without what it looked for.
@@ -323,27 +348,32 @@ class SharedBaseAction:
         too small: the caller must not fall back to a centre click then."""
         try:
             el = element.get(timeout=0.5)
-            bounds = tuple(el.bounds)  # (left, top, right, bottom)
         except Exception as e:
             self.logger.debug(f"human tap: bounds unreadable ({e}); centre-click fallback")
             return False
-        if not bounds or len(bounds) != 4 or bounds[2] <= bounds[0] or bounds[3] <= bounds[1]:
-            self.logger.debug(f"human tap: unusable bounds {bounds}; centre-click fallback")
+        bounds = _tappable_bounds(el)
+        if bounds is None:
+            self.logger.debug("human tap: unusable bounds; centre-click fallback")
             return False
+        return self._human_tap_bounds_clear_of(bounds, keep_out)
+
+    def _human_tap_bounds_clear_of(self, bounds, keep_out: Optional[List[str]] = None, photo=None) -> bool:
+        """Tap a human-sampled point in `bounds`, in the part `keep_out` leaves free when given
+        (read on `photo`, else on a new one). False when nothing was tapped."""
         if keep_out:
-            bounds = self._part_clear_of(bounds, keep_out)
+            bounds = self._part_clear_of(bounds, keep_out, photo)
             if bounds is None:
                 return False
         return bool(self.device.human_tap(bounds))
 
-    def _part_clear_of(self, bounds, keep_out: List[str]):
+    def _part_clear_of(self, bounds, keep_out: List[str], photo=None):
         """The part of `bounds` that none of the elements `keep_out` finds on the screen covers
         (`free_tap_zone`), or None when the screen cannot be read or nothing large enough is left.
-        What covers the target is read on one photo of the screen, every selector of `keep_out`
-        asked of it."""
+        What covers the target is read on one photo of the screen (`photo`, the one the target was
+        found on, else a new one), every selector of `keep_out` asked of it."""
         from taktik.core.shared.behavior.tap import free_tap_zone
 
-        photo = self._turn_photo()
+        photo = photo if photo is not None else self._turn_photo()
         if photo is None:
             self.logger.warning("guarded tap: the screen could not be read, what covers the target is unknown")
             return None

@@ -6,6 +6,7 @@ button and the remove button, and no handle; the handle is on the profile it ope
 prints the display name in its header and `@handle` on the profile card at its top.
 """
 
+import re
 import types
 
 import pytest
@@ -76,6 +77,14 @@ def _thread(header, *texts):
     )
 
 
+def _contains(bounds, x, y):
+    found = re.match(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", bounds)
+    if not found:
+        return False
+    left, top, right, bottom = (int(v) for v in found.groups())
+    return left <= x <= right and top <= y <= bottom
+
+
 class _Element:
     def __init__(self, node, device):
         self._node = node
@@ -125,9 +134,25 @@ class _Phone:
         return self.screen
 
     def tapped(self, node):
-        label = node.get("text") or node.get("resource-id") or node.get("content-desc")
+        label = self._label(node)
         self.taps.append(label)
         self.screen = self.opens.get(label, self.screen)
+
+    def click(self, x, y):
+        """A tap at a point (the facade taps from the bounds of the photo): it opens what the
+        nodes under that point open, the deepest first, as Android hands a touch down the views."""
+        under = [node for node in parse_ui_dump(self.screen).iter()
+                 if _contains(node.get("bounds") or "", x, y)]
+        opening = [node for node in under if self._label(node) in self.opens]
+        if opening or under:
+            self.tapped((opening or under)[-1])
+
+    def long_click(self, x, y, _duration=None):
+        self.click(x, y)
+
+    @staticmethod
+    def _label(node):
+        return node.get("text") or node.get("resource-id") or node.get("content-desc")
 
     def press_back(self):
         self.taps.append("back")
