@@ -40,6 +40,7 @@ INSTAGRAM_STOP_REASON_CODE = OneOf(
         "fans_list_unproven", "no_account",
         "stuck_at_top", "navigation_lost",
         "list_unavailable", "empty_plan", "no_targets", "daily_budget_unreadable", "crashed",
+        "source_not_found",
         "device_disconnected", "target_app_crashed", "desktop_gone", "account_challenge", "network_lost",
         "phone_locked", "like_unconfirmed",
         # manual

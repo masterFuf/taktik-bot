@@ -20,7 +20,7 @@ class ProfileProcessingResult:
     """Standardized result from profile processing."""
     __slots__ = (
         'status', 'username', 'profile_data', 'interaction_result',
-        'filter_reasons', 'error_message'
+        'filter_reasons', 'error_message', 'navigation_failure'
     )
     
     # Status constants
@@ -43,6 +43,8 @@ class ProfileProcessingResult:
         self.interaction_result = None
         self.filter_reasons = []
         self.error_message = None
+        #: Why the profile could not be opened (`ProfileNavigationFailure`), None otherwise.
+        self.navigation_failure = None
     
     @property
     def actually_interacted(self) -> bool:
@@ -96,6 +98,9 @@ class ProfileProcessingMixin:
     Does NOT handle navigation to/from the profile — that's the caller's job.
     """
 
+    # The navigation of the business action this mixin is part of, never set here.
+    nav_actions: Any
+
     def _process_profile_on_screen(
         self,
         username: str,
@@ -137,6 +142,7 @@ class ProfileProcessingMixin:
                 if not self.nav_actions.navigate_to_profile(username):
                     result.status = ProfileProcessingResult.ERROR_NO_DATA
                     result.error_message = 'Navigation failed'
+                    result.navigation_failure = getattr(self.nav_actions, "last_profile_navigation_failure", None)
                     self.logger.warning(f"Cannot navigate to @{username}")
                     return result
 

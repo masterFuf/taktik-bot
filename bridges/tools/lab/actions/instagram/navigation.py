@@ -27,12 +27,19 @@ def go_profile_tab(a, p):
 def open_profile(a, p):
     """The production profile search (`navigate_to_profile`). `forceSearch` (default no): the
     search alone, never the deep link, as the cold DM opens its recipients; without it a search
-    that finds nothing is hidden by the deep link that follows it."""
+    that finds nothing is hidden by the deep link that follows it. A failure says its route and
+    reason (`last_profile_navigation_failure`): `not_listed`, `search_slow`, `tap_no_effect`..."""
     username = p.get("username", "")
     if not username:
         logger.error("Missing 'username' param")
         return False
-    return a.nav.navigate_to_profile(username, force_search=lab_flag(p, "forceSearch", False))
+    opened = a.nav.navigate_to_profile(username, force_search=lab_flag(p, "forceSearch", False))
+    failure = a.nav.last_profile_navigation_failure
+    if opened or failure is None:
+        return {"success": bool(opened), "message": "profile opened" if opened else "profile not opened"}
+    return {"success": False, "message": f"{failure.route}: {failure.reason.value}",
+            "details": {"route": failure.route, "reason": failure.reason.value,
+                        "accountNotFound": failure.account_not_found, "searchSlow": failure.search_slow}}
 
 
 @action("navigation.press_back")

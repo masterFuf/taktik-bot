@@ -66,6 +66,7 @@ class _ProfileListRun(ProfileProcessingMixin, ProfileListWorkflowMixin):
         self.nav_actions = SimpleNamespace(navigate_to_profile=navigate_to_profile)
         self.stats_manager = SimpleNamespace(
             increment=lambda *args, **kwargs: None,
+            add_error=lambda *args, **kwargs: None,
             display_stats=lambda *args, **kwargs: None,
             display_final_stats=lambda *args, **kwargs: None,
         )

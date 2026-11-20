@@ -303,6 +303,7 @@ _FAMILY_BY_CODE = {
     "no_account": FAMILY_FAILED,
     "list_unavailable": FAMILY_FAILED,
     "followers_list_unavailable": FAMILY_FAILED,
+    "source_not_found": FAMILY_FAILED,
     "empty_plan": FAMILY_FAILED,
     "device_disconnected": FAMILY_FAILED,
     "target_app_crashed": FAMILY_FAILED,
@@ -441,6 +442,12 @@ def navigation_lost() -> StopReason:
 def list_unavailable() -> StopReason:
     """Followers list gone (suggestions screen / navigation drift)."""
     return _reason("list_unavailable", FAMILY_FAILED, "followers_list_unavailable")
+
+
+def source_not_found() -> StopReason:
+    """The source account is not found: its answered search lists it nowhere, and its deep link,
+    when tried, shows no profile. This source only: the next one takes over."""
+    return _reason("source_not_found", FAMILY_FAILED, "source_not_found")
 
 
 def empty_plan() -> StopReason:

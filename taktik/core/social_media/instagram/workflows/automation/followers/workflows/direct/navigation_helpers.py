@@ -10,6 +10,7 @@ from typing import Callable, Dict, Any, Optional
 
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.social_media.instagram.actions.base.ipc import IPCEmitter
+from taktik.core.social_media.instagram.actions.atomic.navigation.search_results import ProfileNavigationFailure
 
 
 class DirectNavigationMixin:
@@ -198,6 +199,11 @@ class DirectNavigationMixin:
             deep_link_usage_percentage=deep_link_percentage,
             force_search=force_search_for_target
         ):
+            failure = getattr(self.nav_actions, "last_profile_navigation_failure", None)
+            if isinstance(failure, ProfileNavigationFailure) and failure.account_not_found:
+                # This account only: the app is where it should be, the next source can be worked.
+                self.logger.warning(f"@{target_username} not found by the search: this source is skipped")
+                return self._source_failed(stats, stop_reasons.source_not_found())
             self.logger.error(f"Failed to navigate to @{target_username}")
             return self._fail_setup(stats, stop_reasons.navigation_lost(), 'setup_navigation_failed')
         

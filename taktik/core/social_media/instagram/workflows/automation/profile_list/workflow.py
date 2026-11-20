@@ -23,9 +23,24 @@ from typing import Any, Callable, Dict, List, Optional
 from taktik.core.social_media.instagram.actions.base.stats import create_workflow_stats, sync_aliases
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.shared.telemetry import emit_step
+from taktik.core.social_media.instagram.actions.atomic.navigation.search_results import ProfileNavigationFailure
+from taktik.core.social_media.instagram.actions.base.ipc.emitter import IPCEmitter
 from taktik.core.social_media.instagram.workflows.common.session import stop_reasons
 from taktik.core.social_media.instagram.workflows.common.interaction_config import build_interaction_config
 from taktik.core.social_media.instagram.workflows.common.revisit_policy import RevisitPolicy
+
+
+def unopened_profile_reason(failure: Optional[ProfileNavigationFailure]) -> str:
+    """The code a profile not opened is told to the app with: `not_found` (the answered search
+    lists it nowhere), `search_slow` (the search was still loading), else `navigation_failed`;
+    `error` when the profile was opened and something else failed."""
+    if not isinstance(failure, ProfileNavigationFailure):
+        return "error"
+    if failure.account_not_found:
+        return "not_found"
+    if failure.search_slow:
+        return "search_slow"
+    return "navigation_failed"
 
 
 class ProfileListWorkflowMixin:
@@ -151,8 +166,14 @@ class ProfileListWorkflowMixin:
 
                 if result.was_error:
                     stats['errors'] += 1
+                    reason = unopened_profile_reason(result.navigation_failure)
+                    # The panel's error counter, and its line for a profile not opened: "not
+                    # found" only from an answered search, "slow search" never marks it as done.
+                    self.stats_manager.add_error(f"@{username}: {reason}")
+                    if reason != "error":
+                        IPCEmitter.emit_profile_skipped(username, reason)
                     emit_step("profile_list_decision", action="not_interacted", target=username,
-                              reason="error", encounter_order=idx + 1, source_type="SELECTION")
+                              reason=reason, encounter_order=idx + 1, source_type="SELECTION")
                     continue
 
                 if result.was_private or result.was_filtered:

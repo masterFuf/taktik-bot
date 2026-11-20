@@ -61,6 +61,7 @@ def lab(monkeypatch):
     monkeypatch.setattr(miss_capture, "signaler_ecran_inconnu", lambda *a, **k: None)
     monkeypatch.setattr(miss_capture, "blocage_a_signaler", lambda: False)
     monkeypatch.setattr(search_navigation, "get_active_package", lambda: PKG)
+    monkeypatch.setattr(search_navigation, "SEARCH_RESULTS_TIMEOUT_S", 0.0)
     monkeypatch.setattr(base_action_module, "ensure_taktik_keyboard", lambda *_a, **_k: True)
     monkeypatch.setattr(base_action_module, "clear_text_with_taktik_keyboard", lambda *_a, **_k: True)
     deep_links = []
@@ -83,9 +84,20 @@ def lab(monkeypatch):
 def test_force_search_tests_the_search_alone(lab, force):
     run = lab({"username": "user_3", "forceSearch": force})
 
-    assert run.result is False
+    assert run.result["success"] is False
     assert run.phone.typed == ["user_3"] and run.phone.rows_tapped() == []
     assert run.deep_links == []
+
+
+def test_a_failure_says_its_route_and_reason(lab):
+    """`user_3` is listed only in a keyword row, which the baseline selectors this Lab session holds
+    do not read (no 447 override applied here), under the title of another query: results not
+    recognized, which is no "not found"."""
+    run = lab({"username": "user_3", "forceSearch": True})
+
+    assert run.result["details"] == {"route": "search", "reason": "results_unrecognized",
+                                     "accountNotFound": False, "searchSlow": False}
+    assert run.result["message"] == "search: results_unrecognized"
 
 
 @pytest.mark.parametrize("params", [{"username": "user_3"}, {"username": "user_3", "forceSearch": "false"}],
