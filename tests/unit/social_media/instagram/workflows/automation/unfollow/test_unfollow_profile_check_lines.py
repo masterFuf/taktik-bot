@@ -100,8 +100,8 @@ def test_a_checked_profile_is_read_right_after_its_visit(lines):
 
 
 @pytest.mark.parametrize("config, detection, refusal", [
-    ({"skip_verified": True}, {"is_verified_account": lambda: True}, "verified"),
-    ({"skip_verified": False, "skip_business": True}, {"is_business_account": lambda: True}, "business"),
+    ({"skip_verified": True}, {"is_verified_account": lambda **_k: True}, "verified"),
+    ({"skip_verified": False, "skip_business": True}, {"is_business_account": lambda **_k: True}, "business"),
 ])
 def test_a_profile_kept_by_its_check_is_read_too(lines, config, detection, refusal):
     """The check refuses the unfollow: the visit is closed the same way, then the decision says
@@ -116,7 +116,7 @@ def test_a_profile_kept_by_its_check_is_read_too(lines, config, detection, refus
 
 def test_a_check_that_fails_on_the_profile_still_closes_the_visit(lines):
     """A check that raises keeps the account (`profile_unreadable`): the visit was closed before."""
-    def unreadable():
+    def unreadable(**_k):
         raise RuntimeError("the screen could not be read")
 
     stats, unfollowed = _walk([FOLLOWING_LIST, CANDIDATE_PROFILE, FOLLOWING_LIST],

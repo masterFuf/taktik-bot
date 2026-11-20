@@ -459,21 +459,22 @@ class SharedBaseAction:
         self._method_stats['errors'] += 1
         return False
     
-    def _is_element_present(self, selectors: Union[List[str], str]) -> bool:
-        """Check if element exists (instant check, no waiting), on one photo. A screen that could
-        not be read finds nothing: a caller for whom that is no « absent » asks `_element_presence`."""
-        return bool(self._element_presence(selectors))
+    def _is_element_present(self, selectors: Union[List[str], str], photo=None) -> bool:
+        """Check if element exists (instant check, no waiting), on `photo` when the caller holds
+        one, else on a new one. A screen that could not be read finds nothing: a caller for whom
+        that is no « absent » asks `_element_presence`."""
+        return bool(self._element_presence(selectors, photo))
 
-    def _element_presence(self, selectors: Union[List[str], str]) -> Optional[bool]:
-        """Whether an element of `selectors` is on screen, on one photo; None when the screen could
-        not be read (a failed photo finds nothing, which is not « absent »). No selector: False,
-        nothing was asked."""
+    def _element_presence(self, selectors: Union[List[str], str], photo=None) -> Optional[bool]:
+        """Whether an element of `selectors` is on screen, on `photo` or a new one; None when the
+        screen could not be read (a failed photo finds nothing, which is not « absent »). No
+        selector: False, nothing was asked."""
         if isinstance(selectors, str):
             selectors = [selectors]
         if not selectors:
             return False
 
-        photo = self._turn_photo()
+        photo = photo if photo is not None else self._turn_photo()
         if photo is None:
             return None
         for _found in self._each_found(photo, selectors):

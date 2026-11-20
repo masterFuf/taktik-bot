@@ -119,6 +119,10 @@ class UnfollowActionsMixin:
     device: Any
     detection_actions: Any
     _unfollow_selectors: Dict[str, Any]
+    # The photo readers of `SharedBaseAction`: one photo of the screen, what its selectors find.
+    _turn_photo: Any
+    _each_found: Any
+    _is_element_present: Any
 
     # ─── Rows of an open follow list ──────────────────────────────────────────
 
@@ -136,8 +140,8 @@ class UnfollowActionsMixin:
         `with_display_names` adds each row's `display_name` (the line under its username): the
         syncs used to make three device calls PER ROW for it.
 
-        ONE dump answers for the usernames, the buttons and the names. Each `.all()` used to take its
-        own: while the list was still moving, a username and its button came from two different
+        ONE photo of the screen answers for the usernames, the buttons and the names (its elements
+        are tapped from their bounds, never clicked). Each `.all()` used to take its own dump:while the list was still moving, a username and its button came from two different
         positions of the list, the pairing failed, and rows were left out -- 85 of 232 on a phone
         (2026-09-24), which a list read then counted as never there.
 
@@ -158,24 +162,23 @@ class UnfollowActionsMixin:
         self.unpaired_on_screen = set()
         self.rows_read = False
         try:
-            d = self.device.device
             package = get_active_package()
-            screen = d.dump_hierarchy()
-            suggestions_top = self._suggestions_top(d, screen)
+            photo = self.device.snapshot()
+            suggestions_top = self._suggestions_top(photo)
             self.suggestions_on_screen = suggestions_top is not None
-            cut_rows = self._rows_cut_by_the_list(d, package, screen)
+            cut_rows = self._rows_cut_by_the_list(photo, package)
 
             def row_of_the_list(band) -> bool:
                 return (suggestions_top is None or band[0] < suggestions_top) and not any(
                     top <= band[0] <= bottom for top, bottom in cut_rows)
 
             names = []
-            for el in d.xpath(UNFOLLOW_SELECTORS.follow_list_username_selector(package), screen).all():
+            for el in photo.elements(UNFOLLOW_SELECTORS.follow_list_username_selector(package)):
                 username = (el.text or '').strip().lstrip('@')
                 band = _vertical_band(el)
                 if username and band and row_of_the_list(band) and self._is_valid_username(username):
                     names.append((username, band[0], el))
-            for button in d.xpath(UNFOLLOW_SELECTORS.follow_list_row_button_selector(package), screen).all():
+            for button in photo.elements(UNFOLLOW_SELECTORS.follow_list_row_button_selector(package)):
                 band = _vertical_band(button)
                 if band is None or not row_of_the_list(band):
                     continue
@@ -198,7 +201,7 @@ class UnfollowActionsMixin:
             if with_display_names:
                 names_by_y = sorted((entry[1], entry[0]) for entry in names)
                 subtitles = []
-                for el in d.xpath(UNFOLLOW_SELECTORS.follow_list_subtitle_selector(package), screen).all():
+                for el in photo.elements(UNFOLLOW_SELECTORS.follow_list_subtitle_selector(package)):
                     band = _vertical_band(el)
                     if band:
                         subtitles.append((band[0], (el.text or '').strip()))
@@ -212,14 +215,14 @@ class UnfollowActionsMixin:
         return rows
 
     @staticmethod
-    def _rows_cut_by_the_list(d, package: str, screen: str) -> List[tuple]:
+    def _rows_cut_by_the_list(photo, package: str) -> List[tuple]:
         """(top, bottom) of the rows of the open follow list that its edge cuts: a row touching the
         list's edge (`ui_dump.whole_in_band`) and shorter than the tallest row of the screen. A row
         whole against the edge (the first one, the list at its top) is as tall as the others."""
         lists = [band for band in (_vertical_band(el) for el in
-                                   d.xpath(UNFOLLOW_SELECTORS.follow_list_view_selector(), screen).all()) if band]
+                                   photo.elements(UNFOLLOW_SELECTORS.follow_list_view_selector())) if band]
         rows = [band for band in (_vertical_band(el) for el in
-                                  d.xpath(UNFOLLOW_SELECTORS.follow_list_row_selector(package), screen).all()) if band]
+                                  photo.elements(UNFOLLOW_SELECTORS.follow_list_row_selector(package))) if band]
         if not rows:
             return []
         tallest = max(bottom - top for _centre, top, bottom in rows)
@@ -231,13 +234,13 @@ class UnfollowActionsMixin:
         return cut
 
     @staticmethod
-    def _suggestions_top(d, screen: str) -> Optional[int]:
-        """Top of the first sign of the suggestions under a follow list on this dump (their own
+    def _suggestions_top(photo) -> Optional[int]:
+        """Top of the first sign of the suggestions under a follow list on this photo (their own
         row ids, or their localized header), or None."""
         tops = []
         for selector in DETECTION_SELECTORS.suggestions_section_indicators:
             try:
-                for element in d.xpath(selector, screen).all():
+                for element in photo.elements(selector):
                     band = _vertical_band(element)
                     if band:
                         tops.append(band[1])
@@ -381,19 +384,19 @@ class UnfollowActionsMixin:
         """Tap the confirmation dialog's unfollow button if it shows up within `timeout` seconds.
 
         Instagram asks for it on private accounts. The button is found by the dialog id and the
-        localized unfollow label ("Unfollow", "Ne plus suivre"); returns False when no dialog came.
+        localized unfollow label ("Unfollow", "Ne plus suivre"); returns False when no dialog came,
+        or when its button could not be tapped. One photo a turn for all the selectors, the tap
+        from its bounds.
         """
-        d = self.device.device
         selectors = UNFOLLOW_SELECTORS.unfollow_confirm_selectors(get_active_package())
         deadline = time.time() + timeout
         while True:
-            for selector in selectors:
-                el = d.xpath(selector)
-                if el.exists:
-                    self.logger.debug("Confirmation dialog detected, confirming the unfollow")
-                    if not tap_element_human(self.device, el, logger=self.logger):
-                        el.click()
+            for _selector, elements in self._each_found(self._turn_photo(), selectors):
+                self.logger.debug("Confirmation dialog detected, confirming the unfollow")
+                if tap_element_human(self.device, elements[0], logger=self.logger):
                     return True
+                self.logger.warning("Confirmation dialog shown, but its button could not be tapped")
+                return False
             if time.time() >= deadline:
                 return False
             time.sleep(0.3)
@@ -421,21 +424,25 @@ class UnfollowActionsMixin:
         return self._ensure_list_tab("followers")
 
     def _ensure_list_tab(self, kind: str) -> bool:
-        d = self.device.device
         package = get_active_package()
-        if not d.xpath(UNFOLLOW_SELECTORS.unified_follow_list_tab_layout_selector(package)).exists:
+        # The layout, the tab shown and the tab to tap, read on one photo.
+        photo = self._turn_photo()
+        if photo is None:
+            self.logger.error(f"Follow list unreadable, its {kind} tab cannot be confirmed: list refused")
+            return False
+        if not self._is_element_present(UNFOLLOW_SELECTORS.unified_follow_list_tab_layout_selector(package), photo):
             return True
-        if self._list_tab_selected(package, kind):
+        if self._list_tab_selected(package, kind, photo):
             return True
-        tab = next((element for element in (d.xpath(selector) for selector
-                                            in UNFOLLOW_SELECTORS.unified_tab_selectors(package, kind))
-                    if element.exists), None)
+        tab = next((elements[0] for _selector, elements
+                    in self._each_found(photo, UNFOLLOW_SELECTORS.unified_tab_selectors(package, kind))), None)
         if tab is None:
             self.logger.error(f"Unified follow list without a {kind} tab we can read: list refused")
             return False
         self.logger.info(f"Unified follow list opened on another tab: switching to the {kind} tab")
         if not tap_element_human(self.device, tab, logger=self.logger):
-            tab.click()
+            self.logger.error(f"The {kind} tab could not be tapped: list refused")
+            return False
         deadline = time.time() + self.following_tab_timeout
         while not self._list_tab_selected(package, kind):
             if time.time() >= deadline:
@@ -447,11 +454,10 @@ class UnfollowActionsMixin:
         self._wait_for_list_rows()
         return True
 
-    def _list_tab_selected(self, package: str, kind: str, screen: Optional[str] = None) -> bool:
-        """Is the `kind` tab the one shown, on `screen` (a dump already taken) or on a fresh one?"""
-        d = self.device.device
-        return any(d.xpath(selector, screen).exists
-                   for selector in UNFOLLOW_SELECTORS.unified_tab_selectors(package, kind, selected=True))
+    def _list_tab_selected(self, package: str, kind: str, photo=None) -> bool:
+        """Is the `kind` tab the one shown, on `photo` (one already taken) or on a new one?"""
+        return self._is_element_present(
+            UNFOLLOW_SELECTORS.unified_tab_selectors(package, kind, selected=True), photo)
 
     def _wait_for_list_rows(self) -> bool:
         """Wait, bounded, for the first username of the open list."""
@@ -467,12 +473,15 @@ class UnfollowActionsMixin:
     def _list_tab_count(self, kind: str) -> Optional[int]:
         """The exact count the unified list shows on the `kind` tab ("1 287 suivi(e)s"), or None
         (no tabs, or an abbreviated count): what a complete read must reach (`list_proof`)."""
-        d = self.device.device
         package = get_active_package()
         labels = UNFOLLOW_SELECTORS.tab_labels(kind)
+        photo = self._turn_photo()
+        if photo is None:
+            self.logger.debug(f"Tab count not read ({kind}): the screen could not be read")
+            return None
         for selector in UNFOLLOW_SELECTORS.unified_tab_selectors(package, kind):
             try:
-                for element in d.xpath(selector).all():
+                for element in photo.elements(selector):
                     count = parse_tab_count(element.text, labels)
                     if count is not None:
                         return count
@@ -489,7 +498,7 @@ class UnfollowActionsMixin:
         reordered.
         """
         selectors = self._unfollow_selectors['sort_entry_label'] + self._unfollow_selectors['sort_button']
-        return any(self.device.xpath(selector).exists for selector in selectors)
+        return self._is_element_present(selectors)
 
     def _go_back_to_following_list(self):
         """Go back to the following list, one verified Back at a time."""
@@ -568,9 +577,9 @@ class UnfollowActionsMixin:
             return False
         deadline = time.time() + self.sort_confirm_timeout
         while True:
-            for selector in self._unfollow_selectors['sort_entry_label']:
-                label = self.device.xpath(selector)
-                if label.exists and wanted in plain(label.get_text()):
+            for _selector, labels in self._each_found(self._turn_photo(),
+                                                      self._unfollow_selectors['sort_entry_label']):
+                if wanted in plain(labels[0].text):
                     return True
             if time.time() >= deadline:
                 return False
@@ -597,20 +606,16 @@ class UnfollowActionsMixin:
                 self.logger.warning(f"No '{sort_order}' sort option known in this language — list left as is")
                 return False
             
-            # Click on the sort button to open the sort modal
-            sort_button_clicked = False
-            for selector in self._unfollow_selectors['sort_button']:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    if not tap_element_human(self.device, element, logger=self.logger):
-                        element.click()
-                    sort_button_clicked = True
-                    self.logger.debug("Clicked sort button")
-                    break
-            
-            if not sort_button_clicked:
+            # Tap the sort button to open the sort sheet
+            button = next((elements[0] for _selector, elements
+                           in self._each_found(self._turn_photo(), self._unfollow_selectors['sort_button'])), None)
+            if button is None:
                 self.logger.warning("Could not find sort button")
                 return False
+            if not tap_element_human(self.device, button, logger=self.logger):
+                self.logger.warning("Sort button found, but it could not be tapped")
+                return False
+            self.logger.debug("Clicked sort button")
             
             time.sleep(1)  # Wait for modal to appear
             
@@ -620,12 +625,15 @@ class UnfollowActionsMixin:
                 self.logger.warning(f"Unknown sort order: {sort_order}")
                 return False
             
-            for selector in self._unfollow_selectors[sort_selector_key]:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    chosen = element.get_text() or ''
+            for selector, elements in self._each_found(self._turn_photo(),
+                                                       self._unfollow_selectors[sort_selector_key]):
+                if elements:
+                    element = elements[0]
+                    chosen = element.text or ''
                     if not tap_element_human(self.device, element, logger=self.logger):
-                        element.click()
+                        self.logger.warning(f"Sort option '{sort_order}' found, but it could not be tapped")
+                        self.device.press_back()
+                        return False
                     # The early stop of the sync relies on this order: a tap is not enough, the
                     # list's header must now name the option.
                     if self._sort_confirmed(chosen):
@@ -639,7 +647,7 @@ class UnfollowActionsMixin:
                             )
                         return True
                     self.logger.warning(f"Sort option '{sort_order}' tapped but not confirmed on screen")
-                    if self.device.xpath(selector).exists:  # the sheet did not close
+                    if self._is_element_present(selector):  # the sheet did not close
                         self.device.press_back()
                     return False
             

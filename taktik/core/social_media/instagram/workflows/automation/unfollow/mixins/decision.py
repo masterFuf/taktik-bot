@@ -23,10 +23,12 @@ class UnfollowDecisionMixin(UnfollowActionsMixin):
     profile_open_timeout = 4.0
 
     def _on_profile_of(self, username: str) -> bool:
-        """Is the screen the profile of @username (not another one, not the list)?"""
-        if not self.detection_actions.is_on_profile_screen():
+        """Is the screen the profile of @username (not another one, not the list)? Both read on
+        one photo; a screen that could not be read leaves each its own try."""
+        photo = self._turn_photo()
+        if not self.detection_actions.is_on_profile_screen(photo=photo):
             return False
-        shown = (self.detection_actions.get_username_from_profile() or '').strip().lstrip('@')
+        shown = (self.detection_actions.get_username_from_profile(photo=photo) or '').strip().lstrip('@')
         return shown.lower() == username.strip().lstrip('@').lower()
 
     def _wait_profile_of(self, username: str) -> bool:
@@ -67,7 +69,8 @@ class UnfollowDecisionMixin(UnfollowActionsMixin):
             from taktik.core.shared.behavior.tap import tap_element_human
 
             if not tap_element_human(self.device, name_element, logger=self.logger):
-                name_element.click()
+                self.logger.warning(f"The row of @{username} could not be tapped: its profile is not checked")
+                return 'profile_unreadable'
             if not self._wait_profile_of(username):
                 return 'profile_unreadable'
             # A profile opened to be checked is a visit (the live panel counts them), and a visit
@@ -77,9 +80,11 @@ class UnfollowDecisionMixin(UnfollowActionsMixin):
             IPCEmitter.emit_profile_visit(username)
             IPCEmitter.emit_profile_captured(
                 username, profile_pic_base64=self.detection_actions.extract_profile_image())
-            if skip_verified and self.detection_actions.is_verified_account():
+            # The two kinds of account, on one photo of the profile.
+            photo = self._turn_photo()
+            if skip_verified and self.detection_actions.is_verified_account(photo=photo):
                 return 'verified'
-            if skip_business and self.detection_actions.is_business_account():
+            if skip_business and self.detection_actions.is_business_account(photo=photo):
                 return 'business'
             return None
         except Exception as e:

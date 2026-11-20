@@ -414,7 +414,7 @@ class UnfollowBusiness(
                 f"[{stats['unfollows_made'] + 1}/{max_unfollows or '∞'}] Tapping the following button of @{username}"
             )
             if not tap_element_human(self.device, row['button'], logger=self.logger):
-                row['button'].click()
+                raise RuntimeError("its following button could not be tapped")
             time.sleep(1)
             # A confirmation dialog can appear (private account)
             if self._tap_unfollow_confirm(timeout=self.confirm_dialog_timeout):

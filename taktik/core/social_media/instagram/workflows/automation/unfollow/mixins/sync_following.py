@@ -506,7 +506,7 @@ class SyncFollowingMixin(UnfollowActionsMixin):
         """Is it proven that Instagram serves our followers list no fans category now (it does on
         some days only, to the same account, and may serve the other categories without it)?
 
-        Read on one dump: the followers tab is the one shown, when the list has tabs, and the list,
+        Read on one photo: the followers tab is the one shown, when the list has tabs, and the list,
         at its top, shows its first account with nothing above it but its search box, its sort row,
         the spacers, headers and divider of its head, and categories a locale knows as not the fans
         one (« Comptes désactivés » alone, 410, 2026-10-24). Anything else there (a category whose
@@ -514,13 +514,12 @@ class SyncFollowingMixin(UnfollowActionsMixin):
         nothing. The list is taken for ours, as the category tap above takes it: opened from our
         profile, or found open.
         """
-        d = self.device.device
         package = get_active_package()
-        screen = d.dump_hierarchy()
-        has_tabs = d.xpath(UNFOLLOW_SELECTORS.unified_follow_list_tab_layout_selector(package), screen).exists
-        if has_tabs and not self._list_tab_selected(package, "followers", screen):
+        photo = self.device.snapshot()
+        has_tabs = self._is_element_present(UNFOLLOW_SELECTORS.unified_follow_list_tab_layout_selector(package), photo)
+        if has_tabs and not self._list_tab_selected(package, "followers", photo):
             return False
-        return d.xpath(UNFOLLOW_SELECTORS.list_shows_no_fans_category_selector(package), screen).exists
+        return self._is_element_present(UNFOLLOW_SELECTORS.list_shows_no_fans_category_selector(package), photo)
 
     def _fans_category_size(self) -> Optional[int]:
         """The number of accounts the fans category announces under its title, read on our followers

@@ -17,7 +17,7 @@ class ScreenDetectionMixin(BaseAction):
 
     _SCREEN_SIGNAL_CACHE_TTL_SECONDS = 0.25
 
-    def _detect_element(self, selectors, element_name: str, log_found: bool = False) -> bool:
+    def _detect_element(self, selectors, element_name: str, log_found: bool = False, photo=None) -> bool:
         """
         Generic method to detect if an element is present.
         
@@ -25,12 +25,15 @@ class ScreenDetectionMixin(BaseAction):
             selectors: Selector or list of selectors
             element_name: Name for logging
             log_found: Whether to log when found
+            photo: a photo of the screen the caller holds, asked instead of a new one
+photo: a photo of the screen the caller holds, asked instead of a new one
+            photo: a photo of the screen the caller holds, asked instead of a new one
             
         Returns:
             True if element found, False otherwise
         """
         self.logger.debug(f"Detecting {element_name}")
-        is_present = self._is_element_present(selectors)
+        is_present = self._is_element_present(selectors, photo)
         
         if log_found and is_present:
             self.logger.debug(f"✅ {element_name} detected")
@@ -57,8 +60,10 @@ class ScreenDetectionMixin(BaseAction):
 
         return self._detect_element(self.detection_selectors.search_screen_indicators, "Search screen")
 
-    def is_on_profile_screen(self) -> bool:
-        signals = self._get_screen_signal_snapshot()
+    def is_on_profile_screen(self, photo=None) -> bool:
+        """On a profile screen? `photo`: a photo the caller holds (it reads more of the same
+        screen), asked instead of a new one."""
+        signals = self._get_screen_signal_snapshot(photo)
         if signals is not None:
             # Authoritative from the single dump (covers home/profile_surface/profile);
             # no live re-probing on a negative.
@@ -68,13 +73,13 @@ class ScreenDetectionMixin(BaseAction):
             return signals.get("profile") is True
 
         if (
-            self._is_element_present(self.detection_selectors.home_screen_indicators)
-            and not self._is_element_present(self.detection_selectors.profile_surface_indicators)
+            self._is_element_present(self.detection_selectors.home_screen_indicators, photo)
+            and not self._is_element_present(self.detection_selectors.profile_surface_indicators, photo)
         ):
             self.logger.debug("Feed surface detected; not on profile screen")
             return False
 
-        is_profile = self._is_element_present(self.detection_selectors.profile_screen_indicators)
+        is_profile = self._is_element_present(self.detection_selectors.profile_screen_indicators, photo)
         if is_profile:
             self.logger.debug("✅ Profile screen detected")
         else:
@@ -208,12 +213,14 @@ class ScreenDetectionMixin(BaseAction):
 
         return self._detect_element(self.detection_selectors.story_viewer_indicators, "Story viewer")
 
-    def _get_screen_signal_snapshot(self) -> dict[str, bool] | None:
-        """Batch common screen probes on one XML dump, with live fallbacks elsewhere."""
+    def _get_screen_signal_snapshot(self, photo=None) -> dict[str, bool] | None:
+        """Batch common screen probes on one XML dump, with live fallbacks elsewhere. On `photo`
+        when the caller holds one (never the cache then: it is the screen the caller reads)."""
         now = time.monotonic()
         cached = getattr(self, "_screen_signal_snapshot_cache", None)
         if (
-            isinstance(cached, dict)
+            photo is None
+            and isinstance(cached, dict)
             and now - cached.get("created_at", 0) <= self._SCREEN_SIGNAL_CACHE_TTL_SECONDS
         ):
             signals = cached.get("signals")
@@ -233,7 +240,7 @@ class ScreenDetectionMixin(BaseAction):
         }
 
         try:
-            signals = batch_xpath_check(selectors)
+            signals = batch_xpath_check(selectors) if photo is None else batch_xpath_check(selectors, photo=photo)
         except Exception as exc:
             self.logger.debug(f"Batched screen signal detection failed: {exc}")
             return None

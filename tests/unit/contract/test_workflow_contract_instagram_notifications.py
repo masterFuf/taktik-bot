@@ -211,8 +211,8 @@ def _script_the_profile_screen(monkeypatch) -> None:
         (ScreenDetectionMixin, "is_on_profile_screen"): lambda self, *args, **kwargs: True,
         (NavigationActions, "navigate_to_profile_tab"): own_profile,
         (ProfileExtractionMixin, "extract_own_avatar_from_tab"): lambda self, xml_content=None: None,
-        (ProfileExtractionMixin, "get_username_from_profile"): lambda self: shown["username"],
-        (ProfileExtractionMixin, "get_profile_flags_batch"): lambda self: {
+        (ProfileExtractionMixin, "get_username_from_profile"): lambda self, photo=None: shown["username"],
+        (ProfileExtractionMixin, "get_profile_flags_batch"): lambda self, photo=None: {
             "is_private": shown["username"] == "suggested_private", "is_verified": False, "is_business": False},
         (ProfileExtractionMixin, "get_enriched_profile_data"): lambda self, **kwargs: {
             "username": shown["username"], "full_name": "A Name", "biography": "yoga", "bio_truncated": False},

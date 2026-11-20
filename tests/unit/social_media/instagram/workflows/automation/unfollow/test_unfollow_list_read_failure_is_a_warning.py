@@ -7,8 +7,11 @@ workflow bench whose selector tracer broke every list read (C3 campaign on a Pix
 410, 2026-09-28: « Error reading the follow list rows: ... takes 1 positional argument but 2 were
 given », three times, visible only in a debug journal).
 
+The read now takes one photo of the screen (step 4 of the one-photo spec): the failure is a photo
+that cannot be taken, the dump failing as the tracer's `xpath` did.
+
 The screen is a real dump of Instagram 410 in English (the top of our own followers list, Pixel 3a,
-2026-09-28, anonymized); the device answers it, but its `xpath` fails the way the tracer's did.
+2026-09-28, anonymized).
 """
 
 import pytest
@@ -39,12 +42,10 @@ def journal():
 
 
 class _TracedDevice(FakeScreen):
-    """The raw device under the bench's old tracer: `xpath` took the selector only."""
+    """A raw device whose dump fails."""
 
-    def xpath(self, xpath, *args):
-        if args:
-            raise TypeError("instrumented_xpath() takes 1 positional argument but 2 were given")
-        return super().xpath(xpath)
+    def dump_hierarchy(self, *_a, **_k):
+        raise TypeError("instrumented_xpath() takes 1 positional argument but 2 were given")
 
 
 def test_an_unreadable_list_is_a_warning_not_a_debug_line(journal):

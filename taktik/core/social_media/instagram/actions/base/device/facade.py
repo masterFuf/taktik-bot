@@ -114,7 +114,7 @@ class DeviceFacade(BaseDeviceFacade):
     # Instagram-specific: several selectors asked of one screen photo
     # =========================================================================
 
-    def batch_xpath_check(self, selectors_dict: Dict[str, List[str]]) -> Dict[str, bool]:
+    def batch_xpath_check(self, selectors_dict: Dict[str, List[str]], photo=None) -> Dict[str, bool]:
         """Named selector lists asked of ONE photo of the screen (one dump for all of them).
 
         A name is True when one of its selectors finds anything, exactly as
@@ -122,7 +122,7 @@ class DeviceFacade(BaseDeviceFacade):
         Instagram bridge mounts `CloneAwareDeviceProxy`, which makes an Instagram id equality
         match a clone's prefix and the bare ids of the Compose screens) and uiautomator2's own
         evaluation. A selector the engine rejects is skipped; an unreadable screen answers False
-        for every name.
+        for every name. `photo`: a photo the caller already holds, asked instead of a new one.
 
         Args:
             selectors_dict: Dict mapping names to list of xpath selectors
@@ -132,10 +132,11 @@ class DeviceFacade(BaseDeviceFacade):
             Dict mapping names to boolean results
         """
         results = {name: False for name in selectors_dict}
-        try:
-            photo = self.snapshot()
-        except SnapshotUnavailable:
-            return results
+        if photo is None:
+            try:
+                photo = self.snapshot()
+            except SnapshotUnavailable:
+                return results
 
         for name, selectors in selectors_dict.items():
             for selector in selectors:

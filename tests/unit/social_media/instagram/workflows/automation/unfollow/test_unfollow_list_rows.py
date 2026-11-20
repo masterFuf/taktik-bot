@@ -15,10 +15,11 @@ from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins.act
 from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins.sync_following import (
     SyncFollowingMixin,
 )
+from taktik.core.shared.actions.base_action import SharedBaseAction
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 
 
-class _Probe(SyncFollowingMixin, UnfollowActionsMixin):
+class _Probe(SyncFollowingMixin, UnfollowActionsMixin, SharedBaseAction):
     def __init__(self, screen):
         self.device = FakeFacade(screen)
         self.logger = logging.getLogger("test-unfollow")

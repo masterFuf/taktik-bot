@@ -63,8 +63,8 @@ INSTAGRAM_PROBES = ("list_rows", "list_usernames", "row_states", "click_row", "l
                     "follow_button", "profile_check", "funnel_present", "funnel_text", "funnel_wait",
                     # The rest of the unfollow (step 4, L2), the shared tap on a found element (L4)
                     # and a whole profile visit, as the workflows call it.
-                    "ensure_tab", "sort_control", "sort_confirmed", "profile_refusal", "find_and_click",
-                    "profile_visit",
+                    "ensure_tab", "sort_control", "sort_confirmed", "profile_refusal", "fans_not_served",
+                    "find_and_click", "profile_visit",
                     # Readers that parse one dump themselves (`batch_xpath_check` and the lxml
                     # readers of steps 3 L5-L6): answers, and the tree the walkers get.
                     "screen_signals", "profile_flags", "profile_text", "profile_enriched",
@@ -435,6 +435,7 @@ def _child_instagram_decisions(files, version, language, dump_ms, only=None):
     probes.update(_one_dump_reader_probes(bundle, phone))
     probes.update({"ensure_tab": ensure_tab, "sort_control": unfollow._list_shows_sort_control,
                    "sort_confirmed": sort_confirmed, "profile_refusal": profile_refusal,
+                   "fans_not_served": unfollow._fans_category_not_served,
                    "profile_visit": _profile_visit_probe(bundle)})
 
     def before_each():

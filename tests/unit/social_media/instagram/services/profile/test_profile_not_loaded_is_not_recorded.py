@@ -56,6 +56,10 @@ class _DumpPhone:
     def find(self, resourceId=None, **_kwargs):
         return _Found(self._tree.xpath(f'//*[@resource-id="{resourceId}"]'))
 
+    def snapshot(self):
+        """The photo the visit reads its flags and texts on (answered here by the stubs)."""
+        return None
+
 
 def _extraction(screen):
     extraction = object.__new__(ProfileExtraction)
@@ -65,7 +69,7 @@ def _extraction(screen):
     extraction.profile_selectors = PROFILE_SELECTORS
     extraction._random_sleep = lambda *_a, **_k: None
     extraction.detection_actions = SimpleNamespace(
-        get_profile_flags_batch=lambda: {"is_private": False, "is_verified": False, "is_business": False},
+        get_profile_flags_batch=lambda **_k: {"is_private": False, "is_verified": False, "is_business": False},
         get_enriched_profile_data=lambda **_k: {"username": None, "full_name": None, "biography": None},
         get_username_from_profile=lambda: None,
         extract_profile_image=lambda: None,

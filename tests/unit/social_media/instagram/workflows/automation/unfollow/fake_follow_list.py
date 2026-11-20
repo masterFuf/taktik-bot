@@ -221,6 +221,12 @@ class FakeFacade:
         self.device.advance()
         return True
 
+    def snapshot(self, max_age_s: float = 0.0):
+        """A photo of the current screen, as the facade takes it: one dump."""
+        from taktik.core.shared.device.snapshot import ScreenSnapshot
+
+        return ScreenSnapshot(self.device.dump_hierarchy())
+
     # What the Instagram facade forwards to the raw device
     def xpath(self, xpath: str, source: Optional[str] = None) -> FakeSelector:
         return self.device.xpath(xpath, source)
@@ -315,19 +321,19 @@ class FakeDetection:
         nodes = self.screen.tree().xpath(f'//*[@resource-id="{PKG}:id/action_bar_title"]')
         return nodes[0].get("text") if nodes else None
 
-    def is_on_profile_screen(self):
+    def is_on_profile_screen(self, photo=None):
         return self._title() is not None
 
-    def get_username_from_profile(self):
+    def get_username_from_profile(self, photo=None):
         return self._title()
 
     def is_following_list_open(self):
         return bool(self.screen.tree().xpath(f'//*[@resource-id="{PKG}:id/follow_list_username"]'))
 
-    def is_verified_account(self):
+    def is_verified_account(self, photo=None):
         return False
 
-    def is_business_account(self):
+    def is_business_account(self, photo=None):
         return False
 
     def extract_profile_image(self, xml_content=None):

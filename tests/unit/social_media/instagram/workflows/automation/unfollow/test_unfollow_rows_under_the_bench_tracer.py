@@ -9,6 +9,9 @@ Instagram 410, 2026-09-28).
 
 The screen is a real dump of Instagram 410 in English (the top of our own followers list, Pixel 3a,
 2026-09-28, anonymized); followers and following lists share the rows the read pairs.
+
+Since step 4 of the one-photo spec the read asks its selectors of one photo of the screen, not of
+`d.xpath()`: the tracer on the raw device no longer sees them, and can no longer break them.
 """
 
 import pytest
@@ -51,22 +54,19 @@ def test_the_bench_reads_the_same_rows_from_the_same_dump_as_production():
     production_device = _Device(SCREEN)
     production_rows = _read(production_device)
     assert len(production_rows) >= 5
-    assert production_device.sources and all(production_device.sources)
 
     bench_device = _Device(SCREEN)
     SelectorTracer().attach(bench_device)
 
     assert _read(bench_device) == production_rows
-    assert bench_device.sources == production_device.sources
 
 
-def test_the_tracer_still_records_the_reads_it_passes_the_dump_to():
+def test_the_rows_are_read_on_one_photo_not_through_the_traced_xpath():
     bench_device = _Device(SCREEN)
     recorded = []
     SelectorTracer(on_xpath_call=recorded.append).attach(bench_device)
 
-    _read(bench_device)
+    assert _read(bench_device)
 
-    assert len(recorded) == len(bench_device.sources)
-    assert all(call.error is None for call in recorded)
-    assert any(call.found for call in recorded)
+    assert bench_device.dumps == 1
+    assert bench_device.sources == [] and recorded == []

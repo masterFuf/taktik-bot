@@ -64,7 +64,7 @@ class _ScreenProbe(ScreenDetectionMixin):
         self.batch_calls = 0
         self.live_calls = 0
 
-    def _is_element_present(self, selectors):
+    def _is_element_present(self, selectors, photo=None):
         self.live_calls += 1
         if isinstance(selectors, str):
             selectors = [selectors]

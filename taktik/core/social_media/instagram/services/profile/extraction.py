@@ -38,13 +38,12 @@ class ProfileExtraction(BaseBusinessAction):
             # Short delay for profile to load
             self._random_sleep(0.3, 0.6)
             
-            # Use batch detection for boolean flags (1 ADB call instead of 3)
-            profile_flags = self.detection_actions.get_profile_flags_batch()
-            
-            # Profile text in a single XML dump: bio, full name, website, business category,
-            # linked accounts + the bio-truncation flag. One dump — same cost as the old basic
-            # batch — but the website/category feed AI qualification on every profile read.
-            profile_text = self.detection_actions.get_enriched_profile_data()
+            # Flags (private, verified, business) and texts (bio, full name, website, business
+            # category, linked accounts, the bio-truncation flag) on ONE photo of the profile: they
+            # took one dump each. A screen that could not be read leaves each reader its own try.
+            photo = self._turn_photo()
+            profile_flags = self.detection_actions.get_profile_flags_batch(photo=photo)
+            profile_text = self.detection_actions.get_enriched_profile_data(photo=photo)
             original_username = profile_text.get('username')
 
             # STANDARD per-profile behaviour (NOT "enrichment"): whenever the bio is truncated,

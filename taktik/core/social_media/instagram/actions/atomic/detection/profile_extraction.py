@@ -62,15 +62,18 @@ class ProfileExtractionMixin(BaseAction):
     def is_private_account(self) -> bool:
         return self._detect_element(self.detection_selectors.private_account_indicators, "Private account", log_found=True)
     
-    def is_verified_account(self) -> bool:
-        return self._detect_element(self.detection_selectors.verified_account_indicators, "Verified account")
+    def is_verified_account(self, photo=None) -> bool:
+        return self._detect_element(self.detection_selectors.verified_account_indicators, "Verified account",
+                                    photo=photo)
     
-    def is_business_account(self) -> bool:
-        return self._detect_element(self.detection_selectors.business_account_indicators, "Business account")
+    def is_business_account(self, photo=None) -> bool:
+        return self._detect_element(self.detection_selectors.business_account_indicators, "Business account",
+                                    photo=photo)
 
-    def get_profile_flags_batch(self) -> Dict[str, bool]:
+    def get_profile_flags_batch(self, photo=None) -> Dict[str, bool]:
         """
-        Get all profile boolean flags in a single XML dump.
+        Get all profile boolean flags in a single XML dump, or on `photo` when the caller holds
+        one (the profile visit reads its texts on the same photo).
         Much faster than individual checks (~1s vs ~20s).
         
         Returns:
@@ -82,40 +85,32 @@ class ProfileExtractionMixin(BaseAction):
             'is_business': self.detection_selectors.business_account_indicators,
         }
         
-        results = self.device.batch_xpath_check(selectors_dict)
+        results = (self.device.batch_xpath_check(selectors_dict) if photo is None
+                   else self.device.batch_xpath_check(selectors_dict, photo=photo))
         self.logger.debug(f"📊 Batch profile flags: private={results.get('is_private')}, verified={results.get('is_verified')}, business={results.get('is_business')}")
         return results
 
     # === Simple text extraction ===
 
-    def get_username_from_profile(self) -> Optional[str]:
-        try:
-            # Try main username selectors
-            for selector in self.selectors.username:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    username = _handle_from_node(element.get_text())
-                    if username:
-                        self.logger.debug(f"Username found: {username}")
-                        return username
+    def get_username_from_profile(self, photo=None) -> Optional[str]:
+        """The handle the profile shows in its action bar, read on `photo` when the caller holds
+        one, else on a new photo (one dump for every selector, where each took one or two).
 
-            # Try content-desc fallback
-            username_element = self.device.xpath(self.selectors.username_content_desc)
-            if username_element.exists:
-                description = username_element.get_attribute('content-desc', '').strip()
-                if '@' in description:
-                    username = _handle_from_node(description.split('@')[-1].split(' ')[0])
-                    if username:
-                        self.logger.debug(f"Username extracted from content-desc: {username}")
-                        return username
-            
+        Its old content-desc fallback is gone: it called `get_attribute` on a uiautomator2 xpath
+        selector, which has none, so it raised on every screen it was reached on and the answer
+        was None. It stays None."""
+        try:
+            photo = photo if photo is not None else self.device.snapshot()
+            username = self.handle_on_photo(photo)
+            if username:
+                self.logger.debug(f"Username found: {username}")
+                return username
             self.logger.warning("Cannot find username from profile")
             return None
-            
         except Exception as e:
             self.logger.error(f"Error retrieving username: {e}")
             return None
-    
+
     def handle_on_photo(self, photo) -> Optional[str]:
         """The handle the profile on `photo` shows in its action bar, or None while it shows none
         (a profile still loading shows an empty action bar)."""
@@ -266,9 +261,11 @@ class ProfileExtractionMixin(BaseAction):
         xml_content: Optional[str] = None,
         *,
         dump_timeout_seconds: Optional[float] = None,
+        photo=None,
     ) -> Dict[str, Any]:
         """
-        Get all enriched profile data on one screen photo (one dump, or the dump handed in).
+        Get all enriched profile data on one screen photo (one dump, the dump handed in, or the
+        `photo` the caller holds).
         Extracts: username, full_name, bio, business_category, website, linked_accounts.
         Also detects if bio has "more" button to expand.
 
@@ -285,7 +282,7 @@ class ProfileExtractionMixin(BaseAction):
             'bio_truncated': False,  # True if "more" button detected
         }
         
-        photo = self._profile_photo(xml_content, dump_timeout_seconds)
+        photo = photo if photo is not None else self._profile_photo(xml_content, dump_timeout_seconds)
         if photo is None:
             return results
 

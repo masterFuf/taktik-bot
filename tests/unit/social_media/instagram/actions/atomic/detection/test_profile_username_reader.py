@@ -65,20 +65,18 @@ class _DumpDevice:
 
 
 class _XPathDevice:
-    """Answers `xpath()` with the text the screen holds for that selector, nothing otherwise."""
+    """A photo that answers each selector with the text the screen holds for it, nothing
+    otherwise."""
 
-    def __init__(self, texts, descriptions=None):
+    def __init__(self, texts):
         self._texts = texts
-        self._descriptions = descriptions or {}
 
-    def xpath(self, selector):
+    def snapshot(self):
+        return self
+
+    def elements(self, selector):
         text = self._texts.get(selector)
-        description = self._descriptions.get(selector)
-        return SimpleNamespace(
-            exists=text is not None or description is not None,
-            get_text=lambda: text,
-            get_attribute=lambda _name, _default="": description or "",
-        )
+        return [] if text is None else [SimpleNamespace(attrib={"text": text})]
 
 
 def _reader(device):
@@ -137,14 +135,15 @@ def test_without_the_action_bar_the_handle_the_caller_stands_on_wins():
     extraction = object.__new__(ProfileExtraction)
     extraction.logger = logger
     extraction.utils = ActionUtils()
+    extraction.device = SimpleNamespace(snapshot=lambda: None)  # the stubs below read the screen
     extraction._random_sleep = lambda *_a, **_k: None
     extraction._get_followers_count_robust = lambda: 120
     extraction._get_following_count_robust = lambda: 80
     extraction._get_posts_count_robust = lambda: 12
     extraction.click_actions = SimpleNamespace(get_follow_button_state=lambda: "follow")
     extraction.detection_actions = SimpleNamespace(
-        get_profile_flags_batch=lambda: {},
-        get_enriched_profile_data=lambda: {"username": None, "biography": BIO},
+        get_profile_flags_batch=lambda **_k: {},
+        get_enriched_profile_data=lambda **_k: {"username": None, "biography": BIO},
         get_username_from_profile=lambda: "marc_studio",
         extract_profile_image=lambda: None,
     )
