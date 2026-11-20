@@ -104,3 +104,16 @@ def test_a_counter_not_found_is_unknown_not_zero():
     assert extraction._get_followers_count_robust() is None
     assert extraction._get_following_count_robust() is None
     assert extraction._get_posts_count_robust() is None
+
+
+def test_a_counter_not_read_on_a_loaded_profile_stays_unknown(recorded):
+    # A loaded header (its followers and following read) whose posts counter is read on the blank
+    # frame: the posts reader answers None there, and that None reaches the base as it is.
+    extraction = _extraction("ig410_fr_profile_follow_back.xml")
+    extraction._get_posts_count_robust = _extraction("ig410_fr_profile_not_loaded.xml")._get_posts_count_robust
+
+    info = extraction.get_complete_profile_info(username="user_1", navigate_if_needed=False, emit_ipc=False)
+
+    assert (info["posts_count"], info["followers_count"], info["following_count"]) == (None, 92, 142)
+    assert info["visible_posts_count"] is None and info["has_posts"] is None
+    assert recorded[0]["posts_count"] is None

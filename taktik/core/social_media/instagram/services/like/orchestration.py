@@ -224,7 +224,8 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 profile_info = profile_data
             else:
                 profile_info = self.profile_business.get_complete_profile_info(username=username, navigate_if_needed=False)
-            total_posts_on_profile = profile_info.get('posts_count', 0) if profile_info else 0
+            # 0 here means « no count to plan on »: a posts count not read (None) plans like none.
+            total_posts_on_profile = (profile_info.get('posts_count') if profile_info else None) or 0
             
             like_goal = max_likes if should_like else 0
             comment_goal = max_comments if should_comment else 0

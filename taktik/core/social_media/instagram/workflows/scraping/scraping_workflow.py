@@ -298,7 +298,7 @@ class ScrapingWorkflow(
                 
                 # Adjust max to what's actually available
                 # If count detection failed (0), use requested max and try anyway
-                if available_count == 0:
+                if not available_count:  # 0 or not read (None)
                     console.print(f"[yellow]⚠️ Could not detect {scrape_type} count for @{target}, trying anyway...[/yellow]")
                     actual_max = remaining_to_scrape
                     available_count = remaining_to_scrape  # Use requested as fallback

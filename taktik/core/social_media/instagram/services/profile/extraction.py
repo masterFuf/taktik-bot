@@ -120,13 +120,12 @@ class ProfileExtraction(BaseBusinessAction):
                 'username': extracted_username,
                 'full_name': profile_text.get('full_name'),
                 'biography': profile_text.get('biography'),
-                # A loaded profile whose one counter could not be read keeps 0 for it, as always
-                # (its readers count on a number); the reader said so in the log.
-                'followers_count': followers_count if followers_count is not None else 0,
-                'following_count': following_count if following_count is not None else 0,
-                # 0 for a header that could not be read, as always (its readers count on a
-                # number); the reader said so in the log. The visible posts below keep the doubt.
-                'posts_count': posts_count if posts_count is not None else 0,
+                # A counter that could not be read is unknown (None) down to the base, never 0:
+                # a filter set on it refuses the profile as unreadable (`unread_counter_reason`).
+                # A 0 read on screen stays 0.
+                'followers_count': followers_count,
+                'following_count': following_count,
+                'posts_count': posts_count,
                 'is_private': profile_flags.get('is_private', False),
                 'is_verified': profile_flags.get('is_verified', False),
                 'is_business': profile_flags.get('is_business', False),

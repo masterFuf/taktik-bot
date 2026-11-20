@@ -217,7 +217,8 @@ class DirectNavigationMixin:
             # pick another source, which is a different action from "go and look at the phone".
             return self._source_failed(stats, stop_reasons.list_unavailable())
         
-        target_followers_count = profile_info.get('followers_count', 0) if profile_info else 0
+        # 0 is this loop's « total unknown » (said just below): a count not read (None) is that.
+        target_followers_count = (profile_info.get('followers_count') if profile_info else None) or 0
         
         if target_followers_count > 0:
             self.logger.info(f"📊 Target @{target_username} has {target_followers_count:,} followers")
@@ -230,7 +231,7 @@ class DirectNavigationMixin:
                 "type": "target_account",
                 "username": target_username,
                 "followers": target_followers_count,
-                "following": profile_info.get('following_count', 0) if profile_info else 0,
+                "following": (profile_info.get('following_count') if profile_info else None) or 0,
                 "posts": profile_info.get('media_count', 0) if profile_info else 0,
             }
             print(json.dumps(target_msg), flush=True)
