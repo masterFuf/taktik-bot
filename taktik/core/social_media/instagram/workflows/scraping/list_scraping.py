@@ -166,7 +166,7 @@ class ScrapingListMixin(DeepQualifyMixin):
         if enriched_data:
             filter_reason = self._get_profile_filter_reason(profile_data)
         elif self._has_profile_filters():
-            filter_reason = 'enrichment failed — cannot check filters'
+            filter_reason = 'filters_unchecked'
         else:
             filter_reason = None
         if filter_reason:
@@ -371,6 +371,8 @@ class ScrapingListMixin(DeepQualifyMixin):
         IPCEmitter.emit_profile_skipped(username, "already_in_db", detail=days)
 
     def _get_profile_filter_reason(self, profile: Dict[str, Any]) -> Optional[str]:
+        """The code of the first filter a profile fails, else None. Codes, never words: the app phrases
+        each one (`lib/instagram/skipReasons.ts`), the counters' with the automation's categories."""
         min_followers = self.config.get('minFollowers')
         max_followers = self.config.get('maxFollowers')
         min_following = self.config.get('minFollowing')
@@ -383,7 +385,7 @@ class ScrapingListMixin(DeepQualifyMixin):
         has_profile_picture = bool(profile.get('profile_pic_base64'))
 
         if skip_private_profiles and is_private:
-            return 'private profile'
+            return 'private'
         # A counter not read (None) cannot be checked against a bound set on it: the same codes as
         # the automation's filter (`UNREAD_COUNTER_CRITERIA`), never « followers < n ».
         bounds = {'followers_count': (min_followers, max_followers),
@@ -395,17 +397,17 @@ class ScrapingListMixin(DeepQualifyMixin):
         following_count = int(profile.get('following_count') or 0)
         posts_count = int(profile.get('posts_count') or 0)
         if min_followers is not None and followers_count < int(min_followers):
-            return f'followers < {int(min_followers)}'
+            return 'low_followers'
         if max_followers is not None and followers_count > int(max_followers):
-            return f'followers > {int(max_followers)}'
+            return 'high_followers'
         if min_following is not None and following_count < int(min_following):
-            return f'following < {int(min_following)}'
+            return 'low_following'
         if max_following is not None and following_count > int(max_following):
-            return f'following > {int(max_following)}'
+            return 'high_following'
         if min_posts is not None and posts_count < int(min_posts):
-            return f'posts < {int(min_posts)}'
+            return 'few_posts'
         if require_profile_picture and not has_profile_picture:
-            return 'missing profile picture'
+            return 'no_profile_picture'
         return None
 
     def _scrape_list(self, max_count: int, source_type: str, source_name: str,

@@ -37,7 +37,7 @@ def _profile(**over):
 def test_zero_posts_is_rejected_when_min_posts_is_one():
     """The exact profile from the device report."""
     wf = _Workflow({'minPosts': 1})
-    assert wf._get_profile_filter_reason(_profile(posts_count=0)) == 'posts < 1'
+    assert wf._get_profile_filter_reason(_profile(posts_count=0)) == 'few_posts'
 
 
 def test_no_filters_accepts_everything():
@@ -46,12 +46,12 @@ def test_no_filters_accepts_everything():
 
 
 @pytest.mark.parametrize('config,profile,expected', [
-    ({'minFollowers': 100}, {'followers_count': 12}, 'followers < 100'),
-    ({'maxFollowers': 1000}, {'followers_count': 5000}, 'followers > 1000'),
-    ({'minFollowing': 50}, {'following_count': 10}, 'following < 50'),
-    ({'maxFollowing': 7500}, {'following_count': 9000}, 'following > 7500'),
-    ({'requireProfilePicture': True}, {'profile_pic_base64': None}, 'missing profile picture'),
-    ({}, {'is_private': True}, 'private profile'),  # skipPrivateProfiles defaults to True
+    ({'minFollowers': 100}, {'followers_count': 12}, 'low_followers'),
+    ({'maxFollowers': 1000}, {'followers_count': 5000}, 'high_followers'),
+    ({'minFollowing': 50}, {'following_count': 10}, 'low_following'),
+    ({'maxFollowing': 7500}, {'following_count': 9000}, 'high_following'),
+    ({'requireProfilePicture': True}, {'profile_pic_base64': None}, 'no_profile_picture'),
+    ({}, {'is_private': True}, 'private'),  # skipPrivateProfiles defaults to True
 ])
 def test_each_filter_rejects_what_it_should(config, profile, expected):
     wf = _Workflow(config)
