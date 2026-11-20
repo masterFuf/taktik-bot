@@ -61,13 +61,14 @@ def run_on(monkeypatch):
     monkeypatch.setattr(miss_capture, "signaler_ecran_inconnu", lambda *a, **k: None)
     monkeypatch.setattr(miss_capture, "blocage_a_signaler", lambda: False)
     monkeypatch.setattr(search_navigation, "get_active_package", lambda: PKG)
+    monkeypatch.setattr(search_navigation, "SEARCH_RESULTS_TIMEOUT_S", 0.0)
     monkeypatch.setattr(base_action_module, "ensure_taktik_keyboard", lambda *_a, **_k: True)
     monkeypatch.setattr(base_action_module, "clear_text_with_taktik_keyboard", lambda *_a, **_k: True)
     seen = SimpleNamespace(checked=[], decided=[], deep_links=[], composed=[])
     monkeypatch.setattr(DeepLinkNavigationMixin, "_navigate_via_deep_link",
                         lambda _self, username, *a, **k: seen.deep_links.append(username) or False)
     monkeypatch.setattr(NavigationActions, "_verify_profile_navigation",
-                        lambda _self, handle: seen.checked.append(handle) or True)
+                        lambda _self, handle, **_kwargs: seen.checked.append(handle) or True)
     monkeypatch.setattr(ColdDMWorkflow, "open_dm_from_profile",
                         lambda _self, policy=None, recipient=None: seen.decided.append(policy) or NOT_ON_PROFILE)
     set_active_locale("fr")
