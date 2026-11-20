@@ -200,3 +200,12 @@ def test_a_criterion_sent_flat_is_still_a_criterion():
         "allow_private": False}
     assert followers_settings_from_payload({**PAGE_PAYLOAD, "filters": {"minScore": 60}})["filters"] == {
         "min_score": 60}
+
+
+def test_a_tiktok_counter_not_read_is_refused_as_unreadable_not_as_too_few():
+    verdict = evaluate_tiktok_profile(
+        {"username": "u", "followers_count": None, "following_count": 10, "videos_count": 4},
+        {"min_followers": 100},
+    )
+
+    assert (verdict["suitable"], verdict["reasons"]) == (False, ["followers_count_unreadable"])

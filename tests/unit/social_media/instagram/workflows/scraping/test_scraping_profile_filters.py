@@ -75,3 +75,19 @@ def test_has_profile_filters_detects_the_operator_intent():
     assert _Workflow({'skipPrivateProfiles': True})._has_profile_filters() is True
     # Everything off: no filter at all.
     assert _Workflow({'skipPrivateProfiles': False})._has_profile_filters() is False
+
+
+@pytest.mark.parametrize('config,unread,expected', [
+    ({'minFollowers': 100}, 'followers_count', 'followers_count_unreadable'),
+    ({'maxFollowers': 1000}, 'followers_count', 'followers_count_unreadable'),
+    ({'minFollowing': 50}, 'following_count', 'following_count_unreadable'),
+    ({'minPosts': 1}, 'posts_count', 'posts_count_unreadable'),
+])
+def test_a_bound_on_a_counter_not_read_refuses_it_as_unreadable(config, unread, expected):
+    wf = _Workflow(config)
+    assert wf._get_profile_filter_reason(_profile(**{unread: None})) == expected
+
+
+def test_a_counter_not_read_without_a_bound_on_it_passes():
+    wf = _Workflow({'minFollowers': 100, 'minFollowing': 0})
+    assert wf._get_profile_filter_reason(_profile(posts_count=None, following_count=None)) is None

@@ -45,6 +45,26 @@ def exceeds_ceiling(count: Optional[float], ceiling: Optional[float]) -> bool:
     return bool(ceiling) and count is not None and count > ceiling
 
 
+#: Each counter a basic criterion reads, with the code said when it was not read: the reason written
+#: in `filtered_profiles.reason`, which the app phrases (`lib/instagram/skipReasons.ts`).
+UNREAD_COUNTER_CRITERIA = (
+    ('followers_count', ('min_followers', 'max_followers'), 'followers_count_unreadable'),
+    ('following_count', ('max_following',), 'following_count_unreadable'),
+    ('posts_count', ('min_posts',), 'posts_count_unreadable'),
+)
+
+
+def unread_counter_reason(profile_info: Mapping[str, Any], criteria: Mapping[str, Any]) -> Optional[str]:
+    """The code of the first counter a set criterion needs that was not read (None), else None.
+
+    A criterion at 0 or absent reads nothing, as always. A set one cannot be checked against a
+    counter not read: the profile is refused for that, never for « too few followers »."""
+    for key, names, code in UNREAD_COUNTER_CRITERIA:
+        if profile_info.get(key) is None and any(criteria.get(name) for name in names):
+            return code
+    return None
+
+
 def create_profile_filter(criteria: Mapping[str, Any]) -> Callable[[Mapping[str, Any]], Dict[str, Any]]:
     """Bind `criteria` into a one-argument filter, for callers that map over profiles."""
 
@@ -148,11 +168,20 @@ def _apply_basic_filters(
         })
         return result
 
+    unread = unread_counter_reason(profile_info, criteria)
+    if unread:
+        result.update({
+            'suitable': False,
+            'reasons': [unread],
+            'category': 'unreadable_count',
+            'score': 0
+        })
+        return result
+
+    # Past this point a counter not read (None) has no criterion set on it.
     followers = profile_info.get('followers_count', 0)
-    if followers is None:
-        followers = 0
     min_followers = criteria.get('min_followers', 0)
-    if followers < min_followers:
+    if min_followers and followers < min_followers:
         result.update({
             'suitable': False,
             'reasons': [f'Too few followers ({followers} < {min_followers})'],
@@ -184,7 +213,7 @@ def _apply_basic_filters(
 
     posts = profile_info.get('posts_count', 0)
     min_posts = criteria.get('min_posts', 0)
-    if posts < min_posts:
+    if min_posts and posts < min_posts:
         result.update({
             'suitable': False,
             'reasons': [f'Too few posts ({posts} < {min_posts})'],
@@ -222,7 +251,8 @@ def _apply_advanced_filters(
     following = profile_info.get('following_count', 0)
     posts = profile_info.get('posts_count', 0)
 
-    if following > 0:
+    # A ratio needs both of its counters read: one not read (None) scores nothing.
+    if followers is not None and following is not None and following > 0:
         ratio = followers / following
         max_ratio = criteria.get('max_following_ratio', 10.0)
 
@@ -234,7 +264,7 @@ def _apply_advanced_filters(
         else:
             result['details']['advanced_filters']['follower_ratio'] = 'good'
 
-    if followers > 0:
+    if followers is not None and posts is not None and followers > 0:
         posts_ratio = posts / followers
 
         if posts_ratio < 0.001:
@@ -380,4 +410,4 @@ def _determine_final_category(result: Mapping[str, Any]) -> str:
         return 'poor'
 
 
-__all__ = ["apply_comprehensive_filter", "create_profile_filter", "exceeds_ceiling"]
+__all__ = ["apply_comprehensive_filter", "create_profile_filter", "exceeds_ceiling", "unread_counter_reason"]

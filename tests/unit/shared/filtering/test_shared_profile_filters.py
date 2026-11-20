@@ -168,3 +168,33 @@ def test_the_ceiling_rule_is_one_function(count, ceiling, over):
     A count not read (None) is never over a ceiling: refusing it would take "not read" for a
     measure."""
     assert exceeds_ceiling(count, ceiling) is over
+
+
+@pytest.mark.parametrize("criteria,unread,code", [
+    ({"min_followers": 50}, "followers_count", "followers_count_unreadable"),
+    ({"max_followers": 50_000}, "followers_count", "followers_count_unreadable"),
+    ({"max_following": 7500}, "following_count", "following_count_unreadable"),
+    ({"min_posts": 5}, "posts_count", "posts_count_unreadable"),
+])
+def test_a_criterion_on_a_counter_not_read_refuses_it_as_unreadable(criteria, unread, code):
+    profile = {"username": "u", "followers_count": 900, "following_count": 300, "posts_count": 40,
+               "visible_posts_count": 40, unread: None}
+
+    result = apply_comprehensive_filter(profile, criteria)
+
+    assert (result["suitable"], result["reasons"], result["category"]) == (False, [code], "unreadable_count")
+
+
+def test_a_counter_not_read_without_a_criterion_on_it_is_not_looked_at():
+    profile = {"username": "u", "followers_count": None, "following_count": None, "posts_count": None,
+               "visible_posts_count": None, "biography": "bio", "full_name": "N"}
+
+    result = apply_comprehensive_filter(profile, {"min_followers": 0, "max_followers": 0, "min_posts": 0})
+
+    assert result["suitable"] is True and result["reasons"] == []
+
+
+def test_a_read_zero_is_still_a_measure():
+    profile = {"username": "u", "followers_count": 0, "following_count": 10, "posts_count": 3}
+
+    assert apply_comprehensive_filter(profile, {"min_followers": 50})["reasons"] == ["Too few followers (0 < 50)"]

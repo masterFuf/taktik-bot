@@ -5,6 +5,7 @@ from datetime import datetime
 
 from taktik.core.social_media.instagram.workflows.scraping.outcome import scraping_outcome
 from taktik.core.ai.spend import AI_SPEND_PROFILE
+from taktik.core.shared.filtering.profile_filters import UNREAD_COUNTER_CRITERIA
 from typing import Dict, Any, List, Optional
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
@@ -378,14 +379,21 @@ class ScrapingListMixin(DeepQualifyMixin):
         require_profile_picture = bool(self.config.get('requireProfilePicture', False))
         skip_private_profiles = bool(self.config.get('skipPrivateProfiles', True))
 
-        followers_count = int(profile.get('followers_count') or 0)
-        following_count = int(profile.get('following_count') or 0)
-        posts_count = int(profile.get('posts_count') or 0)
         is_private = bool(profile.get('is_private', False))
         has_profile_picture = bool(profile.get('profile_pic_base64'))
 
         if skip_private_profiles and is_private:
             return 'private profile'
+        # A counter not read (None) cannot be checked against a bound set on it: the same codes as
+        # the automation's filter (`UNREAD_COUNTER_CRITERIA`), never « followers < n ».
+        bounds = {'followers_count': (min_followers, max_followers),
+                  'following_count': (min_following, max_following), 'posts_count': (min_posts,)}
+        for key, _names, code in UNREAD_COUNTER_CRITERIA:
+            if profile.get(key) is None and any(bounds[key]):
+                return code
+        followers_count = int(profile.get('followers_count') or 0)
+        following_count = int(profile.get('following_count') or 0)
+        posts_count = int(profile.get('posts_count') or 0)
         if min_followers is not None and followers_count < int(min_followers):
             return f'followers < {int(min_followers)}'
         if max_followers is not None and followers_count > int(max_followers):

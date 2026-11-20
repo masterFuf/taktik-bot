@@ -121,11 +121,13 @@ def tiktok_profile_for_filtering(
     profile_data: Mapping[str, Any], *, visible_posts_count: Optional[int] = None
 ) -> Dict[str, Any]:
     """Translate an extracted TikTok profile into the evaluator's vocabulary."""
-    videos = profile_data.get("videos_count") or 0
+    # A counter not read stays None: the evaluator refuses it as unreadable where a criterion
+    # needs it (`unread_counter_reason`), never as « too few ».
+    videos = profile_data.get("videos_count")
     return {
         "username": profile_data.get("username", "unknown"),
-        "followers_count": profile_data.get("followers_count") or 0,
-        "following_count": profile_data.get("following_count") or 0,
+        "followers_count": profile_data.get("followers_count"),
+        "following_count": profile_data.get("following_count"),
         "posts_count": videos,
         "biography": profile_data.get("biography") or profile_data.get("bio") or "",
         "full_name": profile_data.get("display_name") or "",
