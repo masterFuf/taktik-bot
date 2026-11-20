@@ -5,8 +5,8 @@ the account's last scan, the way a Symfony voter answers one question per subjec
 
 - surely newer than the last scan: unread, even when its identity is already recorded (a new like
   from someone already seen has the identity of the old one, `NotificationRepository.content_hash`);
-- surely older than the horizon (the last scan, or `FIRST_SCAN_HORIZON_DAYS` on a first scan):
-  beyond, not read, even when its identity is unknown;
+- at least as old as the horizon (the last scan, or `FIRST_SCAN_HORIZON_DAYS` on a first scan, so
+  « 1 sem » is beyond a first scan): beyond, not read, even when its identity is unknown;
 - in between (its age range straddles the horizon), or with no readable age: the recorded
   identity decides, unknown means unread.
 
@@ -60,7 +60,7 @@ class UnreadRule:
         age = age_range(row.get("time") or "")
         if age is not None and age.less_than_s <= self.horizon_s:
             return UNREAD
-        if age is not None and age.at_least_s > self.horizon_s:
+        if age is not None and age.at_least_s >= self.horizon_s:
             return BEYOND
         if self.is_known is not None and self.is_known(row):
             return READ

@@ -39,6 +39,8 @@ ROWS = _screen("ig410_fr_notifications_rows.xml")
 OLDER = _screen("ig410_fr_notifications_older.xml")
 TOP_447 = _screen("ig447_fr_notifications_feed_top.xml")
 DAYS_447 = _screen("ig447_fr_notifications_feed_days.xml")
+#: The first scan of the phone proof (Instagram 447 in French, Pixel 6a, 2026-11-20), five screens in a row.
+WEEK_447 = [_screen(f"ig447_fr_notifications_week_{rank}.xml") for rank in range(1, 6)]
 #: Distinct notifications each real screen holds, read by the production parser.
 ROWS_ON = {"top": 8, "rows": 10, "older": 10}
 
@@ -126,18 +128,19 @@ def test_a_new_like_from_someone_already_seen_does_not_stop_it():
     assert any(item["type"] == "post_like" for item in result["items"])
 
 
-def test_the_first_scan_stops_at_its_horizon(monkeypatch):
-    """Nothing recorded: the scan reads back to its horizon and stops on the rows beyond it. The
-    screens hold hours, then days, then weeks; the horizon is set to one day for them, the
-    declaration's seven days are checked below."""
-    monkeypatch.setattr(rule_module, "FIRST_SCAN_HORIZON_DAYS", 1)
-    wf = _Scan([TOP, ROWS, OLDER, TOP])
+def test_the_first_scan_stops_at_the_end_of_the_six_days():
+    """Nothing recorded: the first scan reads seven days back. « 1 sem » is at least seven days old,
+    so it is beyond; the phone proof of 2026-11-20 (Pixel 6a, Instagram 447) read 71 rows of it
+    while the comparison let a row exactly at the horizon through. Real screens of that pass: the
+    top of the list, the days, the turn to « 1 sem », then weeks only."""
+    wf = _Scan(WEEK_447)
 
     result = wf.scan()
 
     assert result["scan_stop_reason"] == "first_scan_horizon"
-    assert result["count"] == ROWS_ON["top"]
-    assert wf.scrolls == 2
+    assert wf.scrolls == 4
+    assert result["items"] and not any(item["time"].endswith("sem") for item in result["items"])
+    assert any(item["time"] == "6 j" for item in result["items"])
 
 
 def test_the_first_scan_reads_seven_days_back():
@@ -145,6 +148,8 @@ def test_the_first_scan_reads_seven_days_back():
 
     assert first.verdict({"time": "5 j"}) == rule_module.UNREAD
     assert first.verdict({"time": "6 j"}) == rule_module.UNREAD
+    assert first.verdict({"time": "7 j"}) == rule_module.BEYOND
+    assert first.verdict({"time": "1 sem"}) == rule_module.BEYOND
     assert first.verdict({"time": "2 sem"}) == rule_module.BEYOND
     wf = _Scan([TOP, ROWS, OLDER])
     result = wf.scan()
