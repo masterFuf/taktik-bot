@@ -34,7 +34,6 @@ class NotificationsRequest:
     command: str
     account_username: Optional[str] = None
     username: Optional[str] = None
-    scroll: int = 3
     follow_suggestions: int = 0
     ai: Optional[Dict[str, Any]] = None
     language: str = "en"
@@ -68,7 +67,8 @@ def notifications_request_from_payload(payload: Mapping[str, Any]) -> Notificati
 
     `accountUsername` is the owning account (the desktop resolves it from the device): `scan`
     persists and dedups under it (the activity screen has no header), every action records
-    under it. Each other key is read for the command that uses it only.
+    under it. Each other key is read for the command that uses it only; a key no command reads
+    (the scan's old `scroll`, still in a saved plan) is ignored, never refused.
     """
     command = payload.get("command")
     if command not in NOTIFICATIONS_COMMANDS:
@@ -93,7 +93,7 @@ def notifications_request_from_payload(payload: Mapping[str, Any]) -> Notificati
         if ai_config is not None and not isinstance(ai_config, dict):
             logger.warning("[NOTIF] Unreadable ai config: AI qualification off")
             ai_config = None
-        values.update(scroll=_count(payload.get("scroll"), 3), ai=ai_config,
+        values.update(ai=ai_config,
                       language=payload.get("language") or "en")
     elif command == "list_requests":
         values["limit"] = _count(payload.get("limit"), 50)

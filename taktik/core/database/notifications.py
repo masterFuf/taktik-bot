@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
@@ -64,6 +65,24 @@ class NotificationService:
             return set()
         finally:
             conn.close()
+
+    @staticmethod
+    def last_scan_at(platform: str, account_id: int) -> Optional[datetime]:
+        """When the account's last scan read its feed (UTC), None when none did.
+
+        Raises when the record cannot be read: the scan must say it reads blind, not take a
+        failure for a first scan."""
+        conn = NotificationService._open()
+        if conn is None:
+            return None
+        try:
+            last_seen = NotificationRepository(conn).latest_seen_at(platform, account_id)
+        finally:
+            conn.close()
+        if last_seen is None:
+            return None
+        # SQLite's datetime('now'): "YYYY-MM-DD HH:MM:SS", in UTC.
+        return datetime.strptime(last_seen, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
 
     @staticmethod
     def record_notifications(

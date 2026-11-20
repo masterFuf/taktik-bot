@@ -74,7 +74,7 @@ def run_instagram_notifications(
     account_username = request.account_username
 
     if request.command == "scan":
-        return commands.cmd_scan(host, request.scroll,
+        return commands.cmd_scan(host,
                                  follow_suggestions=request.follow_suggestions,
                                  account_username=account_username,
                                  ai_config=request.ai, language=request.language)

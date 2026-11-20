@@ -171,7 +171,7 @@ def test_the_counters_the_scan_reads_on_the_bridge_are_written_to_the_base(monke
     monkeypatch.setattr(database, "db_service", None)
     events = []
 
-    def scan_first_step(host, limit, **_options):
+    def scan_first_step(host, **_options):
         runtime = host.connect(False)
         commands._refresh_own_account(host, runtime, None)
         return {"success": True}
@@ -180,7 +180,7 @@ def test_the_counters_the_scan_reads_on_the_bridge_are_written_to_the_base(monke
     monkeypatch.setattr(bridge_commands, "emit_notif_json", lambda payload, flush=False: events.append(payload))
     assert agent_handler.run_instagram_notifications is bridge_commands.run_instagram_notifications
 
-    bridge_commands.run_notifications_command({"deviceId": "phone-1", "command": "scan", "scroll": 0})
+    bridge_commands.run_notifications_command({"deviceId": "phone-1", "command": "scan"})
 
     steps = [(e["step"], e["step_status"]) for e in events if e.get("type") == "notification_step"]
     assert steps == [("own_profile", "running"), ("own_profile", "done")]

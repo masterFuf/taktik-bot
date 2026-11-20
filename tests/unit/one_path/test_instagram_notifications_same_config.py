@@ -47,7 +47,7 @@ def _run_both(rig, spec):
 
 def test_a_scan_is_the_same_run_from_the_bridge_and_the_cli(ign_rig):
     code, bridge_calls, bridge_result, cli_calls, cli_result = _run_both(
-        ign_rig, notif_command("scan", scroll=2, accountUsername=BOT, followSuggestions=1))
+        ign_rig, notif_command("scan", accountUsername=BOT, followSuggestions=1))
 
     assert code == 0
     assert cli_calls == bridge_calls
@@ -75,7 +75,7 @@ def test_a_phone_without_network_reads_no_notification_from_either_path(ign_rig)
     screen that could not answer. Neither path measured the network; both now refuse the command at
     the launcher's network door, once the phone is connected, before Instagram restarts."""
     ign_rig.network.cut()
-    for spec in (notif_command("scan", scroll=2, accountUsername=BOT),
+    for spec in (notif_command("scan", accountUsername=BOT),
                  notif_command("accept", username="fan_one", accountUsername=BOT)):
         assert ign_rig.run_bridge(spec) == 1
         assert [fields.get("error_code") for kind, fields in ign_rig.events if kind == "error"] == ["NETWORK_UNREACHABLE"]
@@ -97,7 +97,7 @@ def test_both_paths_measure_the_network_once_before_a_scan(ign_rig):
     """One measure per command, from either host, once the phone is connected and before the scan's
     clean restart."""
     ign_rig.network.calls = ign_rig.calls
-    spec = notif_command("scan", scroll=2, accountUsername=BOT)
+    spec = notif_command("scan", accountUsername=BOT)
     for run in (lambda: ign_rig.run_bridge(spec), lambda: _cli(ign_rig, spec)):
         run()
         measures = [call for call in ign_rig.calls if call.startswith("network_baseline ")]

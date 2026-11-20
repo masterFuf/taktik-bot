@@ -28,7 +28,7 @@ from taktik.core.social_media.instagram.workflows.notifications.notifications_wo
 )
 from taktik.core.social_media.instagram.workflows.notifications.persistence import (
     batch_identity_hash,
-    build_known_checker,
+    build_unread_rule,
     count_actions_today,
     load_actioned_hashes,
     record_notification_action,
@@ -247,7 +247,7 @@ def _run_discover_fallback(runtime, *, account_id: int, session_id, max_profiles
                 "errors": 0, "profiles": [], "stop_reason": "fallback_error"}
 
 
-def cmd_scan(host: NotificationsHost, limit: int, account_username: str = None,
+def cmd_scan(host: NotificationsHost, account_username: str = None,
              follow_suggestions: int = 0, ai_config: dict = None, language: str = "en") -> dict:
     """Read + classify the activity feed (all notification families).
 
@@ -262,12 +262,10 @@ def cmd_scan(host: NotificationsHost, limit: int, account_username: str = None,
     # none of them) and reads the owning account instead of trusting the caller for it.
     # Leaves Instagram back on the feed, where the activity entry lives.
     account_username = _refresh_own_account(host, runtime, account_username)
-    # `limit` is interpreted as how many extra screens to scroll (0 = visible only).
     workflow = _build_workflow(host, runtime)
-    # Early-stop: recognise notifications already recorded for this account (loaded once) so the
-    # scan stops scrolling once it reaches already-seen territory instead of re-scraping history.
-    known_checker = build_known_checker(account_username)
-    result = workflow.scan(max_scrolls=max(0, limit), known_checker=known_checker)
+    # What was not read yet: the rows newer than this account's last scan (7 days on a first one),
+    # the recorded identities settling the rows whose age straddles it.
+    result = workflow.scan(unread_rule=build_unread_rule(account_username))
     items = result.get("items", [])
 
     # Persist + dedup (best-effort): annotate each item with `is_new` so the front can
@@ -323,6 +321,7 @@ def cmd_scan(host: NotificationsHost, limit: int, account_username: str = None,
         "has_grouped_requests": result.get("has_grouped_requests", False),
         "message": result.get("message", ""),
         "suggestions": suggestions,
+        **({"scan_stop_reason": result["scan_stop_reason"]} if result.get("scan_stop_reason") else {}),
     }
 
 

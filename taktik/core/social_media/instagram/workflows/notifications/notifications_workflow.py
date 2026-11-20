@@ -62,6 +62,8 @@ from taktik.core.social_media.instagram.workflows.notifications.dump_parsing imp
 _EMOJI_TEXT_TYPES = {"comment_mention", "post_comment", "comment_reply", "comment_like"}
 from taktik.core.social_media.instagram.workflows.notifications.row_layout import parse_bounds
 from taktik.core.social_media.instagram.workflows.notifications.suggestions_flow import NotificationSuggestionsMixin
+from taktik.core.social_media.instagram.workflows.notifications.unread_rule import BEYOND, UNREAD, UnreadRule
+from taktik.core.contract.instagram_notifications import SCAN_READ_CAP
 from taktik.core.shared.device.wait import find_element
 from taktik.core.shared.behavior.tap import (
     tap_element_human,
@@ -493,23 +495,22 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
             return []
         return self._parse_requests(root)
 
-    def scan(self, max_scrolls: int = 3, known_checker=None) -> Dict[str, Any]:
-        """Read + classify the activity feed across a few screens (all families),
-        AND navigate into the follow-requests sub-screen to enumerate the pending
-        requests in the same pass (so the page gets the actionable list directly).
+    def scan(self, unread_rule: Optional[UnreadRule] = None) -> Dict[str, Any]:
+        """Read + classify what the activity feed holds that was not read yet (all families),
+        AND navigate into the follow-requests sub-screen to enumerate the pending requests in
+        the same pass (so the page gets the actionable list directly).
 
-        ``max_scrolls`` is the run's `scroll` setting: at most that many screens scrolled
-        below the first one (0 = the visible screen only). The "Show more" entry is tapped
-        only while a scroll is left to reveal what it loads.
+        ``unread_rule`` (`UnreadRule`, built from the record by `persistence.build_unread_rule`)
+        judges each row; None: a first scan, `FIRST_SCAN_HORIZON_DAYS` back. The feed is read
+        until two screens in a row bring no unread row, until it ends (two rounds with nothing
+        new and no "Show more"), or until `SCAN_READ_CAP` rows; ``scan_stop_reason`` says which.
 
-        Returns ``{success, count, by_type, items, requests, has_grouped_requests}``.
-        Items are de-duplicated by text, top-to-bottom; the grouped "follow requests"
-        digest row is dropped from ``items`` since it is surfaced via ``requests``.
-
-        ``known_checker`` (optional ``item -> bool``): when provided, the scroll stops early once it
-        reaches notifications already recorded on a previous scan (the feed is chronological), so we
-        don't re-scrape the whole history each pass. None => read the feed fully (previous behaviour).
+        Returns ``{success, count, by_type, items, requests, has_grouped_requests,
+        scan_stop_reason}``. Items are de-duplicated by text, top-to-bottom; a row beyond the
+        horizon is not an item; the grouped "follow requests" digest row is dropped from
+        ``items`` since it is surfaced via ``requests``.
         """
+        rule = unread_rule or UnreadRule.for_first_scan()
         # Detect the app language on the HOME feed, before navigating: the bottom nav
         # carries a strong per-language content-desc signal there, whereas the
         # notifications screen has almost none and ties to 'unknown'. A confident
@@ -519,7 +520,8 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
 
         if not self.ensure_notifications_screen():
             return {"success": False, "count": 0, "by_type": {}, "items": [], "requests": [],
-                    "has_grouped_requests": False, "message": "Notifications screen not reachable"}
+                    "has_grouped_requests": False, "scan_stop_reason": "screen_unreachable",
+                    "message": "Notifications screen not reachable"}
 
         self._notify("scan", "running", "Reading notifications")
         time.sleep(1.0)  # let the feed settle before the first dump
@@ -534,21 +536,21 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
             self._return_to_notifications()
 
         # Scroll the activity feed and classify it. When a screen reveals nothing new,
-        # tap "Show more" to load older notifications THEN scroll to reveal them; stop
-        # after two consecutive empty rounds (reached the bottom), or once `max_scrolls`
-        # screens below the first one are read.
+        # tap "Show more" to load older notifications THEN scroll to reveal them.
         items: List[Dict[str, Any]] = []
         seen: set = set()
         seen_sections: set = set()
         self._expanded_keys: set = set()
         stale = 0
-        known_streak = 0  # consecutive screens that added only already-recorded notifications
-        scrolls_done = 0
+        read_streak = 0  # consecutive screens that brought rows, none of them unread
+        first_dump = True
+        stop_reason = ""
         while True:
             rows, headers = self._dump_screen()
-            if not rows and not items and scrolls_done == 0:
+            if not rows and first_dump:
                 time.sleep(1.2)  # feed may still be rendering
                 rows, headers = self._dump_screen()
+            first_dump = False
             # Reveal truncated comment/mention text in view ("… more" / "… suite") via OCR,
             # then re-read so the FULL text is captured. Bounded + best-effort.
             expanded_any = False
@@ -559,6 +561,9 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
                 time.sleep(0.4)
             if expanded_any:
                 rows, headers = self._dump_screen()
+            # The top section (« Notifications importantes ») is not in the order of time: a
+            # screen counts toward the stop only once an earlier screen showed the next section.
+            past_top_section = len(seen_sections) >= 2
             # Narrate each newly-revealed time bucket ("Today", "Yesterday", "Last 7
             # days"…) as the scroll uncovers it (Taktik Agent live card).
             for header in headers:
@@ -566,12 +571,18 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
                     seen_sections.add(header)
                     self._notify("section", "running", header, section=header)
             new_count = 0
-            new_unknown = 0
+            new_unread = 0
             for row in rows:
                 key = row["text"].lower()
                 if key in seen:
                     continue
                 seen.add(key)
+                new_count += 1
+                verdict = rule.verdict(row)
+                if verdict == BEYOND:
+                    continue
+                if verdict == UNREAD:
+                    new_unread += 1
                 # Recover emojis the XML dump corrupted: re-read comment rows via the
                 # element API (preserves emojis) while the row is still on screen.
                 if row["type"] in _EMOJI_TEXT_TYPES:
@@ -580,26 +591,22 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
                         row["text"] = real[:200]
                         row["label"] = clean_label(real)
                 items.append(row)
-                new_count += 1
-                if known_checker is None or not known_checker(row):
-                    new_unknown += 1
-            if new_count:
-                stale = 0
-                # EARLY-STOP: the feed is chronological, newest first. Once a screen adds
-                # only notifications recorded on a previous scan, the scroll has reached
-                # already-scraped territory — stop after two such screens rather than
-                # re-read the whole history. Without a checker, read the feed fully.
-                if known_checker is not None and new_unknown == 0:
-                    known_streak += 1
-                    if known_streak >= 2:
-                        self.logger.info("scan: reached already-known notifications — stopping early")
-                        break
-                else:
-                    known_streak = 0
-            if scrolls_done >= max_scrolls:
-                self.logger.info(f"scan: {scrolls_done} screen(s) scrolled, the run's setting — stopping")
+                if len(items) >= SCAN_READ_CAP:
+                    break
+            if len(items) >= SCAN_READ_CAP:
+                stop_reason = "read_cap"
+                self.logger.warning(f"scan: read cap of {SCAN_READ_CAP} rows reached, rows may be left")
                 break
             if new_count:
+                stale = 0
+                if new_unread == 0 and past_top_section:
+                    read_streak += 1
+                    if read_streak >= 2:
+                        stop_reason = rule.reached_reason
+                        self.logger.info(f"scan: two screens with nothing unread, stopping ({stop_reason})")
+                        break
+                else:
+                    read_streak = 0
                 self._scroll_down(1)
             elif self._tap_show_more():
                 time.sleep(1.5)       # let older notifications load
@@ -608,9 +615,9 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
             else:
                 stale += 1
                 if stale >= 2:
-                    break  # nothing new + no "Show more" twice -> reached the bottom
+                    stop_reason = "end_of_feed"  # nothing new + no "Show more" twice
+                    break
                 self._scroll_down(1)
-            scrolls_done += 1
 
         # Drop the grouped "follow requests" digest row from the feed: it is not a
         # real activity item, it is the entry to the requests sub-screen (surfaced
@@ -628,7 +635,8 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
         self.logger.info(f"scan: {msg}")
         self._notify("scan", "done", msg)
         return {"success": True, "count": len(items), "by_type": by_type, "items": items,
-                "requests": requests, "has_grouped_requests": has_grouped, "message": msg}
+                "requests": requests, "has_grouped_requests": has_grouped,
+                "scan_stop_reason": stop_reason, "message": msg}
 
     # ------------------------------------------------------------------
     # Follow requests — sub-screen, row-scoped

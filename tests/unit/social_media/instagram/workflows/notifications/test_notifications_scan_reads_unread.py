@@ -1,0 +1,183 @@
+"""The scan reads what was not read yet, and says where it stopped.
+
+No setting bounds it any more (the old `scroll` read a dozen rows): a row is judged by its age
+against the account's last scan (`UnreadRule`), the recorded identity settling the rows whose age
+straddles it. The scan stops after two screens with nothing unread (once it is past the top
+section, which is not in the order of time), at the end of the feed, or at `SCAN_READ_CAP`.
+
+The screens are real activity screens, anonymized: Instagram 410 in French (Pixel 4a,
+2026-09-28: the top of the list with its « À la une » section, a screen of 4-5 day rows, an older
+screen of 4 week rows) and Instagram 447 in French (Pixel 6a: the top of the list with its four
+sections, a screen of 2-3 day rows). Only the device primitives are replaced (the scroll gesture,
+the load-more tap, the OCR expander, the emoji re-read); the loop, the reading of each screen and
+the stop rules are the production ones.
+"""
+
+from datetime import datetime, timedelta, timezone
+
+import pytest
+
+from taktik.core.shared.device.ui_dump import parse_ui_dump
+from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
+from taktik.core.social_media.instagram.workflows.notifications import (
+    notifications_workflow as module,
+)
+from taktik.core.social_media.instagram.workflows.notifications import unread_rule as rule_module
+from taktik.core.social_media.instagram.workflows.notifications.unread_rule import UnreadRule
+from unit.paths import CORE
+
+FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
+NOW = datetime(2000, 1, 10, tzinfo=timezone.utc)
+
+
+def _screen(name):
+    return parse_ui_dump((FIXTURES / name).read_text(encoding="utf-8"))
+
+
+TOP = _screen("ig410_fr_notifications_top.xml")
+ROWS = _screen("ig410_fr_notifications_rows.xml")
+OLDER = _screen("ig410_fr_notifications_older.xml")
+TOP_447 = _screen("ig447_fr_notifications_feed_top.xml")
+DAYS_447 = _screen("ig447_fr_notifications_feed_days.xml")
+#: Distinct notifications each real screen holds, read by the production parser.
+ROWS_ON = {"top": 8, "rows": 10, "older": 10}
+
+
+def _everything_known(_row):
+    return True
+
+
+def _since(hours, is_known=_everything_known):
+    return UnreadRule.since_last_scan(NOW - timedelta(hours=hours), NOW, is_known)
+
+
+class _Scan(module.NotificationsEngagementWorkflow):
+    """The real workflow; the phone shows ``screens[scrolls]`` (the last one once the list ends)."""
+
+    def __init__(self, screens, loaded_by_show_more=()):
+        super().__init__(device=None, device_id="test")
+        self.screens = list(screens)
+        self.loaded_by_show_more = list(loaded_by_show_more)
+        self.scrolls = 0
+        self.show_more_taps = 0
+
+    def _dump_root(self):
+        return self.screens[min(self.scrolls, len(self.screens) - 1)]
+
+    def _element_exists(self, selectors):
+        root = self._dump_root()
+        return any(root.xpath(selector) for selector in selectors)
+
+    # --- device primitives replaced ---
+    def _optimize_locale(self):
+        return None
+
+    def ensure_notifications_screen(self):
+        return True
+
+    def _scroll_down(self, times=1):
+        self.scrolls += times
+
+    def _tap_show_more(self):
+        """The load-more entry at the end of the list: older rows appear below it."""
+        if not self.loaded_by_show_more:
+            return False
+        self.show_more_taps += 1
+        self.screens.extend(self.loaded_by_show_more)
+        self.loaded_by_show_more = []
+        return True
+
+    def _expand_one_more(self):
+        return False
+
+    def _resolve_emoji_text(self, parsed_text):
+        return None
+
+
+@pytest.fixture(autouse=True)
+def _french_without_waits(monkeypatch):
+    monkeypatch.setattr(module.time, "sleep", lambda _s: None)
+    set_active_locale("fr")
+    yield
+    set_active_locale(None)
+
+
+def test_the_scan_stops_on_what_was_already_read():
+    """Last scan an hour ago, everything recorded: the first screen (its top section is not in
+    the order of time) does not count, the next two bring nothing unread, the scan stops there."""
+    wf = _Scan([TOP_447, DAYS_447, ROWS, OLDER])
+
+    result = wf.scan(unread_rule=_since(hours=1))
+
+    assert result["scan_stop_reason"] == "already_read"
+    assert wf.scrolls == 2  # the older screen is never reached
+
+
+def test_a_new_like_from_someone_already_seen_does_not_stop_it():
+    """A like or a follow is recorded by « type + person »: a new one from someone already seen has
+    a known identity. Younger than the last scan, it is unread all the same, and the scan goes on
+    past the 4-5 day rows to the end of the feed."""
+    wf = _Scan([TOP, ROWS, OLDER])
+
+    result = wf.scan(unread_rule=_since(hours=6 * 24))
+
+    assert result["scan_stop_reason"] == "end_of_feed"
+    assert result["count"] == ROWS_ON["top"] + ROWS_ON["rows"]  # the 4 week rows are beyond
+    assert any(item["type"] == "post_like" for item in result["items"])
+
+
+def test_the_first_scan_stops_at_its_horizon(monkeypatch):
+    """Nothing recorded: the scan reads back to its horizon and stops on the rows beyond it. The
+    screens hold hours, then days, then weeks; the horizon is set to one day for them, the
+    declaration's seven days are checked below."""
+    monkeypatch.setattr(rule_module, "FIRST_SCAN_HORIZON_DAYS", 1)
+    wf = _Scan([TOP, ROWS, OLDER, TOP])
+
+    result = wf.scan()
+
+    assert result["scan_stop_reason"] == "first_scan_horizon"
+    assert result["count"] == ROWS_ON["top"]
+    assert wf.scrolls == 2
+
+
+def test_the_first_scan_reads_seven_days_back():
+    first = UnreadRule.for_first_scan()
+
+    assert first.verdict({"time": "5 j"}) == rule_module.UNREAD
+    assert first.verdict({"time": "6 j"}) == rule_module.UNREAD
+    assert first.verdict({"time": "2 sem"}) == rule_module.BEYOND
+    wf = _Scan([TOP, ROWS, OLDER])
+    result = wf.scan()
+    assert result["count"] == ROWS_ON["top"] + ROWS_ON["rows"]
+
+
+def test_the_read_cap_stops_the_scan_and_says_so(monkeypatch):
+    monkeypatch.setattr(module, "SCAN_READ_CAP", 12)
+    wf = _Scan([TOP, ROWS, OLDER])
+
+    result = wf.scan(unread_rule=_since(hours=24 * 60))
+
+    assert result["scan_stop_reason"] == "read_cap"
+    assert result["count"] == 12
+
+
+def test_show_more_is_tapped_when_it_is_the_only_way_on():
+    wf = _Scan([TOP_447, TOP_447], loaded_by_show_more=[DAYS_447])
+
+    result = wf.scan()
+
+    assert wf.show_more_taps == 1
+    assert result["scan_stop_reason"] == "end_of_feed"
+    assert any(item["time"] == "3 j" for item in result["items"])
+
+
+def test_rows_whose_age_straddles_the_last_scan_are_settled_by_their_identity():
+    """Last scan 5 h 30 ago: « 5 h » (5 h to 6 h old) may be either side; its identity decides."""
+    known = _since(hours=5.5)
+    unknown = _since(hours=5.5, is_known=lambda _row: False)
+
+    assert known.verdict({"time": "5 h"}) == rule_module.READ
+    assert unknown.verdict({"time": "5 h"}) == rule_module.UNREAD
+    assert known.verdict({"time": "4 h"}) == rule_module.UNREAD
+    assert known.verdict({"time": "6 h"}) == rule_module.BEYOND
+    assert known.verdict({"time": ""}) == rule_module.READ  # no age: the identity decides

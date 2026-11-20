@@ -63,6 +63,17 @@ class NotificationRepository(BaseRepository):
         raw = f"{platform}\n{account_id}\n{ntype or ''}\n{actor or ''}\n{core}"
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
+    def latest_seen_at(self, platform: str, account_id: int) -> Optional[str]:
+        """When the account's last scan saw a notification (`last_seen_at`, UTC text), or None.
+
+        Each scan bumps `last_seen_at` of every row it reads, so the most recent one is the time
+        of the last scan that read anything: what « not read yet » is measured against."""
+        row = self.query_one(
+            "SELECT MAX(last_seen_at) AS last_seen FROM notifications WHERE platform = ? AND account_id = ?",
+            (platform, account_id),
+        )
+        return row["last_seen"] if row is not None and row["last_seen"] else None
+
     def record(
         self,
         *,

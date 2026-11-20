@@ -55,18 +55,28 @@ def run(monkeypatch, tmp_path):
 
 
 def test_a_scan_takes_every_setting_from_the_file(run):
-    code, _, calls = run({"command": "scan", "deviceId": "dev", "scroll": 2, "accountUsername": "me",
+    code, _, calls = run({"command": "scan", "deviceId": "dev", "accountUsername": "me",
                           "packageName": "clone.pkg", "followSuggestions": 4,
                           "ai": {"enabled": True}, "language": "fr"})
     assert code == 0
-    assert calls == [("cmd_scan", (2,), {
+    assert calls == [("cmd_scan", (), {
         "follow_suggestions": 4, "account_username": "me",
         "ai_config": {"enabled": True}, "language": "fr"})]
 
 
 def test_a_scan_without_settings_keeps_the_defaults(run):
     _, _, calls = run({"command": "scan", "deviceId": "dev"})
-    assert calls == [("cmd_scan", (3,), {
+    assert calls == [("cmd_scan", (), {
+        "follow_suggestions": 0, "account_username": None,
+        "ai_config": None, "language": "en"})]
+
+
+def test_the_old_scroll_key_of_a_saved_plan_is_ignored_not_refused(run):
+    """The scan lost its `scroll` setting; a planner node or a policy saved before still sends it.
+    The run goes, as if the key were absent."""
+    code, _, calls = run({"command": "scan", "deviceId": "dev", "scroll": 8})
+    assert code == 0
+    assert calls == [("cmd_scan", (), {
         "follow_suggestions": 0, "account_username": None,
         "ai_config": None, "language": "en"})]
 

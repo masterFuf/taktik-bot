@@ -283,7 +283,7 @@ def notifications_bridge(monkeypatch, tmp_path):
     def session(account_id, source):
         yield 11
 
-    for name, value in (("witness_for", None), ("build_known_checker", None), ("record_notification_action", None),
+    for name, value in (("witness_for", None), ("build_unread_rule", None), ("record_notification_action", None),
                         ("count_actions_today", 1), ("load_actioned_hashes", {"hash-done"}),
                         ("resolve_account_id", 7), ("record_welcome_dm", None), ("welcome_dm_skip_reason", None)):
         monkeypatch.setattr(commands, name, lambda *args, _value=value, **kwargs: _value)

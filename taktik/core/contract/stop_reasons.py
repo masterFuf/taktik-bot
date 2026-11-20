@@ -108,6 +108,23 @@ INSTAGRAM_SUGGESTIONS_VISIT_STOP_REASON = OneOf(
     doc="How the visit of suggested accounts ended (`result.suggestions.stop_reason` of a scan).",
 )
 
+#: `result.scan_stop_reason` of an Instagram notifications scan: where the reading of the feed
+#: stopped (`.../workflows/notifications/notifications_workflow.py`, `scan`).
+INSTAGRAM_NOTIFICATIONS_SCAN_STOP_REASON = OneOf(
+    (
+        # done: the rows read before are reached, or the seven days of a first scan
+        "already_read", "first_scan_horizon",
+        # done: nothing more to load
+        "end_of_feed",
+        # the read cap of one pass: rows may be left unread
+        "read_cap",
+        # failed: the activity screen did not open
+        "screen_unreachable",
+    ),
+    name="InstagramNotificationsScanStopReason",
+    doc="Where the reading of the activity feed stopped (`result.scan_stop_reason` of a scan).",
+)
+
 #: Every catalogue, for the generator and the tests.
 CATALOGUES = (
     RUN_HALT_CODE,
@@ -115,10 +132,12 @@ CATALOGUES = (
     TIKTOK_COMPLETION_REASON,
     INSTAGRAM_SCRAPING_COMPLETION_REASON,
     INSTAGRAM_SUGGESTIONS_VISIT_STOP_REASON,
+    INSTAGRAM_NOTIFICATIONS_SCAN_STOP_REASON,
 )
 
 __all__ = [
     "CATALOGUES",
+    "INSTAGRAM_NOTIFICATIONS_SCAN_STOP_REASON",
     "INSTAGRAM_SCRAPING_COMPLETION_REASON",
     "INSTAGRAM_STOP_REASON_CODE",
     "INSTAGRAM_SUGGESTIONS_VISIT_STOP_REASON",

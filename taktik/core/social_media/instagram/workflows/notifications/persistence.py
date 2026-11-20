@@ -13,6 +13,7 @@ attribution is deferred to a later step (this module only dedups + flags is_new)
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
@@ -21,6 +22,7 @@ from taktik.core.database import configure_db_service, get_db_service
 from taktik.core.database.messaging import DmConversationService, SentDMService, who_has_written
 from taktik.core.database.notifications import NotificationService
 from taktik.core.database.repositories.notifications import NotificationRepository
+from taktik.core.social_media.instagram.workflows.notifications.unread_rule import UnreadRule
 
 _PLATFORM = "instagram"
 
@@ -161,33 +163,35 @@ def batch_identity_hash(account_username: Optional[str], identity: Optional[Dict
     return NotificationService.identity_hash(_PLATFORM, account_id, identity)
 
 
-def build_known_checker(account_username: Optional[str]):
-    """Predicate ``item -> bool`` = "already recorded for this account", for the scan's early-stop.
+def build_unread_rule(account_username: Optional[str], now: Optional[datetime] = None) -> UnreadRule:
+    """How this account's scan tells an unread row (`UnreadRule`), from what is recorded.
 
-    Preloads the account's known content hashes ONCE so the scan can recognise already-seen
-    notifications in memory and stop scrolling into old, already-scraped territory. Returns None
-    when the account is unknown or nothing is recorded yet (=> the scan reads fully, as before).
-    Best-effort: never raises into the scan.
+    The horizon is the last scan (the most recent `last_seen_at` of the account's notifications)
+    and the identities already recorded settle the rows whose age straddles it, preloaded once.
+    Nothing recorded, or no account: a first scan, `FIRST_SCAN_HORIZON_DAYS` back. A record that
+    cannot be read is said, and the scan reads as a first scan rather than stop on a guess.
     """
     account_id = resolve_account_id(account_username or "")
     if account_id is None:
-        return None
+        logger.info("[NOTIF] No account to read the record of: first scan horizon")
+        return UnreadRule.for_first_scan()
     try:
-        known = NotificationService.known_content_hashes(_PLATFORM, account_id)
+        last_scan_at = NotificationService.last_scan_at(_PLATFORM, account_id)
     except Exception as exc:
-        logger.warning(f"[NOTIF] Could not preload known hashes: {exc}")
-        return None
-    if not known:
-        return None  # first scan for this account -> read the whole feed
+        logger.warning(f"[NOTIF] Last scan unreadable, reading as a first scan: {exc}")
+        return UnreadRule.for_first_scan()
+    if last_scan_at is None:
+        return UnreadRule.for_first_scan()
+    known = NotificationService.known_content_hashes(_PLATFORM, account_id)
 
-    def _is_known(item: Dict[str, Any]) -> bool:
+    def is_known(item: Dict[str, Any]) -> bool:
         actor = (item.get("username") or "").strip().lower() or None
         chash = NotificationRepository.content_hash(
             _PLATFORM, account_id, item.get("type"), actor, item.get("text"), item.get("time"),
         )
         return chash in known
 
-    return _is_known
+    return UnreadRule.since_last_scan(last_scan_at, now or datetime.now(timezone.utc), is_known)
 
 
 # ---------------------------------------------------------------------------
@@ -272,7 +276,7 @@ def record_pending_welcome_dm(account_id: Optional[int], recipient: str, message
 
 __all__ = [
     "batch_identity_hash",
-    "build_known_checker",
+    "build_unread_rule",
     "count_actions_today",
     "dm_already_sent",
     "dm_thread_writer",

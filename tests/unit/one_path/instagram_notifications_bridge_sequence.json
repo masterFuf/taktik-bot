@@ -8,8 +8,8 @@
    "screen own_profile",
    "screen home",
    "bridge build_workflow",
-   "db build_known_checker alpha_bot",
-   "workflow scan {\"known_checker\": \"known\", \"max_scrolls\": 3}",
+   "db build_unread_rule alpha_bot",
+   "workflow scan {\"unread_rule\": \"rule\"}",
    "db record_scan_notifications alpha_bot [{'type': 'like', 'actor': 'fan_one', 'text': 'liked your post'}, {'type': 'comment', 'actor': 'fan_two', 'text': 'nice'}]",
    "bridge stop"
   ],
@@ -82,7 +82,8 @@
      "profiles": [],
      "stop_reason": "disabled",
      "ai_qualification": false
-    }
+    },
+    "scan_stop_reason": "already_read"
    }
   ]
  },
@@ -95,8 +96,8 @@
    "screen own_profile",
    "screen home",
    "bridge build_workflow",
-   "db build_known_checker alpha_bot",
-   "workflow scan {\"known_checker\": \"known\", \"max_scrolls\": 0}",
+   "db build_unread_rule alpha_bot",
+   "workflow scan {\"unread_rule\": \"rule\"}",
    "db record_scan_notifications alpha_bot [{'type': 'like', 'actor': 'fan_one', 'text': 'liked your post'}, {'type': 'comment', 'actor': 'fan_two', 'text': 'nice'}]",
    "bridge stop"
   ],
@@ -169,7 +170,8 @@
      "profiles": [],
      "stop_reason": "disabled",
      "ai_qualification": false
-    }
+    },
+    "scan_stop_reason": "already_read"
    }
   ]
  },
@@ -182,8 +184,8 @@
    "screen own_profile",
    "screen home",
    "bridge build_workflow",
-   "db build_known_checker alpha_bot",
-   "workflow scan {\"known_checker\": \"known\", \"max_scrolls\": 2}",
+   "db build_unread_rule alpha_bot",
+   "workflow scan {\"unread_rule\": \"rule\"}",
    "db record_scan_notifications alpha_bot [{'type': 'like', 'actor': 'fan_one', 'text': 'liked your post'}, {'type': 'comment', 'actor': 'fan_two', 'text': 'nice'}]",
    "db resolve_account_id alpha_bot",
    "ai install {\"ai\": {\"enabled\": true, \"profileAnalysis\": true}, \"language\": \"fr\"}",
@@ -276,7 +278,8 @@
      "stop_reason": "budget",
      "ai_qualification": true,
      "session_id": "session-1"
-    }
+    },
+    "scan_stop_reason": "already_read"
    }
   ]
  },
@@ -289,8 +292,8 @@
    "screen own_profile",
    "screen home",
    "bridge build_workflow",
-   "db build_known_checker alpha_bot",
-   "workflow scan {\"known_checker\": \"known\", \"max_scrolls\": 3}"
+   "db build_unread_rule alpha_bot",
+   "workflow scan {\"unread_rule\": \"rule\"}"
   ],
   "stdout": [
    {

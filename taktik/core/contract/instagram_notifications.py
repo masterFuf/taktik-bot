@@ -24,7 +24,11 @@ from .shared import (
     device_field,
     instagram_package_field,
 )
-from .stop_reasons import INSTAGRAM_SUGGESTIONS_VISIT_STOP_REASON, RUN_HALT_CODE
+from .stop_reasons import (
+    INSTAGRAM_NOTIFICATIONS_SCAN_STOP_REASON,
+    INSTAGRAM_SUGGESTIONS_VISIT_STOP_REASON,
+    RUN_HALT_CODE,
+)
 
 _NOTIFICATIONS = "taktik.core.social_media.instagram.workflows.notifications"
 
@@ -46,6 +50,12 @@ _SCAN = {"command": "scan"}
 #: Only the scan qualifies the suggestions it visits, by the run's `ai` block: the other commands never ask.
 _AI_ON_SCAN = AiRequest(when={**_SCAN, "ai.enabled": True})
 _BATCH = {"command": "batch"}
+
+#: The scan reads what was not read yet (`UnreadRule`), with no setting: these two bound it.
+#: A first scan of an account (nothing recorded) goes back this many days, no further.
+FIRST_SCAN_HORIZON_DAYS = 7
+#: Rows read in one pass at most, about thirty real screens; reached, the scan says `read_cap`.
+SCAN_READ_CAP = 250
 
 #: A daily cap as the Notifications page writes it, declared once (`Field.bounds`).
 _DAILY_CAP = Bounds(minimum=1, maximum=30)
@@ -169,6 +179,8 @@ RESULT_EVENT = Event("result", doc="The command's result, or why it could not ru
           optional=True),
     Field("has_grouped_requests", "bool", "The feed shows the follow requests entry (`scan`).", optional=True),
     Field("suggestions", SUGGESTIONS, "The visit of the suggested accounts (`scan`).", optional=True),
+    Field("scan_stop_reason", INSTAGRAM_NOTIFICATIONS_SCAN_STOP_REASON, "Where the reading of the feed stopped "
+          "(`scan`).", optional=True),
     Field("accepted", ListOf("string"), "Requests accepted (`accept_all`).", optional=True),
     Field("username", "string", "The account of the row (a row verb, `reply`).", optional=True),
     Field("action", "string", "The verb (`accept`, `ignore`, `reply`).", optional=True),
@@ -219,7 +231,6 @@ INSTAGRAM_NOTIFICATIONS = WorkflowContract(
               attr="account_username", by=HOST),
         Field("username", "string", "The account of the row.", attr="username",
               when={"command": _NEEDS_USERNAME}),
-        Field("scroll", "int", "Screens scrolled below the first one.", default=3, attr="scroll", when=_SCAN),
         Field("followSuggestions", "int", "Suggested accounts visited and qualified at the end of the scan; 0: "
               "none.", default=0, attr="follow_suggestions", when=_SCAN, bounds=Bounds(minimum=0, maximum=50)),
         Field("ai", "json", "The AI block that qualifies the visited suggestions (the automation's).",
@@ -267,8 +278,10 @@ __all__ = [
     "BATCH_VERBS",
     "COMMANDS",
     "CONTRACTS",
+    "FIRST_SCAN_HORIZON_DAYS",
     "INSTAGRAM_NOTIFICATIONS",
     "NOTIFICATION_TYPES",
     "ROW_COMMANDS",
+    "SCAN_READ_CAP",
     "SCAN_RUN_EVENTS",
 ]

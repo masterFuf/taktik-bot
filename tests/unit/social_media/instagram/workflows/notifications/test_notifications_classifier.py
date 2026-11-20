@@ -61,3 +61,21 @@ def test_row_has_action_detects_affordances():
     assert row_has_action("alice a demandé à vous suivre · Confirmer") is True
     assert row_has_action("bob mentioned you · Reply") is True
     assert row_has_action("carol liked your photo") is False
+
+
+def test_the_age_of_a_row_is_a_range_read_from_the_time_token():
+    """« 2 j » is at least 48 h old and less than 72 h; French and English units, one table."""
+    from taktik.core.social_media.instagram.workflows.notifications.classifier import age_range
+
+    hour, day = 3600, 24 * 3600
+    assert age_range("2 j") == (2 * day, 3 * day)
+    assert age_range("3d") == (3 * day, 4 * day)
+    assert age_range("5 h") == (5 * hour, 6 * hour)
+    assert age_range("54m") == (54 * 60, 55 * 60)
+    assert age_range("12 min") == (12 * 60, 13 * 60)
+    assert age_range("1 sem") == (7 * day, 14 * day)
+    assert age_range("1w") == (7 * day, 14 * day)
+    assert age_range("") is None
+    assert age_range("Publicités") is None
+    # What extract_time finds is what age_range reads.
+    assert age_range(extract_time("user_3 a commencé à vous suivre. 8 h")) == (8 * hour, 9 * hour)

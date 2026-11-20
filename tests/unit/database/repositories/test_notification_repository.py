@@ -117,3 +117,18 @@ def test_tiktok_section_without_actor_or_type(conn):
     assert row["actor_username"] is None
     assert row["type"] is None
     assert row["raw_category"] == "activity"
+
+
+def test_latest_seen_at_is_the_last_scan_of_the_account(conn):
+    """The scan measures « not read yet » against it: the most recent `last_seen_at` of the account."""
+    repo = NotificationRepository(conn)
+    assert repo.latest_seen_at("instagram", 1) is None  # nothing recorded: a first scan
+    for actor in ("alice", "bob"):
+        repo.record(platform="instagram", account_id=1, actor_username=actor, ntype="new_follower")
+    repo.record(platform="instagram", account_id=2, actor_username="carol", ntype="new_follower")
+    conn.execute("UPDATE notifications SET last_seen_at = '2000-01-01 00:00:00' WHERE account_id = 1")
+    conn.execute("UPDATE notifications SET last_seen_at = '2000-01-03 00:00:00' WHERE actor_username = 'bob'")
+    conn.execute("UPDATE notifications SET last_seen_at = '2000-01-09 00:00:00' WHERE account_id = 2")
+    conn.commit()
+
+    assert repo.latest_seen_at("instagram", 1) == "2000-01-03 00:00:00"

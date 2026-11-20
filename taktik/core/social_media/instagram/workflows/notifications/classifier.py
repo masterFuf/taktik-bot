@@ -10,10 +10,41 @@ and the ``notifications.scan`` diagnostics probe.
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Tuple
+from typing import Dict, List, NamedTuple, Optional, Tuple
+
+_DAY = 24 * 3600
+#: The units of a row's age, French and English, in seconds: the one source of the time tokens.
+#: A month counts 31 days and a year 366, so an age range never ends before the real date.
+TIME_UNIT_SECONDS = {
+    "s": 1,
+    "m": 60, "min": 60,
+    "h": 3600,
+    "j": _DAY, "d": _DAY,
+    "sem": 7 * _DAY, "w": 7 * _DAY,
+    "mois": 31 * _DAY,
+    "y": 366 * _DAY,
+}
+_UNITS = "|".join(sorted(TIME_UNIT_SECONDS, key=len, reverse=True))
 
 # Time tokens like "54m", "10 h", "2 j", "1w", "3 d" trailing a row.
-_TIME_RE = re.compile(r"\b(\d+\s*(?:min|mois|sem|[smhjdwy]))\b", re.IGNORECASE)
+_TIME_RE = re.compile(rf"\b(\d+\s*(?:{_UNITS}))\b", re.IGNORECASE)
+_TIME_PARTS_RE = re.compile(rf"^(\d+)\s*({_UNITS})$", re.IGNORECASE)
+
+
+class AgeRange(NamedTuple):
+    """How old a row is, as a range: « 2 j » is at least 48 h old and less than 72 h."""
+
+    at_least_s: int
+    less_than_s: int
+
+
+def age_range(time_token: str) -> Optional[AgeRange]:
+    """The age range of a token `extract_time` returned ("2 j", "5h"), None when it reads none."""
+    match = _TIME_PARTS_RE.match((time_token or "").strip())
+    if not match:
+        return None
+    count, unit = int(match.group(1)), TIME_UNIT_SECONDS[match.group(2).lower()]
+    return AgeRange(count * unit, (count + 1) * unit)
 
 # Inline action affordances that mark a row as actionable (FR + EN).
 # "suivre en retour" was missing while "follow back" was there: on a FR device a
@@ -48,7 +79,7 @@ _TRAILING_AFFORDANCES = (
     "se reabonner",
 )
 _TRUNCATION_RE = re.compile(r"(?:…|\.\.\.)\s*(?:suite|more|plus)\b", re.IGNORECASE)
-_TRAILING_TIME_RE = re.compile(r"\b\d+\s*(?:min|mois|sem|[smhjdwy])\s*$", re.IGNORECASE)
+_TRAILING_TIME_RE = re.compile(rf"\b\d+\s*(?:{_UNITS})\s*$", re.IGNORECASE)
 _TRIM_CHARS = " ·-—:•."
 
 # Glyphs that pollute extracted text: the U+FFFD replacement char (the accessibility
@@ -136,5 +167,6 @@ def classify_row(full: str, fragments: Dict[str, List[str]]) -> Tuple[str, str]:
     return "other", ""
 
 
-__all__ = ["classify_row", "clean_label", "extract_time", "row_has_action", "sanitize_text",
+__all__ = ["AgeRange", "TIME_UNIT_SECONDS", "age_range",
+           "classify_row", "clean_label", "extract_time", "row_has_action", "sanitize_text",
            "longest_clean_run", "_TIME_RE", "_ACTION_WORDS"]

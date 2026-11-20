@@ -24,6 +24,7 @@ from bridges.tools.lab.action_test.params import lab_flag
 from bridges.tools.lab.actions.instagram import action, detection_action
 from bridges.tools.lab.action_test.not_applicable import absent_on_screen
 from taktik.core.social_media.instagram.ui.selectors import NOTIFICATION_SELECTORS as N
+from taktik.core.social_media.instagram.workflows.notifications.persistence import build_unread_rule
 
 
 # =============================================================================
@@ -275,9 +276,10 @@ def scan(a, p):
 def scan_full(a, p):
     """FULL engagement read: scroll + 'Show more' + OCR-expand truncated rows +
     emoji recovery + follow-requests collection (vs the read-only notifications.scan
-    probe). Param: max_scrolls (int, default 3). The workflow self-navigates."""
-    max_scrolls = int(p.get("max_scrolls") or 3)
-    return _workflow(a).scan(max_scrolls=max_scrolls)
+    probe). Reads what was not read yet, as the run does: the rule of the production
+    (`build_unread_rule`) for the account ``account`` (its last scan, 7 days without one);
+    without ``account``, a first scan. Records nothing. The workflow self-navigates."""
+    return _workflow(a).scan(unread_rule=build_unread_rule((p.get("account") or "").strip() or None))
 
 
 @action("notifications.list_requests")

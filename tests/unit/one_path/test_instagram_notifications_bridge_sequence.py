@@ -50,27 +50,27 @@ def _check(name, rig, code) -> None:
 
 
 def test_a_scan_restarts_reads_our_profile_records_and_closes(ign_rig):
-    _check("scan", ign_rig, ign_rig.run_bridge(notif_command("scan", scroll=3, accountUsername=BOT)))
+    _check("scan", ign_rig, ign_rig.run_bridge(notif_command("scan", accountUsername=BOT)))
 
 
 def test_a_scan_without_an_account_files_it_under_the_profile_read(ign_rig):
-    _check("scan_no_account", ign_rig, ign_rig.run_bridge(notif_command("scan", scroll=0, packageName=CLONE)))
+    _check("scan_no_account", ign_rig, ign_rig.run_bridge(notif_command("scan", packageName=CLONE)))
 
 
 def test_a_scan_that_visits_suggestions_qualifies_them(ign_rig):
     _check("scan_suggestions", ign_rig, ign_rig.run_bridge(notif_command(
-        "scan", scroll=2, accountUsername=BOT, followSuggestions=2,
+        "scan", accountUsername=BOT, followSuggestions=2,
         ai={"enabled": True, "profileAnalysis": True}, language="fr")))
 
 
 def test_a_scan_whose_workflow_breaks_reports_it(ign_rig):
     ign_rig.raise_on = "scan"
-    _check("scan_raises", ign_rig, ign_rig.run_bridge(notif_command("scan", scroll=3, accountUsername=BOT)))
+    _check("scan_raises", ign_rig, ign_rig.run_bridge(notif_command("scan", accountUsername=BOT)))
 
 
 def test_a_device_that_does_not_connect_stops_the_scan(ign_rig):
     ign_rig.connect_ok = False
-    _check("scan_no_connection", ign_rig, ign_rig.run_bridge(notif_command("scan", scroll=3, accountUsername=BOT)))
+    _check("scan_no_connection", ign_rig, ign_rig.run_bridge(notif_command("scan", accountUsername=BOT)))
 
 
 def test_the_follow_requests_are_listed(ign_rig):

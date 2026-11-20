@@ -38,7 +38,7 @@ def _legacy_argv(spec: dict) -> list[str]:
     command = spec["command"]
     device_id = spec["deviceId"]
     if command == "scan":
-        argv = ["scan", device_id, str(spec.get("scroll", 3))]
+        argv = ["scan", device_id]
     elif command == "list_requests":
         argv = ["list_requests", device_id, str(spec.get("limit", 50))]
     elif command == "accept_all":
@@ -80,13 +80,13 @@ class _Workflow:
             raise RuntimeError(f"{name} broke")
         return dict(self.rig.results.get(name, {"success": True}))
 
-    def scan(self, *, max_scrolls, known_checker=None):
-        self.rig.record("workflow", "scan", max_scrolls=max_scrolls, known_checker=known_checker)
+    def scan(self, *, unread_rule=None):
+        self.rig.record("workflow", "scan", unread_rule=unread_rule)
         if self.rig.raise_on == "scan":
             raise RuntimeError("scan broke")
         return {"success": True, "count": len(self.rig.items), "by_type": {"like": len(self.rig.items)},
                 "items": [dict(item) for item in self.rig.items], "requests": ["req_one"],
-                "has_grouped_requests": False, "message": "read"}
+                "has_grouped_requests": False, "scan_stop_reason": "already_read", "message": "read"}
 
     def list_requests(self, *, max_requests):
         return self._call("list_requests", max_requests=max_requests)
@@ -208,7 +208,7 @@ class InstagramNotificationsRig:
             return "witness"
 
         self.monkeypatch.setattr(commands, "witness_for", witness_for)
-        self.monkeypatch.setattr(commands, "build_known_checker", recorder("build_known_checker", "known"))
+        self.monkeypatch.setattr(commands, "build_unread_rule", recorder("build_unread_rule", "rule"))
         self.monkeypatch.setattr(commands, "record_scan_notifications",
                                  recorder("record_scan_notifications",
                                           lambda account, items: [index == 0 for index, _ in enumerate(items)]))

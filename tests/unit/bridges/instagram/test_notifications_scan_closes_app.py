@@ -42,7 +42,8 @@ class _Bridge:
 
 class _Workflow:
     def scan(self, **_kwargs):
-        return {"success": True, "count": 0, "by_type": {}, "items": [], "requests": []}
+        return {"success": True, "count": 0, "by_type": {}, "items": [], "requests": [],
+                "scan_stop_reason": "read_cap"}
 
     def list_requests(self, **_kwargs):
         return {"success": True, "count": 0, "requests": []}
@@ -57,7 +58,7 @@ def bridge(monkeypatch):
     monkeypatch.setattr(bridge_commands, "InstagramDeviceBase", lambda *a, **k: created)
     monkeypatch.setattr(commands, "NotificationsEngagementWorkflow", lambda *a, **k: created.workflow)
     # Keep the test silent and free of persistence side effects.
-    monkeypatch.setattr(commands, "build_known_checker", lambda *a, **k: None)
+    monkeypatch.setattr(commands, "build_unread_rule", lambda *a, **k: None)
     monkeypatch.setattr(commands, "record_scan_notifications", lambda *a, **k: [])
     return created
 
@@ -73,7 +74,7 @@ def _run(command, **fields):
 
 
 def test_scan_restarts_then_closes_instagram(bridge):
-    _run("scan", scroll=3)
+    _run("scan")
 
     assert bridge.restarted == 1  # opened to a known state
     assert bridge.stopped == 1    # and closed once the feed was read
@@ -92,3 +93,10 @@ def test_list_requests_leaves_instagram_open(bridge):
     _run("list_requests", limit=50)
 
     assert bridge.stopped == 0
+
+
+def test_the_scan_result_says_where_the_reading_stopped(bridge):
+    """The page tells « stopped at the read cap, rows are left » from this field of the last line."""
+    result = _run("scan")
+
+    assert result["scan_stop_reason"] == "read_cap"
