@@ -409,7 +409,7 @@ class ScrapingListMixin(DeepQualifyMixin):
         return None
 
     def _scrape_list(self, max_count: int, source_type: str, source_name: str,
-                      total_available: int = None, enrich_on_the_fly: bool = False,
+                      total_available: Optional[int] = None, enrich_on_the_fly: bool = False,
                       source_post_url: str = None,
                       strategy: ListScrapingStrategy = None) -> List[Dict[str, Any]]:
         """

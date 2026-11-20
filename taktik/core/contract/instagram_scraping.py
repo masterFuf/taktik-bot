@@ -179,7 +179,7 @@ _EVENTS = (
     )),
     Event("target_info", doc="An account's list about to be read (`followers`, `following`).", fields=(
         Field("username", "string", "The account."),
-        Field("available_count", "int", "What its profile announces."),
+        Field("available_count", "int", "What its profile announces; null when its counter could not be read.", nullable=True),
         Field("effective_max", "int", "What this run will read of it."),
         Field("scrape_type", OneOf(("followers", "following")), "The list."),
     )),

@@ -5,18 +5,32 @@ import json
 from taktik.core.database.repositories.tiktok.tiktok_repository import TikTokRepository
 
 
-def test_profile_update_keeps_existing_counts_when_new_value_is_zero(conn):
+def test_profile_update_keeps_existing_counts_when_the_new_one_was_not_read(conn):
+    # A counter not read (None) never replaces a known one. Until 2026-11-20 the reader wrote 0 for
+    # « not read », and this test kept 1000 against a 0; the reader says None now.
     repo = TikTokRepository(conn)
 
     profile_id, created = repo.get_or_create_profile("creator", followers_count=1000)
     assert created is True
 
-    same_profile_id, created = repo.get_or_create_profile("creator", followers_count=0)
+    same_profile_id, created = repo.get_or_create_profile("creator", followers_count=None)
     assert same_profile_id == profile_id
     assert created is False
 
     profile = repo.find_profile_by_username("creator")
     assert profile["followers_count"] == 1000
+
+
+def test_profile_update_writes_a_zero_read_on_screen(conn):
+    # A 0 read is a measure: an account that lost its last follower, its last video.
+    repo = TikTokRepository(conn)
+    repo.get_or_create_profile("creator", followers_count=1000, videos_count=4)
+
+    repo.get_or_create_profile("creator", followers_count=0, videos_count=0)
+
+    profile = repo.find_profile_by_username("creator")
+    assert profile["followers_count"] == 0
+    assert profile["videos_count"] == 0
 
 
 def test_create_session_redacts_config_and_truncates_public_fields(conn):

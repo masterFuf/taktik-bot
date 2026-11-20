@@ -56,3 +56,15 @@ def test_counters_on_screen_are_read():
     data = extract_profile_from_screen(_DumpPhone("tt4703_fr_profile_followed.xml"), "user_1")
 
     assert all(isinstance(data[key], int) for key in ("followers_count", "following_count", "likes_count")), data
+
+
+def test_videos_counted_on_the_grid_are_a_visible_minimum():
+    from taktik.core.social_media.tiktok.workflows.automation.followers.profile_data import visible_videos_count
+
+    assert visible_videos_count(_DumpPhone("tt4703_fr_profile_followed.xml")) == 9
+
+
+def test_no_grid_on_screen_is_an_unknown_videos_count_not_zero():
+    from taktik.core.social_media.tiktok.workflows.automation.followers.profile_data import visible_videos_count
+
+    assert visible_videos_count(_DumpPhone("tt4703_fr_direct_home_between_profiles.xml")) is None

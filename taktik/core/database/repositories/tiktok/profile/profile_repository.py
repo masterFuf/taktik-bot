@@ -72,7 +72,8 @@ class TikTokProfileRepositoryMixin:
 
         for key in ('followers_count', 'following_count', 'likes_count', 'videos_count'):
             value = kwargs.get(key)
-            if value and value > 0:
+            # A 0 read is written; a counter not read (None) keeps what the base knew, as on Instagram.
+            if value is not None:
                 col = colmap.get(key, key)
                 updates.append(f"{col} = ?")
                 values.append(value)

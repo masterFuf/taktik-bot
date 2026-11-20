@@ -4,6 +4,21 @@ Extracts username, display name, stats, bio from profile pages
 and saves to the local database.
 """
 
+from typing import Optional
+
+from taktik.core.social_media.tiktok.actions.base.utils import first_matching
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
+
+
+def visible_videos_count(device) -> Optional[int]:
+    """The thumbnails of the profile grid on screen: a visible minimum, not the profile's total.
+
+    No thumbnail read is unknown (None), never 0: the screen cannot tell a profile without videos
+    from a grid not loaded, and a filter on posts would take that 0 for a measure."""
+    found = first_matching(device, FOLLOWERS_SELECTORS.profile_post_item)
+    return len(found) if found else None
+
+
 class ProfileDataMixin:
     """Methods for extracting and persisting TikTok profile data."""
 
@@ -63,21 +78,13 @@ class ProfileDataMixin:
                 'followers_count': extracted.get('followers_count'),
                 'following_count': extracted.get('following_count'),
                 'likes_count': extracted.get('likes_count'),
-                'videos_count': 0,
+                'videos_count': visible_videos_count(self.device),
                 'biography': extracted.get('bio') or None,
                 'website': extracted.get('website') or None,
                 'is_private': extracted.get('is_private', False),
                 'is_verified': extracted.get('is_verified', False),
             }
-            
-            # Count visible videos in profile grid (followers-specific)
-            posts = []
-            for sel in self.followers_selectors.profile_post_item:
-                posts = self.device.xpath(sel).all()
-                if posts:
-                    break
-            if posts:
-                profile_data['videos_count'] = len(posts)
+
             
             # After the DB dict is built, so the picture cannot reach the row.
             avatar = self._capture_profile_avatar()

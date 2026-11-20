@@ -23,7 +23,7 @@ import time
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.social_media.instagram.workflows.scraping.outcome import scraping_outcome, settled_by_halt
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from loguru import logger
 from rich.console import Console
 
@@ -46,6 +46,20 @@ from taktik.core.social_media.instagram.workflows.scraping.session import should
 
 console = Console()
 
+
+
+def plan_target_list_read(scrape_type: str, profile_info: Optional[Dict[str, Any]],
+                          remaining: int) -> Tuple[Optional[int], int]:
+    """The size of the target's list as its profile announced it, and how much of it to read.
+
+    A counter not read (or no profile read, or a post scrape) leaves the size unknown (None) and
+    the read at what remains to collect: never the number asked for passed off as the list's size.
+    A count read, 0 included, bounds the read."""
+    key = {'followers': 'followers_count', 'following': 'following_count'}.get(scrape_type)
+    available = profile_info.get(key) if (profile_info and key) else None
+    if available is None:
+        return None, remaining
+    return available, min(remaining, available)
 
 class ScrapingWorkflow(
     ScrapingPostHelpersMixin,
@@ -225,7 +239,7 @@ class ScrapingWorkflow(
         }
 
     @staticmethod
-    def _announce_target_info(target: str, available_count: int, effective_max: int, scrape_type: str) -> None:
+    def _announce_target_info(target: str, available_count: Optional[int], effective_max: int, scrape_type: str) -> None:
         """Tell the live panel how much of an account's list this run will read."""
         try:
             print(json.dumps({
@@ -288,40 +302,26 @@ class ScrapingWorkflow(
 
             remaining_to_scrape = max_profiles_requested - total_scraped
             
+            available_count, actual_max = plan_target_list_read(scrape_type, profile_info, remaining_to_scrape)
             if profile_info:
-                if scrape_type == 'followers':
-                    available_count = profile_info.get('followers_count', 0)
-                elif scrape_type == 'following':
-                    available_count = profile_info.get('following_count', 0)
-                else:  # posts
-                    available_count = remaining_to_scrape  # Unknown for posts
-                
-                # Adjust max to what's actually available
-                # If count detection failed (0), use requested max and try anyway
-                if not available_count:  # 0 or not read (None)
-                    console.print(f"[yellow]⚠️ Could not detect {scrape_type} count for @{target}, trying anyway...[/yellow]")
-                    actual_max = remaining_to_scrape
-                    available_count = remaining_to_scrape  # Use requested as fallback
-                else:
-                    actual_max = min(remaining_to_scrape, available_count)
-                    if scrape_type != 'posts':
+                if scrape_type != 'posts':
+                    if available_count is None:
+                        console.print(f"[yellow]⚠️ Could not detect {scrape_type} count for @{target}, trying anyway...[/yellow]")
+                    else:
                         console.print(f"[green]✅ @{target}: {available_count:,} {scrape_type} available[/green]")
-                    
-                    if actual_max < remaining_to_scrape and scrape_type != 'posts':
-                        console.print(f"[dim]   Adjusting target: {actual_max:,} (instead of {remaining_to_scrape:,})[/dim]")
-                
+                        if actual_max < remaining_to_scrape:
+                            console.print(f"[dim]   Adjusting target: {actual_max:,} (instead of {remaining_to_scrape:,})[/dim]")
+
                 targets_info.append({
                     'username': target,
                     'available': available_count,
                     'to_scrape': actual_max
                 })
-                # Emit target_info to Electron live panel (only when count is known)
+                # Emit target_info to the live panel; an unknown list size travels as null.
                 if scrape_type in ('followers', 'following'):
                     self._announce_target_info(target, available_count, actual_max, scrape_type)
             else:
                 self.logger.warning(f"Could not get profile info for @{target}")
-                actual_max = remaining_to_scrape
-                available_count = actual_max  # Unknown, use requested
             
             # Handle posts scraping differently
             if scrape_type == 'posts':
@@ -375,7 +375,8 @@ class ScrapingWorkflow(
             )
             
             total_scraped += len(profiles_from_target)
-            console.print(f"[green]✅ Scraped {len(profiles_from_target):,}/{available_count:,} {scrape_type} from @{target}[/green]")
+            of_total = f"/{available_count:,}" if available_count is not None else ""
+            console.print(f"[green]✅ Scraped {len(profiles_from_target):,}{of_total} {scrape_type} from @{target}[/green]")
             
             # Go back
             self.device.press("back")
