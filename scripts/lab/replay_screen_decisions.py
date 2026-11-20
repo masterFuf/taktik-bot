@@ -61,6 +61,10 @@ INSTAGRAM_PROBES = ("list_rows", "list_usernames", "row_states", "click_row", "l
                     "in_suggestions", "limited", "loading", "unfollow_rows", "tabs", "confirm_wait",
                     "row_unfollowed", "follow_back_row", "profile_screen", "profile_username",
                     "follow_button", "profile_check", "funnel_present", "funnel_text", "funnel_wait",
+                    # The rest of the unfollow (step 4, L2), the shared tap on a found element (L4)
+                    # and a whole profile visit, as the workflows call it.
+                    "ensure_tab", "sort_control", "sort_confirmed", "profile_refusal", "find_and_click",
+                    "profile_visit",
                     # Readers that parse one dump themselves (`batch_xpath_check` and the lxml
                     # readers of steps 3 L5-L6): answers, and the tree the walkers get.
                     "screen_signals", "profile_flags", "profile_text", "profile_enriched",
@@ -71,7 +75,7 @@ INSTAGRAM_PROBES = ("list_rows", "list_usernames", "row_states", "click_row", "l
                     "persona_texts")
 # Reads made many times on one screen (once per row, once per selector list): their dumps are
 # also printed per call.
-PER_CALL = ("row_states", "funnel_present", "funnel_text", "funnel_wait")
+PER_CALL = ("row_states", "funnel_present", "funnel_text", "funnel_wait", "find_and_click")
 # The catalogues the shared funnel's Instagram callers read (`_is_element_present`,
 # `_get_text_from_element`, `_wait_for_element`): every selector list of them is asked.
 FUNNEL_CATALOGUES = ("DETECTION_SELECTORS", "PROFILE_SELECTORS", "BUTTON_SELECTORS", "POST_SELECTORS",
@@ -329,7 +333,7 @@ def _child_instagram_decisions(files, version, language, dump_ms, only=None):
 
     bundle = build_instagram_action_bundle(create_instagram_device_facade(phone))
     detection, unfollow = bundle.detection, bundle.unfollow
-    shown = {"names": [], "rows": []}
+    shown = {"names": [], "rows": [], "row_dicts": []}
 
     def list_rows():
         rows = detection.get_visible_followers_with_elements()
@@ -346,6 +350,7 @@ def _child_instagram_decisions(files, version, language, dump_ms, only=None):
     def unfollow_rows():
         rows = unfollow._visible_follow_rows(with_display_names=True)
         shown["rows"] = [row["username"] for row in rows]
+        shown["row_dicts"] = rows
         return {"rows": [(row["username"], row["state"], row.get("display_name"), tuple(row["button"].bounds))
                          for row in rows],
                 "suggestions": unfollow.suggestions_on_screen, "unpaired": unfollow.unpaired_on_screen}
@@ -364,6 +369,31 @@ def _child_instagram_decisions(files, version, language, dump_ms, only=None):
             return None
         return {"on_profile": unfollow._on_profile_of(username),
                 "verified": detection.is_verified_account(), "business": detection.is_business_account()}
+
+    def ensure_tab():
+        return {kind: unfollow._ensure_list_tab(kind) for kind in ("following", "followers")}
+
+    def sort_confirmed():
+        """The sort header asked for the label it shows (read here without a dump) and for one
+        it does not."""
+        from taktik.core.shared.device.snapshot import ScreenSnapshot
+
+        shown_labels = []
+        try:
+            photo = ScreenSnapshot(phone.xml)
+            for selector in unfollow._unfollow_selectors["sort_entry_label"]:
+                shown_labels += [el.text for el in photo.elements(selector) if el.text]
+        except Exception:
+            pass
+        asked = shown_labels[:1] + ["Taktik replay"]
+        return {label: unfollow._sort_confirmed(label) for label in asked}
+
+    def profile_refusal():
+        """The candidate check of the first row the unfollow reads, from the list as it is shown."""
+        rows = [row for row in shown["row_dicts"] if row.get("username")]
+        if not rows:
+            return None
+        return unfollow._profile_refusal(rows[0], False, {"skip_verified": True, "skip_business": True})
 
     probes = {
         "list_rows": list_rows,
@@ -395,11 +425,17 @@ def _child_instagram_decisions(files, version, language, dump_ms, only=None):
         return probe
 
     probes["funnel_present"] = funnel(detection._is_element_present)
+    # One turn, no pause after the tap: whether it finds, and the tap it makes.
+    probes["find_and_click"] = funnel(lambda selectors: detection._find_and_click(
+        selectors, timeout=0.4, human_delay=False, report_miss=False))
     probes["funnel_text"] = funnel(detection._get_text_from_element)
     # One turn: the pause alone outlasts the timeout.
     probes["funnel_wait"] = funnel(lambda selectors: detection._wait_for_element(
         selectors, timeout=0.4, check_interval=0.5, silent=True))
     probes.update(_one_dump_reader_probes(bundle, phone))
+    probes.update({"ensure_tab": ensure_tab, "sort_control": unfollow._list_shows_sort_control,
+                   "sort_confirmed": sort_confirmed, "profile_refusal": profile_refusal,
+                   "profile_visit": _profile_visit_probe(bundle)})
 
     def before_each():
         # Each capture is a new screen: no signal of the previous one, no stop lock.
@@ -429,6 +465,22 @@ class _Screenshot:
 
         self._crops.append(tuple(box))
         return Image.new("RGB", (max(1, box[2] - box[0]), max(1, box[3] - box[1])))
+
+
+def _profile_visit_probe(bundle):
+    """A visit of the profile on screen as the workflows read it (`get_complete_profile_info`,
+    the page already open): every field it records, the clock of the visit left out."""
+    from taktik.core.social_media.instagram.services.profile.extraction import ProfileExtraction
+
+    extraction = ProfileExtraction(bundle.device)
+
+    def visit():
+        info = extraction.get_complete_profile_info(username="replay", navigate_if_needed=False,
+                                                    emit_ipc=False, save_to_db=False)
+        if info is None:
+            return None
+        return {key: value for key, value in info.items() if key != "extraction_timestamp"}
+    return visit
 
 
 def _tree_digest(root):
