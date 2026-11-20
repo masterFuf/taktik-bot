@@ -260,6 +260,20 @@ class ProfileRepository(BaseRepository):
         )
         return row is not None
 
+    def has_picture(self, username: str) -> bool:
+        """Is a profile picture already kept for this profile (`profile_pic_path`, written by the app
+        when it stores one)?"""
+        row = self.query_one(
+            """
+            SELECT 1 FROM social_profiles
+            WHERE platform = 'instagram' AND username = ?
+            AND profile_pic_path IS NOT NULL AND profile_pic_path != ''
+            LIMIT 1
+            """,
+            (username,),
+        )
+        return row is not None
+
     def get_known_usernames(self, days: Optional[int] = None, limit: int = 10000) -> set:
         """Return usernames already known by the profile table."""
         if days is None:

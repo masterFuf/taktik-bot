@@ -465,6 +465,11 @@ class LocalDatabaseService:
         """
         return self.profiles.was_visited(username, days)
 
+    def profile_has_picture(self, username: str) -> bool:
+        """A profile picture is already kept for this profile: a list row's smaller one never
+        replaces it."""
+        return self.profiles.has_picture(username)
+
     def get_recently_scraped_usernames(self, days: int = None, limit: int = 10000) -> set:
         """
         Get a set of known profile usernames for dedup during scraping.

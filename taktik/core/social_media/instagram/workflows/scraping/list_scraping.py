@@ -298,6 +298,15 @@ class ScrapingListMixin(DeepQualifyMixin):
             return False
         return True
 
+    def _profile_has_picture(self, username: str) -> bool:
+        """A picture is already kept for this profile: the row's, smaller and maybe not yet loaded
+        (a grey silhouette), never replaces it. When the base cannot say, nothing is replaced."""
+        try:
+            return self._local_db().profile_has_picture(username)
+        except Exception as exc:
+            self.logger.warning(f"Could not read whether @{username} has a picture ({exc}): its row picture is not sent")
+            return True
+
     def _mark_unreachable(self, username: str) -> None:
         """Best effort: a failed mark must never end the run it was meant to describe."""
         try:
@@ -727,7 +736,7 @@ class ScrapingListMixin(DeepQualifyMixin):
 
                     # Signal Agent panel that this profile has been saved (completes the visit card)
                     _pic_b64 = profile_data.pop('profile_pic_base64', None)
-                    if avatars is not None:
+                    if avatars is not None and not self._profile_has_picture(username):
                         _pic_b64 = avatars.picture_of(follower)
                     IPCEmitter.emit_profile_captured(username, profile_data, profile_pic_base64=_pic_b64)
 

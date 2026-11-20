@@ -184,3 +184,16 @@ def test_profile_ai_enrichment_ignores_legacy_profile_fields(conn):
     assert rows["legacy_only_creator"]["profession"] is None
     assert rows["legacy_only_creator"]["profession_tags"] is None
     assert rows["legacy_only_creator"]["cities"] == "Legacy Only City"
+
+
+def test_a_kept_picture_is_one_with_a_path(conn):
+    """`has_picture`: what keeps a list row's picture from replacing one already kept."""
+    repo = ProfileRepository(conn)
+    repo.get_or_create("pictured")
+    repo.get_or_create("bare")
+    repo.get_or_create("emptied")
+    conn.execute("UPDATE social_profiles SET profile_pic_path = 'pictures/a.jpg' WHERE username = 'pictured'")
+    conn.execute("UPDATE social_profiles SET profile_pic_path = '' WHERE username = 'emptied'")
+
+    assert (repo.has_picture("pictured"), repo.has_picture("bare"), repo.has_picture("emptied"),
+            repo.has_picture("missing")) == (True, False, False, False)
