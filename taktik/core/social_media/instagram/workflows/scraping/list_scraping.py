@@ -20,6 +20,7 @@ from taktik.core.social_media.instagram.actions.base.ipc import IPCEmitter
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.shared.device.network_probe import measure_network_baseline
 from taktik.core.shared.vision import capture_non_blank
+from taktik.core.shared.vision.capture import crop_jpeg_data_url
 from taktik.core.social_media.instagram.workflows.common.post_navigation import open_likers_list
 from taktik.core.social_media.instagram.workflows.common.detection import is_likers_popup_open
 from taktik.core.social_media.instagram.workflows.scraping.list_strategy import (
@@ -66,6 +67,33 @@ def say_source_not_opened(nav_actions: Any, logger: Any, target: str) -> str:
     logger.warning(f"Failed to navigate to @{target} ({code})")
     IPCEmitter.emit_profile_skipped(target, code)
     return code
+
+
+class ReadingAvatars:
+    """The profile pictures of the rows of one reading of a list, for a scrape that opens no
+    profile: one screenshot for the whole screen, taken at the first row that needs it, each row's
+    picture cropped from it at the bounds its reading paired (`avatar_bounds`)."""
+
+    def __init__(self, device: Any, logger: Any):
+        self._device = device
+        self._logger = logger
+        self._screenshot = None
+        self._taken = False
+
+    def picture_of(self, row: Dict[str, Any]) -> Optional[str]:
+        """The JPEG data URL of `row`'s picture, None when the row has no picture bounds or the
+        screen could not be captured (said once per reading)."""
+        bounds = row.get('avatar_bounds')
+        if not bounds:
+            return None
+        if not self._taken:
+            self._taken = True
+            self._screenshot = capture_non_blank(self._device)
+            if self._screenshot is None:
+                self._logger.warning("The list's screenshot came back blank: its rows are kept without picture")
+        if self._screenshot is None:
+            return None
+        return crop_jpeg_data_url(self._screenshot, bounds)
 
 
 def _read_nothing(profile_data: Dict[str, Any]) -> bool:
@@ -563,6 +591,8 @@ class ScrapingListMixin(DeepQualifyMixin):
                 
                 # Get visible usernames
                 visible = strategy.get_visible()
+                # Without a visit, the row's picture is the only one this run sees.
+                avatars = None if enrich_on_the_fly else ReadingAvatars(self.device, self.logger)
 
                 if reading_follows_scroll:
                     reading_follows_scroll = False
@@ -694,6 +724,8 @@ class ScrapingListMixin(DeepQualifyMixin):
 
                     # Signal Agent panel that this profile has been saved (completes the visit card)
                     _pic_b64 = profile_data.pop('profile_pic_base64', None)
+                    if avatars is not None:
+                        _pic_b64 = avatars.picture_of(follower)
                     IPCEmitter.emit_profile_captured(username, profile_data, profile_pic_base64=_pic_b64)
 
                     # AI qualification (if enabled and profile was enriched with bio data)

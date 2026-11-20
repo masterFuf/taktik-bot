@@ -71,6 +71,27 @@ def list_visible_profiles(a, p):
             "usernames": usernames[:80], "message": f"{len(usernames)} visible profile(s)"}
 
 
+@action("scraping.crop_row_avatars")
+def crop_row_avatars(a, p):
+    """Crop the picture of each visible row of a followers/following list or a likers sheet, as the
+    scrape without visits does (production `get_visible_followers_with_elements`, then
+    `ReadingAvatars`: one screenshot for the screen). Returns, per username, whether a picture was
+    cropped and its size, never the image. Be on such a list."""
+    from taktik.core.social_media.instagram.workflows.scraping.list_scraping import ReadingAvatars
+
+    rows = [r for r in (a.detection.get_visible_followers_with_elements() or []) if r.get("username")]
+    # The raw device under the facade, as the scraping workflow holds it.
+    avatars = ReadingAvatars(a.device._device, logger)
+    sizes = {}
+    for row in rows:
+        picture = avatars.picture_of(row)
+        sizes[row["username"]] = len(picture) * 3 // 4 // 1024 if picture else None
+    cropped = [name for name, size in sizes.items() if size is not None]
+    return {"success": bool(cropped), "count": len(cropped), "rows": len(rows),
+            "details": {"size_kb_by_username": sizes},
+            "message": f"{len(cropped)}/{len(rows)} row picture(s) cropped"}
+
+
 @action("scraping.get_row_follow_state")
 def get_row_follow_state(a, p):
     """Read the relationship shown by a follower ROW's action button WITHOUT opening the profile:

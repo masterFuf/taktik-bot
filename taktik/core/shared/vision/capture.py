@@ -74,3 +74,26 @@ def capture_non_blank(device, *, attempts: int = 2, retry_delay: float = 0.6) ->
             time.sleep(retry_delay)
 
     return None
+
+
+def crop_jpeg_data_url(image, bounds, *, padding: int = 2, scale: int = 1, quality: int = 85) -> Optional[str]:
+    """The part of `image` (a PIL screenshot) inside `bounds` (left, top, right, bottom), `padding`
+    pixels around, as a JPEG data URL (`data:image/jpeg;base64,...`): the form of every profile
+    picture the app keeps. `scale` upsamples the crop (Lanczos). None for bounds outside the image."""
+    import base64
+    import io
+
+    from PIL import Image
+
+    left, top, right, bottom = bounds
+    width, height = image.size
+    box = (max(0, left - padding), max(0, top - padding), min(width, right + padding), min(height, bottom + padding))
+    if box[2] <= box[0] or box[3] <= box[1]:
+        logger.warning(f"Crop bounds {bounds} outside a {width}x{height} image: no picture")
+        return None
+    cropped = image.crop(box).convert("RGB")
+    if scale > 1:
+        cropped = cropped.resize((cropped.size[0] * scale, cropped.size[1] * scale), resample=Image.LANCZOS)
+    buffer = io.BytesIO()
+    cropped.save(buffer, format="JPEG", quality=quality)
+    return "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")

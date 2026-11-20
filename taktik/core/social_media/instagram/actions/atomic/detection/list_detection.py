@@ -13,6 +13,18 @@ from loguru import logger
 from taktik.core.social_media.instagram.actions.base.base_action import BaseAction
 
 
+def row_avatar_bounds(username_bounds, avatars):
+    """The bounds of the avatar of the row whose username is at `username_bounds`: the avatar left
+    of it whose height holds the username's middle, or None."""
+    if len(username_bounds) != 4:
+        return None
+    middle = (username_bounds[1] + username_bounds[3]) / 2
+    for left, top, right, bottom in avatars:
+        if top <= middle <= bottom and right <= username_bounds[0]:
+            return (left, top, right, bottom)
+    return None
+
+
 class ListDetectionMixin(BaseAction):
     """Mixin: followers/following list state detection, username extraction, click on follower."""
 
@@ -69,12 +81,16 @@ class ListDetectionMixin(BaseAction):
         
         Returns:
             List of dicts with the username and its element: the photo's, which gives the
-            row's text and bounds (tap it with `tap_element_human`, never `.click()`)
+            row's text and bounds (tap it with `tap_element_human`, never `.click()`), and
+            `avatar_bounds`, the bounds of the row's profile picture on the same photo (None when
+            the row shows none)
         """
         followers = []
         photo = self._turn_photo()
         if photo is None:
             return followers
+        avatars = [bounds for selector in self.detection_selectors.follow_list_avatar_selectors
+                   for bounds in (tuple(el.bounds) for el in photo.elements(selector)) if len(bounds) == 4]
 
         for selector in self.detection_selectors.follow_list_username_selectors:
             try:
@@ -87,7 +103,8 @@ class ListDetectionMixin(BaseAction):
                             if self._is_valid_username(clean_username):
                                 followers.append({
                                     'username': clean_username,
-                                    'element': element
+                                    'element': element,
+                                    'avatar_bounds': row_avatar_bounds(tuple(element.bounds), avatars),
                                 })
                     break
             except Exception as e:

@@ -87,3 +87,33 @@ class TestCaptureNonBlank:
     def test_returns_none_when_the_device_only_raises(self):
         device = _Device([RuntimeError("boom"), RuntimeError("boom")])
         assert capture_non_blank(device, retry_delay=0) is None
+
+
+def test_a_crop_is_the_part_of_the_screen_inside_its_bounds_as_a_jpeg_data_url():
+    """A screen of 1080x2160 with a red square where a row's picture is ([57,800][211,954],
+    `ig410_en_followers_list`): the data URL holds that square, 2 pixels of margin around it."""
+    import base64
+    import io
+
+    from PIL import Image
+
+    from taktik.core.shared.vision.capture import crop_jpeg_data_url
+
+    screen = Image.new("RGB", (1080, 2160), (255, 255, 255))
+    screen.paste((220, 20, 20), (57, 800, 211, 954))
+
+    url = crop_jpeg_data_url(screen, (57, 800, 211, 954))
+
+    assert url.startswith("data:image/jpeg;base64,")
+    picture = Image.open(io.BytesIO(base64.b64decode(url.split(",", 1)[1])))
+    assert picture.size == (158, 158)
+    red, green, blue = picture.getpixel((79, 79))
+    assert red > 200 and green < 60 and blue < 60
+
+
+def test_bounds_outside_the_screen_give_no_picture():
+    from PIL import Image
+
+    from taktik.core.shared.vision.capture import crop_jpeg_data_url
+
+    assert crop_jpeg_data_url(Image.new("RGB", (100, 100)), (200, 200, 300, 300)) is None

@@ -240,7 +240,15 @@ class DetectionSelectors:
         # For the likers sheet
         '//*[@resource-id="com.instagram.android:id/row_user_primary_name"]'
     ])
-    
+
+    # The profile picture of a row, paired with its username by height. The ImageView, not its
+    # frame of the same id (which adds the story ring's margin). Seen on 410
+    # (ig410_en_followers_list, ig410_fr_likers_sheet) and 447.
+    follow_list_avatar_selectors: List[str] = field(default_factory=lambda: [
+        '//android.widget.ImageView[@resource-id="com.instagram.android:id/follow_list_user_imageview"]',
+        '//android.widget.ImageView[@resource-id="com.instagram.android:id/row_user_imageview"]',
+    ])
+
     # Selectors detecting the suggestions section (to be avoided)
     _suggestions_section_indicators_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_recommended_user_username"]',
