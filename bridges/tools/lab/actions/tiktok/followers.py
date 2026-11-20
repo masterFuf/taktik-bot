@@ -11,21 +11,18 @@ scrolled a list it could not read.
 from loguru import logger
 
 from bridges.tools.lab.actions.tiktok import action
+from bridges.tools.lab.action_test.action_bundle import bundle_raw_device
 from taktik.core.social_media.tiktok.actions.base.utils import first_matching
 from taktik.core.social_media.tiktok.services.followers.listing import find_follower_rows
 from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_shell
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
 
 
-def _raw(a):
-    device = getattr(a, "device", None)
-    return getattr(device, "_device", None) or device
-
 
 @action("tt.followers.list_visible_rows")
 def list_visible_rows(a, p):
     """The rows production would work on, with the username each one is paired to."""
-    rows = find_follower_rows(_raw(a), logger=logger)
+    rows = find_follower_rows(bundle_raw_device(a), logger=logger)
     named = [row for row in rows if row.get("username")]
     logger.info(f"tt.followers.list_visible_rows: {len(rows)} rows, {len(named)} with a username")
     return {
@@ -50,7 +47,7 @@ def count_anchors(a, p):
     `following_or_friends_button` is the row button the unfollow taps on OUR following list
     ("Suivis" / "Ami(e)s"): open that list to read it.
     """
-    device = _raw(a)
+    device = bundle_raw_device(a)
     counts = {}
     for field in ("follower_any_button", "follower_username", "follower_display_name",
                   "following_or_friends_button"):
@@ -92,7 +89,7 @@ def _open_own_list(a, list_type: str):
     # Same shared reset the sync workflow calls: a follow list has no bottom bar, so asking for
     # a tab from inside one taps nothing. Reading that as "the tab is gone" is what made this
     # action fail right after successfully reading the other list.
-    return_to_tiktok_shell(_raw(a), logger=logger)
+    return_to_tiktok_shell(bundle_raw_device(a), logger=logger)
     if not ProfileActions(a.device).navigate_to_own_profile():
         logger.warning(f"tt.followers.open_own_{list_type}: never reached our own profile")
         return {"success": False, "message": "own profile unreachable"}
@@ -110,7 +107,7 @@ def _open_own_list(a, list_type: str):
     # Wait for ROWS, not for a duration. Returning as soon as the tap lands reports a screen
     # that is still drawing: the first run of this action read seven handles and zero display
     # names off a half-rendered list, then measured nine of each a minute later.
-    opened = _wait_for_rows(_raw(a))
+    opened = _wait_for_rows(bundle_raw_device(a))
     logger.info(f"tt.followers.open_own_{list_type}: rows visible = {opened}")
     return {
         "success": opened,
@@ -143,7 +140,7 @@ def read_own_list(a, p):
     """
     from taktik.core.social_media.tiktok.ui.labels import is_following_button, is_friends_button
 
-    device = _raw(a)
+    device = bundle_raw_device(a)
     _wait_for_rows(device)
 
     def _texts(selectors):

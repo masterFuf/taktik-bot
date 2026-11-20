@@ -12,6 +12,7 @@ needs the action bundle to grow.
 from loguru import logger
 
 from bridges.tools.lab.actions.tiktok import action
+from bridges.tools.lab.action_test.action_bundle import bundle_raw_device
 from bridges.tools.lab.actions.common.avatar import avatar_result
 from bridges.tools.lab.action_test.params import lab_int
 from taktik.core.social_media.tiktok.workflows.common.profile_extractor import (
@@ -22,16 +23,11 @@ from taktik.core.social_media.tiktok.ui.labels import classify_profile_stat_labe
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 
-def _raw(a):
-    """The bare uiautomator2 device behind the facade — what the extractor expects."""
-    device = getattr(a, "device", None)
-    return getattr(device, "_device", None) or device
-
 
 @action("tt.profile.get_enriched")
 def get_enriched(a, p):
     """Read the whole profile, exactly as scraping and the followers loop do."""
-    data = extract_profile_from_screen(_raw(a), (p or {}).get("username", ""))
+    data = extract_profile_from_screen(bundle_raw_device(a), (p or {}).get("username", ""))
     if not data:
         logger.warning("tt.profile.get_enriched: nothing read")
         return {"success": False, "message": "profile unreadable"}
@@ -63,7 +59,7 @@ def get_enriched(a, p):
 
 @action("tt.profile.get_username")
 def get_username(a, p):
-    value = first_text(_raw(a), PROFILE_SELECTORS.username).replace("@", "").strip()
+    value = first_text(bundle_raw_device(a), PROFILE_SELECTORS.username).replace("@", "").strip()
     logger.info(f"tt.profile.get_username: {value!r}")
     return {"success": bool(value), "message": value, "details": {"username": value}}
 
@@ -77,7 +73,7 @@ def get_stats(a, p):
     apart. A French phone once reported zero for all three because the labels were compared
     against English words.
     """
-    device = _raw(a)
+    device = bundle_raw_device(a)
     values = first_matching(device, PROFILE_SELECTORS.stat_value)
     labels = first_matching(device, PROFILE_SELECTORS.stat_label)
 
@@ -116,7 +112,7 @@ def get_biography(a, p):
     is a dead selector wearing a working feature's clothes, and it is exactly what this family
     exists to surface.
     """
-    device = _raw(a)
+    device = bundle_raw_device(a)
     by_anchor = first_text(device, PROFILE_SELECTORS.bio_text)
 
     by_fallback = ""
@@ -162,8 +158,8 @@ def open_own(a, p):
 
     ok = ProfileActions(a.device).navigate_to_own_profile()
     markers = {
-        "edit_button": len(first_matching(_raw(a), PROFILE_SELECTORS.edit_profile_button)),
-        "profile_menu": len(first_matching(_raw(a), PROFILE_SELECTORS.profile_menu_button)),
+        "edit_button": len(first_matching(bundle_raw_device(a), PROFILE_SELECTORS.edit_profile_button)),
+        "profile_menu": len(first_matching(bundle_raw_device(a), PROFILE_SELECTORS.profile_menu_button)),
     }
     logger.info(f"tt.profile.open_own: {ok}, markers={markers}")
     return {
@@ -221,7 +217,7 @@ def count_posts(a, p):
         FOLLOWERS_SELECTORS,
     )
 
-    device = _raw(a)
+    device = bundle_raw_device(a)
     per_anchor = {}
     for index, selector in enumerate(FOLLOWERS_SELECTORS.profile_post_item):
         try:

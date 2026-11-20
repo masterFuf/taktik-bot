@@ -17,6 +17,7 @@ def register_actions() -> None:
     from bridges.tools.lab.actions.tiktok import app  # noqa: F401
     from bridges.tools.lab.actions.tiktok import comments  # noqa: F401
     from bridges.tools.lab.actions.tiktok import detection  # noqa: F401
+    from bridges.tools.lab.actions.tiktok import engagement  # noqa: F401
     from bridges.tools.lab.actions.tiktok import followers  # noqa: F401
     from bridges.tools.lab.actions.tiktok import inbox  # noqa: F401
     from bridges.tools.lab.actions.tiktok import navigation  # noqa: F401

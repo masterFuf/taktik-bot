@@ -16,15 +16,12 @@ from loguru import logger
 
 from bridges.tools.lab.action_test.params import lab_flag
 from bridges.tools.lab.actions.tiktok import action
+from bridges.tools.lab.action_test.action_bundle import bundle_raw_device
 from taktik.core.social_media.tiktok.workflows.automation.unfollow.models import UnfollowConfig
 from taktik.core.social_media.tiktok.workflows.automation.unfollow.workflow import UnfollowWorkflow
 from taktik.core.social_media.tiktok.services.followers.stop_policy import normalize_username
 from taktik.core.social_media.tiktok.ui.labels import classify_follow_button
 
-
-def _raw(a):
-    device = getattr(a, "device", None)
-    return getattr(device, "_device", None) or device
 
 
 def _workflow(a, p, *, max_unfollows=1):
@@ -41,7 +38,7 @@ def _workflow(a, p, *, max_unfollows=1):
         # promises ONE account.
         max_unconfirmed_in_a_row=1,
     )
-    return UnfollowWorkflow(_raw(a), config)
+    return UnfollowWorkflow(bundle_raw_device(a), config)
 
 
 @action("tt.unfollow.preview_rows")

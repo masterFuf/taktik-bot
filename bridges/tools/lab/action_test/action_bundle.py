@@ -90,6 +90,12 @@ def attach_device_id(bundle, device_id) -> None:
         pass
 
 
+def bundle_raw_device(bundle):
+    """The bare uiautomator2 device behind the bundle's facade (the facade itself when bare)."""
+    device = getattr(bundle, "device", None)
+    return getattr(device, "_device", None) or device
+
+
 def bundle_device_id(bundle):
     """The serial of the phone a bundle drives: the one recorded, else the connected device's own.
 
@@ -99,9 +105,7 @@ def bundle_device_id(bundle):
     recorded = getattr(bundle, "device_id", None)
     if recorded:
         return recorded
-    device = getattr(bundle, "device", None)
-    raw = getattr(device, "_device", None) or device
-    serial = getattr(raw, "serial", None)
+    serial = getattr(bundle_raw_device(bundle), "serial", None)
     return serial if isinstance(serial, str) and serial else None
 
 
