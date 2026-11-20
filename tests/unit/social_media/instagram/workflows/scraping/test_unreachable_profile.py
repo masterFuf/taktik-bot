@@ -97,7 +97,7 @@ class TestTheOtherEmptyCase:
 
     def test_caller_owned_navigation_keeps_the_empty_read_reason(self):
         reason, _data, _wf = _capture(None, navigate=False)
-        assert reason == 'profile page read empty (screen not loaded)'
+        assert reason == 'profile_read_empty'
 
     def test_a_profile_that_answers_is_not_skipped(self):
         reason, data, _wf = _capture({

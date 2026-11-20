@@ -63,6 +63,8 @@ def _scraping_on(phone):
     workflow.config = {"rescrape_after_days": 0}  # no base: every row is new to the scraping
     workflow.scraped_profiles = []
     workflow._save_profile_immediately = lambda *_a, **_k: None
+    # The base the row pictures ask: no profile has a picture kept yet.
+    workflow._local_db = lambda: SimpleNamespace(profile_has_picture=lambda _username: False)
     workflow.laps = 0
 
     def session_goes_on():

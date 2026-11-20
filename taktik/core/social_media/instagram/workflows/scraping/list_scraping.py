@@ -52,6 +52,10 @@ MARKED_UNREACHABLE_REASONS = (UNREACHABLE_REASON, UNOPENED_NOT_FOUND)
 # « Utilisateur(ice) introuvable » on it, the words it shows for an account that does not exist.
 NOT_OPENED_OFFLINE_REASON = 'profile not opened, and the phone has no proven network (not marked unreachable)'
 
+# The profile page gave nothing to read: the screen had not loaded. A code of the app's table of
+# skip reasons, never a sentence in English.
+PROFILE_READ_EMPTY_REASON = 'profile_read_empty'
+
 # The profile on screen is not the one the row named: the tap landed on another row. Its numbers
 # belong to that other account and are neither filtered nor saved under this name.
 OTHER_PROFILE_REASON = 'another profile on screen (tap landed on another row)'
@@ -211,7 +215,7 @@ class ScrapingListMixin(DeepQualifyMixin):
         # skipping silently) puts the profile in `filtered_profiles` where the funnel can see it.
         if _read_nothing(profile_data):
             self.logger.warning(f"⏭ @{username}: profile page read empty — not qualifying")
-            return 'profile page read empty (screen not loaded)'
+            return PROFILE_READ_EMPTY_REASON
 
         # No enriched data => the filters cannot be evaluated. Saving (and deep-qualifying, which
         # costs AI credits) a profile we could not check would silently break the operator's

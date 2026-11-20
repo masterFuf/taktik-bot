@@ -92,7 +92,7 @@ class TestOnlyUnreachableIsMarked:
 
     def test_a_black_screen_is_not_a_dead_account(self):
         # The empty-read reason describes a screen that did not load, not an account that is gone.
-        db = _run({'someone': 'profile page read empty (screen not loaded)'}, ['someone'])
+        db = _run({'someone': 'profile_read_empty'}, ['someone'])
         assert db.marked == []
 
     def test_a_profile_that_answers_clears_its_mark(self):
