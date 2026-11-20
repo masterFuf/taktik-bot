@@ -501,7 +501,7 @@ def run_notifications(a, p):
 
     Params are the launcher's own keys: ``command`` (``scan`` by default, like the CLI handler;
     ``list_requests``, ``accept_all``, ``accept``, ``ignore``, ``like``, ``follow_back``,
-    ``reply``), ``scroll`` and ``followSuggestions`` (scan), ``limit`` (list_requests), ``max``
+    ``reply``), ``followSuggestions`` (scan), ``limit`` (list_requests), ``max``
     (accept_all), ``username`` and ``text`` (row verbs, reply), ``accountUsername``. A ``batch``
     needs a list of actions, which the Lab's fields cannot give: the reader refuses it. A scan
     restarts Instagram first and closes it at the end, as in production. The run's events come

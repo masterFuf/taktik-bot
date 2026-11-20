@@ -78,11 +78,11 @@ def test_the_lab_run_goes_through_the_launcher_with_the_lab_params(monkeypatch, 
         return {"type": "result", "command": "scan", "success": True, "count": 4, "message": "4 notifications"}
 
     monkeypatch.setattr(agent_handler, "run_instagram_notifications", launcher)
-    result = ACTION_REGISTRY["notifications.run"](_bundle(), {"scroll": 2, "followSuggestions": 1})
+    result = ACTION_REGISTRY["notifications.run"](_bundle(), {"followSuggestions": 1})
 
     # The launcher's own keys; the command defaults to a scan, as the CLI handler does, and the
     # session's phone is the run's, as the bridge and the CLI give it (the network door measures it).
-    assert seen["config"] == {"command": "scan", "scroll": 2, "followSuggestions": 1, "deviceId": SERIAL}
+    assert seen["config"] == {"command": "scan", "followSuggestions": 1, "deviceId": SERIAL}
     # The app never sends an `ai` block, and the bridge's AI service prints on stdout.
     assert seen["ai"] is None
     assert result["success"] is True
@@ -221,3 +221,21 @@ def test_no_serial_no_run(monkeypatch, lab_lifecycle):
 
     assert result["success"] is False
     assert called == []
+
+
+def test_the_full_scan_of_the_lab_reads_with_the_rule_of_the_run(monkeypatch):
+    """`notifications.scan_full` builds the run's rule for the account it is given, nothing of its own."""
+    from bridges.tools.lab.actions.instagram import notifications as lab_notifications
+    from taktik.core.social_media.instagram.workflows.notifications.notifications_workflow import (
+        NotificationsEngagementWorkflow,
+    )
+
+    seen = {}
+    monkeypatch.setattr(lab_notifications, "build_unread_rule", lambda account: seen.setdefault("account", account) and "rule")
+    monkeypatch.setattr(NotificationsEngagementWorkflow, "scan",
+                        lambda self, unread_rule=None: {"success": True, "rule": unread_rule})
+
+    result = ACTION_REGISTRY["notifications.scan_full"](_bundle(), {"account": " bot_account "})
+
+    assert seen["account"] == "bot_account"
+    assert result["rule"] == "rule"
