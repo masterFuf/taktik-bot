@@ -42,7 +42,8 @@ DAYS_447 = _screen("ig447_fr_notifications_feed_days.xml")
 #: The first scan of the phone proof (Instagram 447 in French, Pixel 6a, 2026-11-20), five screens in a row.
 WEEK_447 = [_screen(f"ig447_fr_notifications_week_{rank}.xml") for rank in range(1, 6)]
 #: Distinct notifications each real screen holds, read by the production parser.
-ROWS_ON = {"top": 8, "rows": 10, "older": 10}
+#: The ads entry at the top of « top » is not one of them.
+ROWS_ON = {"top": 7, "rows": 10, "older": 10}
 
 
 def _everything_known(_row):
@@ -174,6 +175,31 @@ def test_show_more_is_tapped_when_it_is_the_only_way_on():
     assert wf.show_more_taps == 1
     assert result["scan_stop_reason"] == "end_of_feed"
     assert any(item["time"] == "3 j" for item in result["items"])
+
+
+def test_the_ads_entry_at_the_top_of_the_feed_is_not_a_notification():
+    """« Publicités » / « Activité récente liée à vos publicités. » opens the ads activity: no age,
+    no actor. A second scan with nothing new announced it as « 1 notification » (Pixel 6a,
+    Instagram 447, 2026-11-20). The grouped likes of a reel on the same screen are real `other`
+    notifications and stay."""
+    for screen in (TOP_447, TOP):
+        result = _Scan([screen]).scan()
+
+        texts = [item["text"] for item in result["items"]]
+        assert not any("publicités" in text.lower() for text in texts)
+        assert result["by_type"].get("other", 0) == sum(item["type"] == "other" for item in result["items"])
+    others = [item for item in _Scan([TOP_447]).scan()["items"] if item["type"] == "other"]
+    assert [item["time"] for item in others] == ["5 h", "16 h"]
+
+
+def test_the_ads_entry_is_left_out_in_english_too():
+    """Instagram 410 in English: the same entry, its words anonymized but « Recent activity »."""
+    set_active_locale("en")
+    result = _Scan([_screen("ig410_en_notifications_filter_sheet.xml")]).scan()
+
+    texts = [item["text"] for item in result["items"]]
+    assert not any("Recent activity" in text for text in texts)
+    assert any("posted for the first time" in text for text in texts)
 
 
 def test_rows_whose_age_straddles_the_last_scan_are_settled_by_their_identity():

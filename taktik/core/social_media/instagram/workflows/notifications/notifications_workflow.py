@@ -406,12 +406,20 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
     # Read pass — classify the activity feed (all families)
     # ------------------------------------------------------------------
     def _dump_screen(self) -> tuple:
-        """One dump -> (classified feed rows, visible time-section header texts)."""
+        """One dump -> (classified feed rows, visible time-section header texts).
+
+        The feed entries that are not notifications (the follow-requests digest, surfaced via
+        `requests`, and the ads activity entry) are left out here, so no caller renders,
+        counts or records them.
+        """
         root = self._dump_root()
         if root is None:
             return [], []
-        rows = parse_feed_rows(root, self.selectors.notification_row_resource_id,
-                               self.selectors.classifier_fragments)
+        not_notifications = [f.lower() for f in self.selectors.not_notification_entry_text]
+        rows = [row for row in parse_feed_rows(root, self.selectors.notification_row_resource_id,
+                                               self.selectors.classifier_fragments)
+                if not (row["type"] in ("follow_request", "other")
+                        and any(f in row["text"].lower() for f in not_notifications))]
         headers = parse_section_headers(root, self.selectors.notification_section_header_resource_id)
         return rows, headers
 
@@ -507,8 +515,8 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
 
         Returns ``{success, count, by_type, items, requests, has_grouped_requests,
         scan_stop_reason}``. Items are de-duplicated by text, top-to-bottom; a row beyond the
-        horizon is not an item; the grouped "follow requests" digest row is dropped from
-        ``items`` since it is surfaced via ``requests``.
+        horizon is not an item; the feed entries that are not notifications (the grouped
+        "follow requests" digest, surfaced via ``requests``, and the ads entry) never are.
         """
         rule = unread_rule or UnreadRule.for_first_scan()
         # Detect the app language on the HOME feed, before navigating: the bottom nav
@@ -618,14 +626,6 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
                     stop_reason = "end_of_feed"  # nothing new + no "Show more" twice
                     break
                 self._scroll_down(1)
-
-        # Drop the grouped "follow requests" digest row from the feed: it is not a
-        # real activity item, it is the entry to the requests sub-screen (surfaced
-        # via `requests`). Heuristic, locale-aware (matches the header fragments).
-        header_frags = [f.lower() for f in self.selectors.follow_requests_header_text]
-        items = [it for it in items
-                 if not (it["type"] in ("follow_request", "other")
-                         and any(f in it["text"].lower() for f in header_frags))]
 
         by_type: Dict[str, int] = {}
         for item in items:

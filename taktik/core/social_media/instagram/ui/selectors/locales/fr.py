@@ -507,6 +507,12 @@ STRINGS: Dict[str, List[str]] = {
     "notification.follow_requests_digest": [
         "Demandes de suivi",
     ],
+    # Raw text of the ads activity entry at the top of the feed (NOT an xpath): « Publicités »
+    # over this line, no age. Seen in 410 and 447 (ig410_fr_notifications_top,
+    # ig447_fr_notifications_feed_top).
+    "notification.ads_activity_entry": [
+        "Activité récente liée à vos publicités",
+    ],
     # "Voir plus" button that loads older notifications (exact text to avoid the
     # inline comment expander).
     "notification.show_more": [

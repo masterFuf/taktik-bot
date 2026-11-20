@@ -144,6 +144,12 @@ class NotificationSelectors:
     def follow_requests_header_text(self) -> List[str]:
         return L_all("notification.follow_requests_digest")
 
+    # Raw text fragments of the feed entries that are not notifications (no age, no actor):
+    # the follow-requests digest and the ads activity entry. Dropped where the rows are read.
+    @property
+    def not_notification_entry_text(self) -> List[str]:
+        return self.follow_requests_header_text + L("notification.ads_activity_entry")
+
     # Legacy alias.
     @property
     def follow_requests_section(self) -> List[str]:

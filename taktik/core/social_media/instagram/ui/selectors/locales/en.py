@@ -516,6 +516,11 @@ STRINGS: Dict[str, List[str]] = {
     "notification.follow_requests_digest": [
         "Follow requests",
     ],
+    # Raw text of the ads activity entry at the top of the feed (NOT an xpath). The 410 capture
+    # (ig410_en_notifications_filter_sheet) keeps only these two words readable.
+    "notification.ads_activity_entry": [
+        "Recent activity",
+    ],
     # "Show more" button that loads older notifications (exact text to avoid the
     # inline "… more" comment expander).
     "notification.show_more": [
