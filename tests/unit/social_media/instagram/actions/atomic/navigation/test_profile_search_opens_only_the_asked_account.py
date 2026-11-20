@@ -112,6 +112,8 @@ def phone_on(monkeypatch):
     monkeypatch.setattr(miss_capture, "signaler_ecran_inconnu", lambda *a, **k: None)
     monkeypatch.setattr(miss_capture, "blocage_a_signaler", lambda: False)
     monkeypatch.setattr(search_navigation, "get_active_package", lambda: PKG)
+    # Screens that never change: one read of the results says all a longer wait would.
+    monkeypatch.setattr(search_navigation, "SEARCH_RESULTS_TIMEOUT_S", 0.0)
     monkeypatch.setattr(DeepLinkNavigationMixin, "_navigate_via_deep_link",
                         lambda _self, username, *a, **k: played["phone"].follows_deep_link(username))
     set_active_locale("fr")

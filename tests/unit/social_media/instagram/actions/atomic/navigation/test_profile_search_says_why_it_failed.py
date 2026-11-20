@@ -73,7 +73,7 @@ def test_without_the_447_loading_rows_a_loading_screen_is_not_read_as_an_answer(
 
 @pytest.fixture
 def no_waiting(monkeypatch):
-    monkeypatch.setattr(search_navigation, "SEARCH_RESULTS_TIMEOUT_S", 0.0, raising=False)
+    monkeypatch.setattr(search_navigation, "SEARCH_RESULTS_TIMEOUT_S", 0.0)
     monkeypatch.setattr(search_navigation, "PROFILE_LOAD_TIMEOUT_S", 0.0)
 
 
@@ -167,6 +167,7 @@ def test_the_search_waits_for_the_list_to_load_then_reads_its_answer(phone_on, m
     """The grey rows of the first read, then the answer (the throttled network let go, as it was on
     the phone): the answer is what is read, not the loading."""
     monkeypatch.setattr(search_navigation, "SEARCH_RESULTS_POLL_MS", 1)
+    monkeypatch.setattr(search_navigation, "SEARCH_RESULTS_TIMEOUT_S", 1.0)
     phone = phone_on(SEARCH_447, results_of={"user_3": LOADING_ABSENT})
     shown = phone.dump_hierarchy
 
