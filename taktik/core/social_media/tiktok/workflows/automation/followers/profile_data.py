@@ -59,9 +59,10 @@ class ProfileDataMixin:
             profile_data = {
                 'username': extracted.get('username', self._current_profile_username),
                 'display_name': extracted.get('display_name') or None,
-                'followers_count': extracted.get('followers_count', 0),
-                'following_count': extracted.get('following_count', 0),
-                'likes_count': extracted.get('likes_count', 0),
+                # A counter not read stays None down to the filter and the base.
+                'followers_count': extracted.get('followers_count'),
+                'following_count': extracted.get('following_count'),
+                'likes_count': extracted.get('likes_count'),
                 'videos_count': 0,
                 'biography': extracted.get('bio') or None,
                 'website': extracted.get('website') or None,

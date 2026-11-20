@@ -133,7 +133,7 @@ def test_an_empty_screen_returns_defaults_rather_than_raising():
     data = extract_profile_from_screen(_FakeDevice({}))
     assert data is not None
     assert data["username"] == ""
-    assert data["followers_count"] == 0
+    assert data["followers_count"] is None  # not on screen: unknown, never 0
 
 
 def test_a_known_username_survives_an_unreadable_screen():

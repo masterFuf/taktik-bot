@@ -224,8 +224,8 @@ TIKTOK_SCRAPING = WorkflowContract(
         )),
         Event("scraping_profile", doc="One profile collected.", fields=(
             Field("username", "string", "Its handle."),
-            Field("followersCount", "int", "Its followers."),
-            Field("followingCount", "int", "The accounts it follows."),
+            Field("followersCount", "int", "Its followers; null when not read.", nullable=True),
+            Field("followingCount", "int", "The accounts it follows; null when not read.", nullable=True),
             Field("scrapedAt", "string", "When, ISO 8601."),
         )),
         Event("scraping_completed", doc="The run is over.", fields=(

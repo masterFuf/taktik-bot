@@ -38,10 +38,11 @@ class TikTokProfileRepositoryMixin:
             (
                 username,
                 kwargs.get('display_name', ''),
-                kwargs.get('followers_count', 0),
-                kwargs.get('following_count', 0),
-                kwargs.get('likes_count', 0),
-                kwargs.get('videos_count', 0),
+                # A counter not given or not read stays NULL, as on Instagram: never a measured 0.
+                kwargs.get('followers_count'),
+                kwargs.get('following_count'),
+                kwargs.get('likes_count'),
+                kwargs.get('videos_count'),
                 1 if kwargs.get('is_private') else 0,
                 1 if kwargs.get('is_verified') else 0,
                 kwargs.get('biography'),
@@ -119,10 +120,10 @@ class TikTokProfileRepositoryMixin:
         profile_id, _ = self.get_or_create_profile(
             username,
             display_name=profile.get('display_name', ''),
-            followers_count=profile.get('followers_count', 0),
-            following_count=profile.get('following_count', 0),
-            likes_count=profile.get('likes_count', 0),
-            videos_count=profile.get('posts_count', 0),
+            followers_count=profile.get('followers_count'),
+            following_count=profile.get('following_count'),
+            likes_count=profile.get('likes_count'),
+            videos_count=profile.get('posts_count'),
             is_private=profile.get('is_private', False),
             is_verified=profile.get('is_verified', False),
             biography=profile.get('bio', '')

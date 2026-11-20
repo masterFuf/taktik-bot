@@ -29,7 +29,7 @@ def read_profile_stats(raw_device) -> Dict[str, int]:
     stat_labels = first_matching(raw_device, PROFILE_SELECTORS.stat_label)
     for value, label in zip(stat_counts, stat_labels):
         try:
-            count_text = value.text or '0'
+            count_text = value.text or ''
             label_text = label.text or ''
         except Exception as exc:
             logger.warning(f"A profile stat could not be read: {exc}")
@@ -37,7 +37,8 @@ def read_profile_stats(raw_device) -> Dict[str, int]:
         # Same classification as `profile_actions` — shared, and localized: comparing against
         # English words made every count zero on a French phone, with no error to show for it.
         stat = classify_profile_stat_label(label_text)
-        if stat in ('following', 'followers', 'likes'):
+        # An empty value is a count not read: absent, never 0.
+        if stat in ('following', 'followers', 'likes') and count_text.strip():
             stats[f'{stat}_count'] = parse_count(count_text)
     return stats
 
@@ -56,10 +57,11 @@ def extract_profile_from_screen(raw_device, username: str = '') -> Optional[Dict
         data: Dict[str, Any] = {
             'username': username,
             'display_name': '',
-            'followers_count': 0,
-            'following_count': 0,
-            'likes_count': 0,
-            'posts_count': 0,
+            # A counter the screen does not show stays None (unknown), never 0.
+            'followers_count': None,
+            'following_count': None,
+            'likes_count': None,
+            'posts_count': None,  # never read here: unknown
             'bio': '',
             'website': '',
             'is_private': False,

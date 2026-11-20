@@ -146,7 +146,7 @@ def test_register_tiktok_scraping_handler_executes_target_workflow(store):
     profile_events = [payload for kind, payload in notifier.calls if kind == "scraping_profile"]
     assert len(profile_events) == 1
     assert {key: value for key, value in profile_events[0].items() if key != "scrapedAt"} == {
-        "username": "creator", "followersCount": 42, "followingCount": 0,
+        "username": "creator", "followersCount": 42, "followingCount": None,  # not read: unknown, never 0
     }
     assert ("scraping_completed", {"totalScraped": 1}) in notifier.calls
     assert notifier.calls[-1] == ("status", {"status": "completed", "message": "Scraped 1 profiles"})

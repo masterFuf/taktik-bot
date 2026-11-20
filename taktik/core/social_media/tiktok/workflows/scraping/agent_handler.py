@@ -186,8 +186,9 @@ def _attach_callbacks(workflow: Any, notifier: Any) -> None:
             notifier,
             "scraping_profile",
             username=profile.get("username", ""),
-            followersCount=profile.get("followers_count", 0),
-            followingCount=profile.get("following_count", 0),
+            # A counter not read (or a row never opened) is null, never 0.
+            followersCount=profile.get("followers_count"),
+            followingCount=profile.get("following_count"),
             scrapedAt=datetime.now().isoformat(),
         )
     )

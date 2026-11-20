@@ -54,3 +54,16 @@ def test_record_interaction_for_username_updates_daily_stats(conn):
     assert len(stats) == 1
     assert stats[0]["total_likes"] == 1
     assert stats[0]["total_follows"] == 1
+
+
+def test_a_new_profile_keeps_a_counter_not_given_unknown(conn):
+    # A row created from a list (a handle and nothing read) or with a counter not read stays NULL.
+    repo = TikTokRepository(conn)
+
+    repo.get_or_create_profile("listed_only")
+    repo.get_or_create_profile("half_read", followers_count=None, following_count=12)
+
+    listed = repo.find_profile_by_username("listed_only")
+    half = repo.find_profile_by_username("half_read")
+    assert (listed["followers_count"], listed["following_count"], listed["likes_count"]) == (None, None, None)
+    assert (half["followers_count"], half["following_count"]) == (None, 12)
