@@ -6,7 +6,7 @@ from datetime import datetime
 from taktik.core.social_media.instagram.workflows.scraping.outcome import scraping_outcome
 from taktik.core.ai.spend import AI_SPEND_PROFILE
 from taktik.core.shared.filtering.profile_filters import UNREAD_COUNTER_CRITERIA
-from typing import Dict, Any, List, Optional
+from typing import Callable, Dict, Any, List, Optional
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 
@@ -128,6 +128,7 @@ class ScrapingListMixin(DeepQualifyMixin):
     device: Any
     nav_actions: Any
     profile_manager: Any
+    _local_db: Callable[[], Any]
 
     def _has_profile_filters(self) -> bool:
         """True when the operator asked for ANY profile filter.

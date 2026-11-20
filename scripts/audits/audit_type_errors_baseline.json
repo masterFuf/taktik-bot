@@ -228,7 +228,7 @@
   "taktik/core/social_media/instagram/workflows/notifications/notifications_workflow.py": 1,
   "taktik/core/social_media/instagram/workflows/notifications/suggestions_flow.py": 30,
   "taktik/core/social_media/instagram/workflows/scraping/deep_qualify.py": 3,
-  "taktik/core/social_media/instagram/workflows/scraping/list_scraping.py": 52,
+  "taktik/core/social_media/instagram/workflows/scraping/list_scraping.py": 46,
   "taktik/core/social_media/instagram/workflows/scraping/persistence.py": 1,
   "taktik/core/social_media/instagram/workflows/scraping/post_scraping_helpers.py": 59,
   "taktik/core/social_media/instagram/workflows/scraping/profile_posts_scraping.py": 34,
