@@ -148,6 +148,33 @@ class NavigationSelectors:
         '//*[@resource-id="com.instagram.android:id/row_search_avatar_with_ring"]',
     ])
 
+    # The row of the query itself, at the top of a results list once Instagram has answered: its
+    # title is the text typed. It is there with the account rows (ig410_fr_account_search_results,
+    # 410) and alone when no account is listed (ig447_fr_direct_results_of_absent_handle, 447).
+    _search_query_row_templates: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/row_search_keyword_title" and @text="{username}"]',
+    ])
+
+    # The grey rows a results list shows while Instagram has not answered: no query row, no
+    # account row under them. Empty in the reference: no search screen of the 410 corpus shows
+    # one (1 578 dumps, 2026-06 to 2026-10); the 447 entry is in the version overrides.
+    _search_results_loading_rows: List[str] = field(default_factory=list)
+
+    def search_query_row_selectors_for_username(self, username: str) -> List[str]:
+        """The row of the query `username`: the results list has been answered."""
+        return [template.replace("{username}", username) for template in self._search_query_row_templates]
+
+    @property
+    def search_results_loading_rows(self) -> List[str]:
+        """The rows of a results list still waiting for Instagram's answer (version overrides)."""
+        return self._search_results_loading_rows
+
+    def search_result_username_selector_for_username(self, username: str) -> str:
+        """The username text of the account row of an exact username: the point of the row where a
+        second tap is aimed when the first one opened nothing."""
+        username_id = self.search_result_username_resource_id
+        return f'//android.widget.TextView[contains(@resource-id, "{username_id}") and @text="{username}"]'
+
     def search_result_selectors_for_username(self, username: str) -> List[str]:
         """Build selectors for the account row of an exact username, in search results."""
         container_id = self.search_result_container_resource_id
@@ -155,7 +182,7 @@ class NavigationSelectors:
         return [
             f'//*[contains(@resource-id, "{container_id}")][.//*[contains(@resource-id, "{username_id}") and @text="{username}"]]',
             f'//*[contains(@resource-id, "{container_id}")][.//*[@text="{username}"]]',
-            f'//android.widget.TextView[contains(@resource-id, "{username_id}") and @text="{username}"]',
+            self.search_result_username_selector_for_username(username),
             f'//*[@clickable="true"][.//*[contains(@resource-id, "{username_id}") and @text="{username}"]]',
         ]
 

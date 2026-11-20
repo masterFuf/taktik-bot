@@ -22,6 +22,7 @@ from taktik.core.social_media.instagram.actions.atomic.interaction.story_interac
 from taktik.core.social_media.instagram.actions.atomic.navigation.search_navigation import (
     SearchNavigationMixin,
 )
+from taktik.core.social_media.instagram.actions.atomic.navigation.search_results import SearchResultsState
 from taktik.core.social_media.instagram.actions.atomic.text import TextActions, dm_composer
 from taktik.core.social_media.instagram.services.comment.action import CommentAction
 from taktik.core.social_media.instagram.services.content import (
@@ -368,9 +369,9 @@ def _profile_search(phone):
         phone.add_button(selector)
     nav = _action(SearchNavigationMixin, phone)
     nav.navigate_to_search = lambda: True
-    nav._wait_for_element = lambda *_a, **_k: True
+    nav._wait_for_search_results = lambda *_a, **_k: SearchResultsState.LISTED
     nav._is_element_present = lambda *_a, **_k: True  # the account row of "ana" is listed
-    nav._verify_profile_navigation = lambda _username: True
+    nav._verify_profile_navigation = lambda _username, **_kwargs: True
     return nav._navigate_via_search("ana"), "ana"
 
 

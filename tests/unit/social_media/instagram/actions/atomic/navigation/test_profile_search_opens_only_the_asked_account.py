@@ -125,7 +125,7 @@ def _navigation(phone, opened=None):
     `opened` when given, the production one (the handle the profile shows) otherwise."""
     nav = NavigationActions(DeviceFacade(CloneAwareDeviceProxy(phone, PKG)))
     if opened is not None:
-        nav._verify_profile_navigation = lambda handle: opened.append(handle) or True
+        nav._verify_profile_navigation = lambda handle, **_kwargs: opened.append(handle) or True
     return nav
 
 

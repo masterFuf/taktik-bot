@@ -60,6 +60,14 @@ versions:
       - '//*[@resource-id="com.instagram.android:id/row_search_avatar_with_ring"]'
       - '//*[@resource-id="com.instagram.android:id/row_search_user_follow_button"]'
 
+    # Profile search still loading: grey rows (`row_shimmer_container`, holding the
+    # `row_search_placeholder_*` views), no query row, no account row. Seen for as long as the
+    # network was throttled (Pixel 6a, French, 2026-11-20: 5.6 and 2.4 kbit/s, more than 50 s), on
+    # an account that exists and on one that does not (ig447_fr_search_results_loading_*). Empty
+    # in the baseline, nothing to repeat.
+    navigation._search_results_loading_rows:
+      - '//*[@resource-id="com.instagram.android:id/row_shimmer_container"]'
+
     # DM inbox pills (Tout / Principal / Général / Invitations): no `inbox_header_pill_text` in 447.
     # A clickable node holds a View described by the label (« Invitations », « Principal, 1 message
     # non lu »), which holds the label's TextView (Pixel 6a, French, 2026-10-24, dumps

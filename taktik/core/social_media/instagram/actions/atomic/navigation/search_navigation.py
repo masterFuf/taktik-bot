@@ -6,6 +6,13 @@ from typing import Optional
 from loguru import logger
 
 from taktik.core.social_media.instagram.actions.atomic.navigation.deep_link_navigation import instagram_handle
+from taktik.core.social_media.instagram.actions.atomic.navigation.search_results import (
+    ProfileNavigationFailure,
+    ProfileNavigationFailureReason,
+    SearchResultsState,
+    read_search_results,
+    settle_profile_navigation_failure,
+)
 from taktik.core.social_media.instagram.actions.base.base_action import BaseAction
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.story_viewer import STORY_SELECTORS
@@ -21,6 +28,14 @@ _STORY_TRANSITION_POLL_DELAYS = (0.12, 0.18, 0.28, 0.40)
 # How long a profile opened by its handle may take to show that handle, and how often it is read.
 PROFILE_LOAD_TIMEOUT_S = 5.0
 PROFILE_LOAD_POLL_MS = 500
+
+# How long the results of a typed handle may load before the search is called slow. Measured on
+# 2026-11-20 (Pixel 6a, Instagram 447): every answered search was answered by the first read,
+# under 4 s after the last keystroke, and 3 s once a throttled network came back; on a throttled
+# network the grey rows stayed more than 50 s, which no wait recovers. Four times the slowest
+# answer measured.
+SEARCH_RESULTS_TIMEOUT_S = 15.0
+SEARCH_RESULTS_POLL_MS = 500
 
 
 def _signature_shows_a_story(signature) -> bool:
@@ -83,6 +98,26 @@ def _safe_story_advance_zone(screen_width: int, screen_height: int, sticker: Opt
 class SearchNavigationMixin(BaseAction):
     """Mixin: navigate via search (profiles, hashtags) and content navigation (posts, stories, lists)."""
 
+    #: The last failure of `navigate_to_profile`, None after a success: read it after a False.
+    last_profile_navigation_failure: Optional[ProfileNavigationFailure] = None
+    #: Why the route being walked failed, set by the step that failed.
+    _route_failure_reason: Optional[ProfileNavigationFailureReason] = None
+
+    def _route_failed(self, reason: ProfileNavigationFailureReason) -> bool:
+        """Note why the route being walked failed; False, for the step to return."""
+        self._route_failure_reason = reason
+        return False
+
+    def _walk_route(self, route: str, walk) -> Optional[ProfileNavigationFailure]:
+        """Walk one route to the profile: None when it opened it, else its failure."""
+        self._route_failure_reason = None
+        if walk():
+            return None
+        reason = self._route_failure_reason or (
+            ProfileNavigationFailureReason.DEEP_LINK_FAILED if route == "deep_link"
+            else ProfileNavigationFailureReason.SEARCH_UNREACHABLE)
+        return ProfileNavigationFailure(route, reason)
+
     def navigate_to_profile(self, username: str, deep_link_usage_percentage: int = 0, force_search: bool = False) -> bool:
         """
         Navigate to a user's profile.
@@ -103,6 +138,10 @@ class SearchNavigationMixin(BaseAction):
         dropped, lower case) before either route: the search types it and opens only the row of
         that exact handle. A text that is no handle is refused before any gesture.
 
+        Why a False: `last_profile_navigation_failure` (route and reason). Its `account_not_found`
+        holds only when the answered search lists no row of the handle and, when the deep link was
+        tried, that link showed no profile either; a search still loading is `search_slow`.
+
         Args:
             username: The username to navigate to
             deep_link_usage_percentage: Percentage chance to try the deep link FIRST (0-100).
@@ -112,9 +151,12 @@ class SearchNavigationMixin(BaseAction):
         Returns:
             True when the profile is opened and no page left open covers it, False otherwise
         """
+        self.last_profile_navigation_failure = None
         handle = instagram_handle(username)
         if handle is None:
             self.logger.error(f"Not an Instagram handle ({len(username or '')} chars): no profile opened")
+            self.last_profile_navigation_failure = ProfileNavigationFailure(
+                "handle", ProfileNavigationFailureReason.NOT_A_HANDLE)
             return False
         username = handle
         self.logger.info(f"🎯 Navigating to profile @{username}")
@@ -122,7 +164,7 @@ class SearchNavigationMixin(BaseAction):
         # Determine navigation method
         active_pkg = get_active_package()
         is_clone = active_pkg != "com.instagram.android"
-        
+
         if force_search or is_clone:
             use_deep_link = False
             if is_clone:
@@ -131,37 +173,53 @@ class SearchNavigationMixin(BaseAction):
                 self.logger.debug("Forced to use search navigation")
         else:
             use_deep_link = random.randint(1, 100) <= deep_link_usage_percentage
-        
-        if use_deep_link:
-            self.logger.debug("Using deep link")
-            success = self._navigate_via_deep_link(username)
-        else:
-            self.logger.debug("Using search")
-            success = self._navigate_via_search(username)
-        
-        # Once the profile is opened, the problematic pages are checked (no extra sleep:
-        # deep_link/search already have delays). A page left open covers the profile: the
-        # navigation answers False, and no other route is tried over it.
-        if success:
-            return self._check_and_close_problematic_pages()
-        
-        # Fallback: try the other method
+
+        routes = {
+            "search": lambda: self._navigate_via_search(username),
+            "deep_link": lambda: self._navigate_via_deep_link(username),
+        }
+        order = ["deep_link", "search"] if use_deep_link else ["search"]
         if not use_deep_link and not force_search and not is_clone:
-            self.logger.debug("Fallback attempt with deep link")
-            if self._navigate_via_deep_link(username):
-                return self._check_and_close_problematic_pages()
-        elif use_deep_link:
-            self.logger.debug("Fallback attempt with search")
-            if self._navigate_via_search(username):
-                return self._check_and_close_problematic_pages()
-        
-        self.logger.warning(f"Navigation failed to @{username}, but continuing")
+            order.append("deep_link")
+
+        failures = {}
+        for route in order:
+            if route != order[0]:
+                self.logger.debug(f"Fallback attempt with {route.replace('_', ' ')}")
+            failure = self._walk_route(route, routes[route])
+            if failure is None:
+                # Once the profile is opened, the problematic pages are checked (no extra sleep:
+                # deep_link/search already have delays). A page left open covers the profile:
+                # the navigation answers False, and no other route is tried over it.
+                if self._check_and_close_problematic_pages():
+                    return True
+                self.last_profile_navigation_failure = ProfileNavigationFailure(
+                    route, ProfileNavigationFailureReason.PAGE_LEFT_OPEN)
+                return False
+            failures[route] = failure
+
+        self.last_profile_navigation_failure = settle_profile_navigation_failure(
+            failures.get("search"), failures.get("deep_link"))
+        self.logger.warning(f"Navigation failed to @{username} "
+                            f"({self.last_profile_navigation_failure.reason.value}), but continuing")
         return False
+
+    def _wait_for_search_results(self, username: str) -> SearchResultsState:
+        """Read the results of `username` until they are answered (listed or not), for as long as
+        `SEARCH_RESULTS_TIMEOUT_S`: the state of the last photo read."""
+        last = [SearchResultsState.UNRECOGNIZED]
+
+        def answered(photo) -> bool:
+            last[0] = read_search_results(photo, username)
+            return last[0] in (SearchResultsState.LISTED, SearchResultsState.NOT_LISTED)
+
+        self.device.wait_for_snapshot(answered, timeout=SEARCH_RESULTS_TIMEOUT_S, poll_ms=SEARCH_RESULTS_POLL_MS)
+        return last[0]
 
     def _navigate_via_search(self, username: str) -> bool:
         """
         Navigate to a profile using the search feature with human-like typing.
-        
+
         Flow:
         1. Click on search tab (bottom bar)
         2. Click on search bar to activate it
@@ -169,14 +227,14 @@ class SearchNavigationMixin(BaseAction):
         4. Wait for results and click on the matching profile
         """
         self.logger.info(f"🔍 Navigating to @{username} via search")
-        
+
         # Step 1: Navigate to search tab
         if not self.navigate_to_search():
             self.logger.error("Cannot access search screen")
-            return False
-        
+            return self._route_failed(ProfileNavigationFailureReason.SEARCH_UNREACHABLE)
+
         self._human_like_delay('navigation')
-        
+
         # Step 2: Click on search bar to activate it
         # On the explore page, we need to click on the search bar at the top
         search_bar_selectors = NAVIGATION_SELECTORS.explore_search_bar
@@ -185,10 +243,10 @@ class SearchNavigationMixin(BaseAction):
         self._ensure_taktik_keyboard()
         if not self._find_and_click(search_bar_selectors, timeout=5):
             self.logger.error("Cannot find/click search bar")
-            return False
-        
+            return self._route_failed(ProfileNavigationFailureReason.SEARCH_UNREACHABLE)
+
         self._human_like_delay('click')
-        
+
         # Wait for keyboard to appear and search field to be active
         time.sleep(0.5)
 
@@ -204,24 +262,32 @@ class SearchNavigationMixin(BaseAction):
         # Cheap and unconditional: clearing an already-empty field costs one broadcast, and makes
         # the search independent of whatever the previous one left behind.
         self._clear_text_with_taktik_keyboard()
-        
+
         # Step 3: Type the username; the field must then hold exactly it (read back, retyped once).
         if not self._type_text_checked(username):
             self.logger.error("The search field does not hold the username")
-            return False
-        
-        # Wait for search results to load
+            return self._route_failed(ProfileNavigationFailureReason.QUERY_NOT_TYPED)
+
         self._human_like_delay('typing')
-        time.sleep(1.5)  # Extra time for Instagram to fetch results
-        
+
         search_result_selectors = NAVIGATION_SELECTORS.search_result_selectors_for_username(username)
         keyword_row_selectors = NAVIGATION_SELECTORS.search_keyword_row_selectors_for_username(username)
         keep_out = NAVIGATION_SELECTORS.search_result_tap_keep_out
 
-        # Wait for results to appear
-        if not self._wait_for_element(search_result_selectors + keyword_row_selectors, timeout=5):
-            self.logger.warning(f"Could not find @{username} in search results")
-            return False
+        # Step 4: the results, read until Instagram has answered. Never "not listed" from a list
+        # still loading: that is a slow search, and the account may well exist.
+        state = self._wait_for_search_results(username)
+        if state is SearchResultsState.NOT_LISTED:
+            self.logger.warning(f"Could not find @{username} in search results (the search answered)")
+            return self._route_failed(ProfileNavigationFailureReason.NOT_LISTED)
+        if state is SearchResultsState.LOADING:
+            self.logger.warning(f"Search results for @{username} still loading after "
+                                f"{SEARCH_RESULTS_TIMEOUT_S:.0f}s: slow search, nothing known of the account")
+            return self._route_failed(ProfileNavigationFailureReason.SEARCH_SLOW)
+        if state is SearchResultsState.UNRECOGNIZED:
+            self.logger.warning(f"No search results of @{username} recognized on screen after "
+                                f"{SEARCH_RESULTS_TIMEOUT_S:.0f}s")
+            return self._route_failed(ProfileNavigationFailureReason.RESULTS_UNRECOGNIZED)
 
         # Instagram 447 can list the account only in a keyword row ("nasa • 104 M followers"). That
         # row opens the results of its keyword, not the profile: the account is then taken there,
@@ -230,20 +296,35 @@ class SearchNavigationMixin(BaseAction):
             self.logger.debug(f"🔍 @{username} listed in a keyword row: opening that keyword's results")
             if not self._find_and_click(keyword_row_selectors, timeout=3, keep_out=keep_out):
                 self.logger.warning(f"Found but could not click on the keyword row of @{username}")
-                return False
+                return self._route_failed(ProfileNavigationFailureReason.ROW_NOT_TAPPED)
             self._human_like_delay('navigation')
             if not self._wait_for_element(search_result_selectors, timeout=5):
                 self.logger.warning(f"The keyword results list no account row of @{username}")
-                return False
+                return self._route_failed(ProfileNavigationFailureReason.RESULTS_UNRECOGNIZED)
 
         self.logger.debug(f"🔍 Found search result for @{username}, clicking...")
         if not self._find_and_click(search_result_selectors, timeout=3, keep_out=keep_out):
             self.logger.warning(f"Found but could not click on @{username}")
-            return False
+            return self._route_failed(ProfileNavigationFailureReason.ROW_NOT_TAPPED)
         self.logger.debug(f"✅ Clicked on search result for @{username}")
         self._human_like_delay('navigation')
         time.sleep(2.0)  # Extra wait for profile screen to fully load
-        return self._verify_profile_navigation(username)
+        if self._verify_profile_navigation(username, tapped_in_results=True):
+            return True
+        if self._route_failure_reason is not ProfileNavigationFailureReason.TAP_NO_EFFECT:
+            return False
+
+        # The tap opened nothing (Pixel 6a, Instagram 447, 2026-11-20: a tap near the right end of
+        # the row, the list still there 35 s later; the cause is not established). Once more, on
+        # the username of the row.
+        self.logger.info(f"🔁 Tapping the row of @{username} again, on its username")
+        if not self._find_and_click(NAVIGATION_SELECTORS.search_result_username_selector_for_username(username),
+                                    timeout=3, keep_out=keep_out):
+            self.logger.warning(f"The row of @{username} is gone: not tapped again")
+            return False
+        self._human_like_delay('navigation')
+        time.sleep(2.0)
+        return self._verify_profile_navigation(username, tapped_in_results=True)
 
     def navigate_to_hashtag(self, hashtag: str) -> bool:
         try:
@@ -302,35 +383,47 @@ class SearchNavigationMixin(BaseAction):
 
     # === Profile verification ===
 
-    def _verify_profile_navigation(self, expected_username: str) -> bool:
+    def _verify_profile_navigation(self, expected_username: str, tapped_in_results: bool = False) -> bool:
         """True only when the profile on screen shows the handle asked for.
 
         The handle is read on screen photos by the production profile reader, for as long as a
         profile takes to load. A profile that shows no handle in that time (a blank page, the
         header container and nothing in it, as a phone without network shows it) is not verified,
         and the log says so: it used to count as the profile asked for.
+
+        `tapped_in_results`: the profile was to open from a tap on its row of the search results.
+        When the screen read last is still that list, nothing opened, and that is what is said
+        (`TAP_NO_EFFECT`), not a profile without a handle.
         """
         from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
 
         reader = DetectionActions(self.device)
         expected = instagram_handle(expected_username)
         last_read = []
+        still_results = [False]
 
         def shows_expected(photo) -> bool:
             last_read.append(instagram_handle(reader.handle_on_photo(photo)))
-            return last_read[-1] == expected
+            if last_read[-1] == expected:
+                return True
+            still_results[0] = tapped_in_results and read_search_results(photo, expected) is SearchResultsState.LISTED
+            return False
 
         if self.device.wait_for_snapshot(shows_expected, timeout=PROFILE_LOAD_TIMEOUT_S,
                                          poll_ms=PROFILE_LOAD_POLL_MS) is not None:
             self.logger.debug(f"✅ Profile @{expected} open")
             return True
+        if still_results[0]:
+            self.logger.warning(f"⚠️ The tap on the row of @{expected} opened nothing: the screen is still "
+                                f"the search results after {PROFILE_LOAD_TIMEOUT_S:.0f}s")
+            return self._route_failed(ProfileNavigationFailureReason.TAP_NO_EFFECT)
         shown = next((handle for handle in reversed(last_read) if handle), None)
         if shown is None:
             self.logger.warning(f"⚠️ No handle shown on the profile opened for @{expected} after "
                                 f"{PROFILE_LOAD_TIMEOUT_S:.0f}s (still loading, or not a profile): not verified")
-        else:
-            self.logger.warning(f"⚠️ The profile opened shows @{shown}, not @{expected}: not verified")
-        return False
+            return self._route_failed(ProfileNavigationFailureReason.PROFILE_WITHOUT_HANDLE)
+        self.logger.warning(f"⚠️ The profile opened shows @{shown}, not @{expected}: not verified")
+        return self._route_failed(ProfileNavigationFailureReason.OTHER_PROFILE)
 
     # === Content navigation (lists, posts, stories) ===
 
