@@ -118,6 +118,7 @@
      }
     ],
     "total": 3,
+    "partial": false,
     "account_username": "alpha_bot"
    }
   ],
@@ -255,6 +256,7 @@
      }
     ],
     "total": 3,
+    "partial": false,
     "account_username": "alpha_bot"
    }
   ],
@@ -329,6 +331,7 @@
      }
     ],
     "total": 1,
+    "partial": false,
     "account_username": "alpha_bot"
    }
   ],
@@ -454,6 +457,7 @@
      }
     ],
     "total": 3,
+    "partial": false,
     "account_username": "alpha_bot"
    }
   ],
@@ -647,6 +651,7 @@
      }
     ],
     "total": 3,
+    "partial": false,
     "is_requests": true,
     "account_username": "alpha_bot"
    }
