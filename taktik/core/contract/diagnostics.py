@@ -15,7 +15,7 @@ reach its stdout too; the bench reads only the ones declared here.
 from __future__ import annotations
 
 from .schema import Event, Field, ListOf, MapOf, OneOf, Shape, ToolContract
-from .shared import ERROR_EVENT, LOG_EVENT, STATUS_EVENT, STEP_METRIC_EVENT
+from .shared import ERROR_EVENT, LOG_EVENT, PROFILES_VISITED, STATUS_EVENT, STEP_METRIC_EVENT
 
 # ------------------------------------------------------------------------------ workflow bench
 
@@ -84,7 +84,7 @@ _XPATH_STAT = Shape(name="WorkflowTestXPathStat", doc="One selector over the run
 ))
 
 _BENCH_RESULTS = (
-    ("profiles_visited", "Profiles visited."),
+    ("profiles_visited", PROFILES_VISITED),
     ("profiles_interacted", "Profiles interacted with."),
     ("likes", "Likes."),
     ("follows", "Follows."),
@@ -101,7 +101,7 @@ BENCH_STATS_EVENT = Event("instagram_stats", doc="The run's summary, after each 
         Field("duration", "string", "Time spent, `HH:MM:SS`."),
         Field("duration_seconds", "number", "The same, in seconds."),
         *(Field(key, "int", doc) for key, doc in (
-            ("profiles_visited", "Profiles visited."),
+            ("profiles_visited", PROFILES_VISITED),
             ("profiles_interacted", "Profiles interacted with."),
             ("profiles_filtered", "Profiles refused by a filter."),
             ("skipped", "Profiles skipped."),

@@ -9,6 +9,10 @@ from typing import Any, Optional
 from .schema import HOST, OPERATOR, AiRequest, Event, Field, MapOf, OneOf, Shape
 from .stop_reasons import TIKTOK_COMPLETION_REASON
 
+#: `BaseStatsManager.profiles_visited`, said once for every line that carries it (the automation's
+#: counters, the bench's): a profile that passed the filters counts, acted on or not.
+PROFILES_VISITED = "Profiles that passed the filters, acted on or not."
+
 #: `enforce_pre_session_ip_rotation` (`bridges/common/network.py`), before the session.
 NETWORK_RESET = Shape(
     name="BridgeNetworkReset",

@@ -20,6 +20,7 @@ from __future__ import annotations
 from .schema import HOST, NO_DEFAULT, Bounds, Computed, Event, Field, ListOf, MapOf, OneOf, Shape, WorkflowContract
 from .shared import (
     AI_REQUEST_BLOCK,
+    PROFILES_VISITED,
     ai_credential_fields,
     AI_EVENTS,
     ERROR_EVENT,
@@ -407,7 +408,7 @@ RUN_STATS = Shape(
     name="InstagramAutomationRunStats",
     doc="`BaseStatsManager`'s counters, after each change.",
     fields=tuple(Field(key, "int", doc) for key, doc in (
-        ("profiles_visited", "Profiles opened."),
+        ("profiles_visited", PROFILES_VISITED),
         ("profiles_interacted", "Profiles acted on."),
         ("profiles_filtered", "Profiles refused by a filter."),
         ("private_profiles", "Private profiles met."),
