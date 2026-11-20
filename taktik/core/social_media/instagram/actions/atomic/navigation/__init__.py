@@ -34,7 +34,8 @@ class NavigationActions(
         self.detection_selectors = DETECTION_SELECTORS
         self.selectors = NAVIGATION_SELECTORS
         self.profile_selectors = PROFILE_SELECTORS
-        self.problematic_page_detector = ProblematicPageDetector(device, debug_mode=False)
+        # Its own facade, not the object it was handed: one photo cache, one way to tap.
+        self.problematic_page_detector = ProblematicPageDetector(self.device, debug_mode=False)
 
 
 __all__ = ['NavigationActions']

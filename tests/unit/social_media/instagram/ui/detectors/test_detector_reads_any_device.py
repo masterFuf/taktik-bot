@@ -218,3 +218,12 @@ def test_the_watchdog_says_an_unread_screen_and_sees_the_check_through_a_device_
     assert WorkflowWatchdog(_manager(phone))._block_on_screen() is True
     assert (run_halt.arret_demande() or {}).get("code") == "account_challenge"
     assert phone.gestures == []
+
+
+@pytest.mark.parametrize("form", FORMS.values(), ids=FORMS.keys())
+def test_the_navigation_and_its_detector_share_one_facade(form):
+    # One facade per navigation: the detector read and tapped through a second one it built around
+    # the object the navigation was handed, with its own photo cache.
+    navigation = NavigationActions(form(_Phone(CHALLENGE)))
+
+    assert navigation.problematic_page_detector.device is navigation.device
