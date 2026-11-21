@@ -8,39 +8,11 @@ Used by both ScrapingWorkflow (enrichment) and ProfileDataMixin (followers).
 
 from typing import Dict, Any, Optional
 
-from loguru import logger
-
 from taktik.core.shared.text import handle_from_screen_text
 
-from taktik.core.social_media.tiktok.actions.base.utils import parse_count, first_matching, first_text
+from taktik.core.social_media.tiktok.actions.base.utils import first_matching, first_text
+from taktik.core.social_media.tiktok.services.profile.profile_actions import read_profile_stats
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
-from taktik.core.social_media.tiktok.ui.labels import classify_profile_stat_label
-
-
-def read_profile_stats(raw_device) -> Dict[str, int]:
-    """The three counts of the open profile, as `followers_count` / `following_count` / `likes_count`.
-
-    Each value (`qfw`) is paired with the label under it (`qfv`) by position, and the label says
-    which count it is (`classify_profile_stat_label`, localized: a French screen writes "Suivis"
-    and "Followers"). A count the screen does not show is absent from the result, never 0.
-    """
-    stats: Dict[str, int] = {}
-    stat_counts = first_matching(raw_device, PROFILE_SELECTORS.stat_value)
-    stat_labels = first_matching(raw_device, PROFILE_SELECTORS.stat_label)
-    for value, label in zip(stat_counts, stat_labels):
-        try:
-            count_text = value.text or ''
-            label_text = label.text or ''
-        except Exception as exc:
-            logger.warning(f"A profile stat could not be read: {exc}")
-            continue
-        # Same classification as `profile_actions` — shared, and localized: comparing against
-        # English words made every count zero on a French phone, with no error to show for it.
-        stat = classify_profile_stat_label(label_text)
-        # An empty value is a count not read: absent, never 0.
-        if stat in ('following', 'followers', 'likes') and count_text.strip():
-            stats[f'{stat}_count'] = parse_count(count_text)
-    return stats
 
 
 def extract_profile_from_screen(raw_device, username: str = '') -> Optional[Dict[str, Any]]:

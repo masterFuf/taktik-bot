@@ -55,14 +55,18 @@ def _conforms(event, printed):
 # ------------------------------------------------------------------------ session start
 
 
-def test_bot_profile_is_what_the_session_start_prints(monkeypatch, lines):
+@pytest.mark.parametrize("counters", [
+    {"following_count": 3, "followers_count": 12, "likes_count": 40},
+    # A counter the screen did not show travels as null, never 0.
+    {"following_count": None, "followers_count": None, "likes_count": None},
+], ids=["read", "not_read"])
+def test_bot_profile_is_what_the_session_start_prints(monkeypatch, lines, counters):
     import taktik.core.social_media.tiktok.services.profile.profile_actions as profile_actions
     from bridges.tiktok.common.ipc import _ipc
     from taktik.core.social_media.tiktok.workflows.common import startup
 
-    own = profile_actions.TikTokProfileInfo(username="acting", display_name="Acting", following_count=3,
-                                            followers_count=12, likes_count=40, bio=None,
-                                            profile_pic_base64="data:image/jpeg;base64,AAAA")
+    own = profile_actions.TikTokProfileInfo(username="acting", display_name="Acting", bio=None,
+                                            profile_pic_base64="data:image/jpeg;base64,AAAA", **counters)
     monkeypatch.setattr(profile_actions.ProfileActions, "__init__", lambda self, device: None)
     monkeypatch.setattr(profile_actions.ProfileActions, "fetch_own_profile", lambda self: own)
     screen = SimpleNamespace(xpath=lambda selector: SimpleNamespace(exists=True))

@@ -21,9 +21,10 @@ BOT_PROFILE = Shape(
     fields=(
         Field("username", "string", "Its handle, without @."),
         Field("display_name", "string", "Its display name.", nullable=True),
-        Field("followers_count", "int", "Its followers."),
-        Field("following_count", "int", "The accounts it follows."),
-        Field("likes_count", "int", "Its likes."),
+        # A counter the screen did not show is null, never 0 (`read_profile_stats`).
+        Field("followers_count", "int", "Its followers; null when not read.", nullable=True),
+        Field("following_count", "int", "The accounts it follows; null when not read.", nullable=True),
+        Field("likes_count", "int", "Its likes; null when not read.", nullable=True),
         Field("bio", "string", "Its bio.", nullable=True),
         Field("profile_pic_base64", "string", "Its picture, a data URI.", nullable=True),
     ),

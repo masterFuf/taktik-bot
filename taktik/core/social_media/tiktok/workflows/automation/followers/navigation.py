@@ -7,9 +7,7 @@ when navigation fails.
 
 import time
 
-from taktik.core.social_media.tiktok.workflows.common.profile_extractor import (
-    read_profile_stats,
-)
+from taktik.core.social_media.tiktok.services.profile.profile_actions import read_profile_stats
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 

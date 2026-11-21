@@ -181,7 +181,9 @@ def read_own(a, p):
         return {"success": False, "message": "own profile unreadable"}
     details = info.to_dict()
     details["has_picture"] = bool(details.pop("profile_pic_base64", None))
-    return {"success": True, "message": f"@{info.username}: {info.followers_count} follower(s)",
+    # A counter the screen did not show is unknown (None), said as such.
+    followers = "unknown" if info.followers_count is None else info.followers_count
+    return {"success": True, "message": f"@{info.username}: {followers} follower(s)",
             "details": details}
 
 

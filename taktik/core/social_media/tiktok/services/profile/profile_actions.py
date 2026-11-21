@@ -4,24 +4,51 @@ Actions for interacting with TikTok profiles, including fetching own profile inf
 """
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Dict, Optional
 from loguru import logger
 
 from taktik.core.social_media.tiktok.actions.base.base_action import BaseAction
-from taktik.core.social_media.tiktok.actions.base.utils import parse_count
+from taktik.core.social_media.tiktok.actions.base.utils import first_matching, parse_count
 from taktik.core.social_media.tiktok.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from taktik.core.social_media.tiktok.ui.labels import classify_profile_stat_label
 
 
+def read_profile_stats(raw_device) -> Dict[str, int]:
+    """The three counts of the open profile, as `followers_count` / `following_count` / `likes_count`.
+
+    Each value (`qfw`) is paired with the label under it (`qfv`) by position, and the label says
+    which count it is (`classify_profile_stat_label`, localized: a French screen writes "Suivis"
+    and "Followers"). A count the screen does not show is absent from the result, never 0. Our own
+    profile and a visited one are read here, the same way.
+    """
+    stats: Dict[str, int] = {}
+    stat_counts = first_matching(raw_device, PROFILE_SELECTORS.stat_value)
+    stat_labels = first_matching(raw_device, PROFILE_SELECTORS.stat_label)
+    for value, label in zip(stat_counts, stat_labels):
+        try:
+            count_text = value.text or ''
+            label_text = label.text or ''
+        except Exception as exc:
+            logger.warning(f"A profile stat could not be read: {exc}")
+            continue
+        # Comparing against English words made every count zero on a French phone, with no error
+        # to show for it: the label is classified, localized.
+        stat = classify_profile_stat_label(label_text)
+        # An empty value is a count not read: absent, never 0.
+        if stat in ('following', 'followers', 'likes') and count_text.strip():
+            stats[f'{stat}_count'] = parse_count(count_text)
+    return stats
+
+
 @dataclass
 class TikTokProfileInfo:
-    """Information about a TikTok profile."""
+    """Information about a TikTok profile. A counter not read is None (unknown), never 0."""
     username: str  # @username without the @
     display_name: Optional[str] = None
-    following_count: int = 0
-    followers_count: int = 0
-    likes_count: int = 0
+    following_count: Optional[int] = None
+    followers_count: Optional[int] = None
+    likes_count: Optional[int] = None
     bio: Optional[str] = None
     #: `data:image/jpeg;base64,...` cropped off the profile page, or None. TikTok exposes no URL
     #: for it, so a picture only exists if a screenshot was taken while the profile was up.
@@ -105,9 +132,6 @@ class ProfileActions(BaseAction):
         
         username = None
         display_name = None
-        following_count = 0
-        followers_count = 0
-        likes_count = 0
         bio = None
         
         # The bio. It was declared and never read -- initialised to None at the top of this
@@ -142,53 +166,13 @@ class ProfileActions(BaseAction):
         except Exception as e:
             logger.debug(f"Failed to get display name: {e}")
         
-        # Get stats (Following, Followers, Likes) - use specific selectors based on UI dump
-        # The stats are in a row with value above label
-        try:
-            # Get all stat values (they share the same resource-id)
-            # Try each selector until we find results (handles musically vs trill package)
-            stat_values = []
-            for sel in PROFILE_SELECTORS.stat_value:
-                stat_values = self.device.xpath(sel).all()
-                if stat_values:
-                    break
+        # The three counts, read as a visited profile's are: one not on screen stays None.
+        stats = read_profile_stats(self.device)
+        following_count = stats.get('following_count')
+        followers_count = stats.get('followers_count')
+        likes_count = stats.get('likes_count')
+        logger.debug(f"Profile stats read: {stats}")
 
-            stat_labels = []
-            for sel in PROFILE_SELECTORS.stat_label:
-                stat_labels = self.device.xpath(sel).all()
-                if stat_labels:
-                    break
-
-            logger.debug(f"Found {len(stat_values)} stat values and {len(stat_labels)} stat labels")
-            
-            for i, label_elem in enumerate(stat_labels):
-                try:
-                    # XMLElement uses .text property, not .get_text() method
-                    label_text = label_elem.text or ''
-
-                    if i < len(stat_values):
-                        value_text = stat_values[i].text or '0'
-                        count = parse_count(value_text)
-
-                        # Which of the three stats is this? The row is paired by position
-                        # (language-neutral resource-ids), but the ANSWER is in the label —
-                        # and it used to be compared against English words, so a French
-                        # profile reported zero followers, following AND likes in silence.
-                        stat = classify_profile_stat_label(label_text)
-                        if stat == 'following':
-                            following_count = count
-                            logger.debug(f"Found following: {count}")
-                        elif stat == 'followers':
-                            followers_count = count
-                            logger.debug(f"Found followers: {count}")
-                        elif stat == 'likes':
-                            likes_count = count
-                            logger.debug(f"Found likes: {count}")
-                except Exception as e:
-                    logger.debug(f"Failed to parse stat {i}: {e}")
-        except Exception as e:
-            logger.debug(f"Failed to get stats: {e}")
-        
         # The picture, while the profile is still on screen -- it cannot be fetched later, because
         # TikTok gives no URL for it and the crop only exists where the pixels are.
         profile_pic_base64 = None
