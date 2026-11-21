@@ -1,6 +1,6 @@
 """The profile post grid has to be findable on both shipped versions.
 
-Measured 2026-08-29 on @zachking, a profile with thousands of videos:
+Measured 2026-08-29 on @demomagic, a profile with thousands of videos:
 
     43.1.4   e52 -> 9,  cover-ancestor -> 9
     46.6.3   e52 -> 0,  cover-ancestor -> 9

@@ -155,7 +155,7 @@ class _Workflow(ScrapingListMixin):
         self._ai_service = None
 
 
-PAGE = {"username": "agbaga_demo", "followers_count": 9, "following_count": 80, "posts_count": 1,
+PAGE = {"username": "rowan_demo", "followers_count": 9, "following_count": 80, "posts_count": 1,
         "full_name": "Demo", "biography": ""}
 
 
@@ -166,10 +166,10 @@ def test_a_page_of_another_account_is_not_recorded_under_the_row_name():
     assert data == {"username": "laura_demo"}
 
 
-@pytest.mark.parametrize("shown", ["agbaga_demo", "Agbaga_Demo", None])
+@pytest.mark.parametrize("shown", ["rowan_demo", "Rowan_Demo", None])
 def test_the_row_own_page_or_an_unread_name_is_kept(shown):
-    data = {"username": "agbaga_demo"}
+    data = {"username": "rowan_demo"}
     reason = _Workflow({**PAGE, "username": shown})._capture_profile_on_screen(
-        username="agbaga_demo", profile_data=data)
+        username="rowan_demo", profile_data=data)
     assert reason is None
     assert data["posts_count"] == 1 and data["followers_count"] == 9

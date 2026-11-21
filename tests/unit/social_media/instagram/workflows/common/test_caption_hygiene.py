@@ -12,11 +12,11 @@ from taktik.core.social_media.instagram.workflows.common.caption_hygiene import 
 
 def test_strips_author_handle_and_collapse_word():
     got = clean_post_caption(
-        "pajaro.errante.tango.eclectric Août 2025 @cocogardeltango (Lausanne)\n"
-        "Neolonga de Verano - Jean-Marc Vandel\n\nphotos ©Alexander Verkhovsky moins",
-        author_hint="pajaro.errante.tango.eclectric",
+        "demo.tango.club Août 2025 @demo_milonga (Lausanne)\n"
+        "Neolonga de Verano - Jean-Marc Dupont\n\nphotos ©Alex Martin moins",
+        author_hint="demo.tango.club",
     )
-    assert got.author_prefix == "pajaro.errante.tango.eclectric"
+    assert got.author_prefix == "demo.tango.club"
     assert got.text.startswith("Août 2025")
     assert not got.text.endswith("moins")
     assert not got.truncated
@@ -25,10 +25,10 @@ def test_strips_author_handle_and_collapse_word():
 def test_collab_caption_keeps_original_author_as_prefix():
     # Repost/collab: the caption starts with ANOTHER handle than the target profile.
     got = clean_post_caption(
-        "johan.peigneguy Voici la suite de mon film réalisé dans le cadre de la session… plus",
-        author_hint="marion_eyraud_joly",
+        "johan.demo Voici la suite de mon film réalisé dans le cadre de la session… plus",
+        author_hint="marion_demo",
     )
-    assert got.author_prefix == "johan.peigneguy"
+    assert got.author_prefix == "johan.demo"
     assert got.truncated  # the "… plus" marker means the expansion failed
     assert got.text.startswith("Voici la suite")
 
@@ -41,20 +41,20 @@ def test_prose_first_word_is_never_eaten():
 
 
 def test_dot_run_caption_has_no_substance():
-    got = clean_post_caption("_jimmy_gauthier ....", author_hint="_jimmy_gauthier")
+    got = clean_post_caption("_jimmy_demo ....", author_hint="_jimmy_demo")
     assert got.mangled
     assert not got.has_substance
 
 
 def test_short_real_caption_has_no_substance_either():
-    got = clean_post_caption("nxcxl_k Kala Nera", author_hint="nxcxl_k")
+    got = clean_post_caption("demox_k Kala Nera", author_hint="demox_k")
     assert not got.has_substance
 
 
 def test_real_caption_has_substance():
     got = clean_post_caption(
-        "ink.beauty.institut Portes ouvertes samedi, venez découvrir l'institut moins",
-        author_hint="ink.beauty.institut",
+        "demo.beauty.institut Portes ouvertes samedi, venez découvrir l'institut moins",
+        author_hint="demo.beauty.institut",
     )
     assert got.has_substance
     assert not got.mangled
@@ -66,19 +66,19 @@ def test_empty_and_none_are_safe():
 
 
 def test_hashtag_only_caption_has_no_substance():
-    # Real case (2026-08-21 run, @ornevy.creation): only the vision analysis of the image
+    # Real case (2026-08-21 run, @demovy.creation): only the vision analysis of the image
     # carried anything to react to — the caption itself says nothing.
     got = clean_post_caption(
-        "ornevy.creation #Ornevy #LivrePhoto #Souvenirs #EntrepreneuriatFéminin #MadeInFrance",
-        author_hint="ornevy.creation",
+        "demovy.creation #Demovy #LivrePhoto #Souvenirs #EntrepreneuriatFéminin #MadeInFrance",
+        author_hint="demovy.creation",
     )
     assert not got.has_substance
 
 
 def test_prose_with_hashtags_still_has_substance():
     got = clean_post_caption(
-        "ornevy.creation Vos plus beaux souvenirs mis en lumière #Ornevy #MadeInFrance",
-        author_hint="ornevy.creation",
+        "demovy.creation Vos plus beaux souvenirs mis en lumière #Demovy #MadeInFrance",
+        author_hint="demovy.creation",
     )
     assert got.has_substance
 

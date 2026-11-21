@@ -24,17 +24,17 @@ from taktik.core.social_media.instagram.workflows.tasks.story_relay import (
 
 def test_the_same_story_read_twice_yields_the_same_signature():
     """Two passes twenty minutes apart see one story: the header has not moved."""
-    assert _signature("cindy.dermo", "5 h", 0) == _signature("cindy.dermo", "5 h", 0)
+    assert _signature("demo.perso", "5 h", 0) == _signature("demo.perso", "5 h", 0)
 
 
 def test_a_later_story_from_the_same_author_is_a_new_signature():
-    assert _signature("cindy.dermo", "5 h", 0) != _signature("cindy.dermo", "2 h", 0)
+    assert _signature("demo.perso", "5 h", 0) != _signature("demo.perso", "2 h", 0)
 
 
 def test_slides_posted_in_the_same_hour_stay_distinct():
     """Three slides posted in one sitting share author AND label. Without the slide index the
     relay would treat slides two and three as already handled and never re-share them."""
-    signatures = {_signature("cindy.dermo", "1 h", rank) for rank in (1, 2, 3)}
+    signatures = {_signature("demo.perso", "1 h", rank) for rank in (1, 2, 3)}
     assert len(signatures) == 3
 
 
@@ -75,7 +75,7 @@ class _Relay:
         return True
 
 
-def _identity(author="cindy.dermo", timestamp="5 h", *, is_ad=False, position=1, total=1):
+def _identity(author="demo.perso", timestamp="5 h", *, is_ad=False, position=1, total=1):
     return {
         "is_open": True,
         "is_ad": is_ad,
@@ -116,7 +116,7 @@ def test_a_refused_reshare_is_reported_as_unavailable_not_as_a_failure(wired):
         [_identity()],
         [{"status": "unavailable", "reason": "add_to_story_not_offered"}],
     ))
-    report = relay_source_stories(device=object(), source_username="cindy.dermo")
+    report = relay_source_stories(device=object(), source_username="demo.perso")
 
     assert report["unavailable"] == 1
     assert report["failed"] == 0
@@ -126,11 +126,11 @@ def test_a_refused_reshare_is_reported_as_unavailable_not_as_a_failure(wired):
 def test_a_story_already_in_the_journal_is_never_pushed_again(wired):
     """The failure everyone sees: the same story re-shared on every tick."""
     relay = wired(_Relay([_identity()], [{"status": "relayed", "reason": None}]))
-    first = relay_source_stories(device=object(), source_username="cindy.dermo")
+    first = relay_source_stories(device=object(), source_username="demo.perso")
     assert first["relayed"] == 1
 
     relay2 = wired(_Relay([_identity()], []))
-    second = relay_source_stories(device=object(), source_username="cindy.dermo")
+    second = relay_source_stories(device=object(), source_username="demo.perso")
     assert second["already_handled"] == 1
     assert relay2.pushes == 0
 
@@ -142,7 +142,7 @@ def test_a_sponsored_story_is_skipped_without_being_touched(wired):
         [_identity(is_ad=True, position=1, total=2), _identity(position=2, total=2)],
         [{"status": "relayed", "reason": None}],
     ))
-    report = relay_source_stories(device=object(), source_username="cindy.dermo")
+    report = relay_source_stories(device=object(), source_username="demo.perso")
 
     assert report["skipped_ads"] == 1
     assert relay.pushes == 1
@@ -184,7 +184,7 @@ def test_the_viewer_is_left_even_when_the_pass_blows_up(monkeypatch):
     relay.open_source_story = _explode
     monkeypatch.setattr(story_relay, "StoryRelayBusiness", lambda *a, **k: relay)
 
-    report = relay_source_stories(device=object(), source_username="cindy.dermo")
+    report = relay_source_stories(device=object(), source_username="demo.perso")
 
     assert report["success"] is False
     assert "device went away" in report["reason"]

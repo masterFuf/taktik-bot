@@ -1,15 +1,15 @@
 """Lire une ligne de la page Activité de TikTok.
 
 Chaque chaîne ci-dessous a été relevée sur un vrai écran le 2026-08-30, 35 lignes en français et
-les 35 mêmes en anglais. Elles sont gardées telles quelles, marques invisibles comprises, parce
-que c'est exactement ce qui rend la lecture difficile :
+les 35 mêmes en anglais. Elles sont gardées telles quelles, marques invisibles comprises (seuls les
+noms y sont inventés), parce que c'est exactement ce qui rend la lecture difficile :
 
 - chaque nom est enveloppé dans des **isolats bidi** `\\u2068…\\u2069` — un cadeau plutôt qu'une
   gêne, puisqu'ils disent où un nom commence et finit là où aucune découpe sur les virgules ne le
   dirait (les noms contiennent des virgules, des « et », et des emoji) ;
 - la **date est espacée lettre par lettre** par des liants `\\u2060` : `1⁠5⁠ ⁠j⁠u⁠i⁠n` s'affiche
   « 15 juin ». Lue brute, chaque date est une chaîne différente ;
-- les emoji sont mangés par le dump, donc `tristan.cld34..` est un nom et non une donnée abîmée.
+- les emoji sont mangés par le dump, donc `tristan.demo34..` est un nom et non une donnée abîmée.
 
 Le corpus a servi deux fois : il a révélé un type que je n'avais pas vu (`a aimé 12 publications`,
 rapporté en `unknown` plutôt que rangé sous le premier verbe à moitié ressemblant), et il a
@@ -23,16 +23,16 @@ from taktik.core.social_media.tiktok.services.notifications.activity import pars
 
 
 # Les lignes réelles, français puis anglais, une par type mesuré.
-LIKE_VIDEO_FR = "‎⁨nicolas_vln⁩ ‎a aimé ta vidéo. ‎‭1⁠1⁠ ⁠j⁠u⁠i⁠n⁠‭"
-LIKE_VIDEO_EN = "‎⁨nicolas_vln⁩ ‎liked your video. ‎‭1⁠1⁠ ⁠J⁠u⁠n⁠‭"
-MANY_FR = "‎⁨BR Rénovation⁩, ⁨#Remaxx#⁩ et 45 autres ‎a aimé ta vidéo. ‎‭2⁠0⁠ ⁠j⁠u⁠i⁠n⁠‭"
-MANY_EN = "‎⁨BR Rénovation⁩, ⁨#Remaxx#⁩ and 45 others ‎liked your video. ‎‭2⁠0⁠ ⁠J⁠u⁠n⁠‭"
-SAVE_FR = "‎⁨alanrchn29⁩ ‎a enregistré ta vidéo. ‎‭1⁠3⁠ ⁠j⁠u⁠i⁠n⁠‭"
-LIKE_COMMENT_FR = "‎⁨Carl Turriff⁩ ‎a aimé ton commentaire. ‎‭1⁠ ⁠j⁠u⁠i⁠l⁠.⁠‭"
-PROFILE_VIEW_FR = "‎⁨CarsiBerlinFF⁩, ⁨Dave ....⁩ et ⁨stff19⁩ ‎ont vu ton profil. ‎‭1⁠4⁠ ⁠a⁠o⁠û⁠t⁠‭"
-REPOST_FR = "‎⁨JHuiles⁩ ‎a republié ta vidéo. ‎‭1⁠9⁠ ⁠j⁠u⁠i⁠l⁠.⁠‭"
+LIKE_VIDEO_FR = "‎⁨nicolas_demo⁩ ‎a aimé ta vidéo. ‎‭1⁠1⁠ ⁠j⁠u⁠i⁠n⁠‭"
+LIKE_VIDEO_EN = "‎⁨nicolas_demo⁩ ‎liked your video. ‎‭1⁠1⁠ ⁠J⁠u⁠n⁠‭"
+MANY_FR = "‎⁨Demo Rénovation⁩, ⁨#Demoo#⁩ et 45 autres ‎a aimé ta vidéo. ‎‭2⁠0⁠ ⁠j⁠u⁠i⁠n⁠‭"
+MANY_EN = "‎⁨Demo Rénovation⁩, ⁨#Demoo#⁩ and 45 others ‎liked your video. ‎‭2⁠0⁠ ⁠J⁠u⁠n⁠‭"
+SAVE_FR = "‎⁨demoalan29⁩ ‎a enregistré ta vidéo. ‎‭1⁠3⁠ ⁠j⁠u⁠i⁠n⁠‭"
+LIKE_COMMENT_FR = "‎⁨Carl Demo⁩ ‎a aimé ton commentaire. ‎‭1⁠ ⁠j⁠u⁠i⁠l⁠.⁠‭"
+PROFILE_VIEW_FR = "‎⁨DemoBerlinFF⁩, ⁨Dave ....⁩ et ⁨demo19⁩ ‎ont vu ton profil. ‎‭1⁠4⁠ ⁠a⁠o⁠û⁠t⁠‭"
+REPOST_FR = "‎⁨JDemo⁩ ‎a republié ta vidéo. ‎‭1⁠9⁠ ⁠j⁠u⁠i⁠l⁠.⁠‭"
 APPROVED_FR = "‎⁨vic............⁩ ‎a approuvé ta demande d'abonnement. ‎‭2⁠0⁠ ⁠h⁠‭"
-COMMENT_FR = "‎⁨NOXX⁩ ‎a commenté : Pas du tout, je sais pas d'où sont sortis ces arguments."
+COMMENT_FR = "‎⁨DEMO⁩ ‎a commenté : Pas du tout, je sais pas d'où sont sortis ces arguments."
 LIKED_POSTS_FR = "‎⁨bluey fans⁩ ‎a aimé 12 publications. ‎‭1⁠1⁠ ⁠j⁠u⁠i⁠n⁠‭"
 LIKED_POSTS_EN = "‎⁨bluey fans⁩ ‎liked 12 posts. ‎‭1⁠1⁠ ⁠J⁠u⁠n⁠‭"
 
@@ -78,7 +78,7 @@ def test_an_unrecognised_row_says_so_instead_of_guessing():
 def test_the_isolates_delimit_the_names():
     row = parse_activity_row(MANY_FR)
 
-    assert row.usernames == ["BR Rénovation", "#Remaxx#"]
+    assert row.usernames == ["Demo Rénovation", "#Demoo#"]
     assert row.others_count == 45
     assert row.actor_count == 47
 
@@ -90,7 +90,7 @@ def test_the_count_of_others_is_read_in_both_languages():
 def test_three_named_people_are_all_kept():
     row = parse_activity_row(PROFILE_VIEW_FR)
 
-    assert row.usernames == ["CarsiBerlinFF", "Dave ....", "stff19"]
+    assert row.usernames == ["DemoBerlinFF", "Dave ....", "demo19"]
     assert row.others_count == 0
 
 
@@ -148,7 +148,7 @@ def test_a_profile_view_is_a_signal_and_not_an_invitation():
 
 
 def test_the_row_cleans_up_to_what_a_human_reads():
-    assert clean_shown_text(LIKE_VIDEO_FR) == "nicolas_vln a aimé ta vidéo. 11 juin"
+    assert clean_shown_text(LIKE_VIDEO_FR) == "nicolas_demo a aimé ta vidéo. 11 juin"
 
 
 def test_an_empty_row_is_not_a_crash():

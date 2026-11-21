@@ -46,7 +46,7 @@ def _base() -> sqlite3.Connection:
         )
         """
     )
-    con.execute("INSERT INTO instagram_accounts (account_id, username, niche) VALUES (7, 'taktik_c3po', 'growth')")
+    con.execute("INSERT INTO instagram_accounts (account_id, username, niche) VALUES (7, 'demo_c3po', 'growth')")
     con.execute("INSERT INTO tiktok_accounts (account_id, username) VALUES (3, 'tt_bot')")
     con.execute("INSERT INTO account_profiles (account_id, bio) VALUES (7, 'Business bio here')")
     con.commit()
@@ -61,7 +61,7 @@ def test_backfill_both_platforms_and_bio():
         "SELECT username, niche, bio FROM accounts WHERE platform='instagram' AND legacy_account_id=7"
     ).fetchone()
     assert ig is not None
-    assert ig["username"] == "taktik_c3po"
+    assert ig["username"] == "demo_c3po"
     assert ig["niche"] == "growth"
     assert ig["bio"] == "Business bio here"   # account_profiles.bio preserved
 

@@ -14,7 +14,7 @@ from taktik.core.shared.text import text_is_truncated_utf16, text_lost_emoji
 
 class TestTruncatedUtf16:
     def test_accent_eaten_by_truncation(self):
-        # "Cadeaux Personnalisés" as stored for @by_salma_ypmt.
+        # "Cadeaux Personnalisés" as stored for @by_demo_ypmt.
         assert text_is_truncated_utf16('Cadeaux Personnalis�s') is True
 
     def test_emoji_low_byte_survives_as_punctuation(self):

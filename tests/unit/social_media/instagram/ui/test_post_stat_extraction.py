@@ -43,12 +43,12 @@ def _extractor(buttons):
 
 
 def test_username_digits_are_not_parsed_as_like_count():
-    assert _extractor(["titistar_2", "125"]).extract_likes_count_from_ui(
+    assert _extractor(["demostar_2", "125"]).extract_likes_count_from_ui(
         is_reel=False
     ) == 125
 
 
 def test_username_digits_are_not_parsed_as_comment_count():
-    assert _extractor(["titistar_2", "125", "4"]).extract_comments_count_from_ui(
+    assert _extractor(["demostar_2", "125", "4"]).extract_comments_count_from_ui(
         is_reel=False
     ) == 4

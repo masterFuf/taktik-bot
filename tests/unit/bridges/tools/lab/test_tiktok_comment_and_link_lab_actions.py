@@ -74,7 +74,7 @@ class _Sheet:
 
     def read_commenter_handles(self, max_commenters=20, *, max_scrolls=8):
         _Sheet.calls.append(("read_commenter_handles", max_commenters, max_scrolls))
-        return [{"username": "laurie_b", "display_name": "Lau", "text": "hi"}]
+        return [{"username": "laurie_d", "display_name": "Lau", "text": "hi"}]
 
 
 @pytest.fixture
@@ -129,7 +129,7 @@ def test_the_commenters_are_read_by_their_handle_as_the_post_url_workflow_does(s
 
     assert sheet.calls == [("read_commenter_handles", 4, 1)]
     assert result["success"] is True
-    assert result["details"]["commenters"] == [{"username": "laurie_b", "displayName": "Lau"}]
+    assert result["details"]["commenters"] == [{"username": "laurie_d", "displayName": "Lau"}]
 
 
 def test_a_video_is_opened_by_its_link_through_the_production_opener(monkeypatch):

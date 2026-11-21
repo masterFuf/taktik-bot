@@ -803,7 +803,7 @@ def _finalised_code(runner):
 
 
 def test_the_end_of_a_source_is_not_a_completed_run():
-    """manon_nail_studio, 2026-08-25: stopped at 9 profiles of the 69 allowed, 14 min of
+    """demo_nail_studio, 2026-08-25: stopped at 9 profiles of the 69 allowed, 14 min of
     the 125 allowed, having seen 24 of the target's 218 followers. Filed `completed`.
 
     The list ending is a perfectly good reason to stop. Calling it `completed` is what makes
@@ -839,7 +839,7 @@ def test_an_empty_screen_is_not_the_end_of_the_list_on_its_own():
 
 
 def test_an_exhausted_scroll_allowance_says_so():
-    """calystabeaute (88% of the list, 57 profiles of 69) and mbeautestudio48 (36%, 21 of 69),
+    """demobeaute (88% of the list, 57 profiles of 69) and demostudio48 (36%, 21 of 69),
     both stopped on exactly 100 scrolls — the hard-coded `max_scroll_attempts`.
 
     linstantbeautebaraqueville is the same stop reached differently: 63 scrolls plus 37

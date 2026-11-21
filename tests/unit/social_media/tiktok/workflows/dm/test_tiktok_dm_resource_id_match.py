@@ -152,13 +152,13 @@ def test_get_new_followers_empty_when_no_usernames():
 
 def test_get_new_followers_cleans_bidi_and_matches_follow_back():
     # The device bug: the wrapped username made the exact match fail. The row is now addressed
-    # by its name node exactly as the dump holds it, marks included (U+200E U+2068 NK19 U+2069).
+    # by its name node exactly as the dump holds it, marks included (U+200E U+2068 QZ19 U+2069).
     device = _FakeDevice(
-        usernames=['‎⁨NK19⁩', '⁨Rafael⁩'],
+        usernames=['‎⁨QZ19⁩', '⁨Rafael⁩'],
         activities=['a commencé à te suivre', 'a commencé à te suivre'],
-        followable=['NK19', 'Rafael'],
+        followable=['QZ19', 'Rafael'],
     )
     dm = _make_actions(device)
     followers = dm.get_new_followers(max_items=50)
-    assert [f['username'] for f in followers] == ['NK19', 'Rafael']
+    assert [f['username'] for f in followers] == ['QZ19', 'Rafael']
     assert all(f['can_follow_back'] for f in followers)

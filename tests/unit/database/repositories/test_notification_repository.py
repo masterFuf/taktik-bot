@@ -59,12 +59,12 @@ def test_same_follow_across_rescans_dedups_despite_volatile_body(conn):
     # The device bug: the SAME follower produced 10 rows because the body carried the relative age,
     # the action label, and the app-language phrasing — all of which change between scans.
     repo = NotificationRepository(conn)
-    kw = dict(platform="instagram", account_id=1, actor_username="_spoiled_kid", ntype="new_follower")
-    assert repo.record(**kw, body="_spoiled_kid started following you. 4h Follow back",
+    kw = dict(platform="instagram", account_id=1, actor_username="_demo_kid", ntype="new_follower")
+    assert repo.record(**kw, body="_demo_kid started following you. 4h Follow back",
                        relative_time="4h") is True
-    assert repo.record(**kw, body="_spoiled_kid a commencé à vous suivre. 5 h Suivre en retour",
+    assert repo.record(**kw, body="_demo_kid a commencé à vous suivre. 5 h Suivre en retour",
                        relative_time="5 h") is False   # FR re-scan, older age -> same notification
-    assert repo.record(**kw, body="_spoiled_kid started following you. 1w Follow back",
+    assert repo.record(**kw, body="_demo_kid started following you. 1w Follow back",
                        relative_time="1w") is False    # a week later -> still the same follow
     assert len(conn.execute("SELECT * FROM notifications").fetchall()) == 1
 

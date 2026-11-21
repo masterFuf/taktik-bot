@@ -221,12 +221,12 @@ def test_notifications_carrying_their_own_follow_button_are_not_suggestions():
 def test_a_cell_is_read_as_a_subtree_not_by_proximity():
     xml = _real_screen(
         _header("Suggestions", 1498)
-        + _cell(1573, "koulou6649", "Suivre en retour", "1\u00a0ami(e) en commun")
+        + _cell(1573, "demo6649", "Suivre en retour", "1\u00a0ami(e) en commun")
         + _cell(1771, "Nina", "Suivre")
     )
     rows = _parse_real(xml)
     assert [(row["label"], row["state"]) for row in rows] == [
-        ("koulou6649", "follow_back"), ("Nina", "follow"),
+        ("demo6649", "follow_back"), ("Nina", "follow"),
     ]
     # A row with no social context invents nothing.
     assert rows[1]["social_context"] == ""

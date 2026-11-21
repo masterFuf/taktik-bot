@@ -33,12 +33,12 @@ def test_a_long_digit_run_alone_is_zeroed():
 
 def test_the_words_a_reviewed_fixture_keeps_are_learned():
     assert _value("Trié par Par défaut") == "Trié par Par défaut"
-    assert _value("Reel de karine.v. Appuyez deux fois pour lire ou mettre en pause.") == (
+    assert _value("Reel de demo.k. Appuyez deux fois pour lire ou mettre en pause.") == (
         "Reel de user_1. Appuyez deux fois pour lire ou mettre en pause.")
 
 
 def test_a_possessive_keeps_its_mark():
-    assert _value("karine.v's story, 1 of 3, Unseen.") == "user_1's story, 1 of 3, Unseen."
+    assert _value("demo.k's story, 1 of 3, Unseen.") == "user_1's story, 1 of 3, Unseen."
 
 
 def test_a_count_glued_to_its_label_stays():

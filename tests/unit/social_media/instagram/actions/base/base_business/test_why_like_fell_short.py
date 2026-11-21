@@ -1,6 +1,6 @@
 """Le motif affiche quand un like n'atteint pas son seuil doit etre le VRAI.
 
-Le message disait « (not enough posts) » quelle que soit la cause. Sur @silvia_gi_sen le 06/09 il
+Le message disait « (not enough posts) » quelle que soit la cause. Sur @demo_gi_sen le 06/09 il
 l'a dit d'un profil qui a **1004 publications** : la grille ne s'etait pas ouverte, parce qu'un tap
 d'avancement de story avait ouvert une publication par-dessus le profil. Un operateur qui lit ce
 journal conclut « ce compte n'a pas assez de contenu » et cherche au mauvais endroit.

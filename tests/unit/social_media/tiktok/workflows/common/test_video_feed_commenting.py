@@ -127,9 +127,9 @@ def test_a_config_that_never_heard_of_commenting_does_not_raise():
 def test_on_a_feed_the_addressee_is_the_video_author():
     feed = _Feed(comment_probability=1.0, max_comments_per_session=1)
 
-    feed._decide_and_execute_actions(_video(author="@charlidamelio"))
+    feed._decide_and_execute_actions(_video(author="@demodetoile"))
 
-    assert feed._comment_target_username() == "charlidamelio"
+    assert feed._comment_target_username() == "demodetoile"
 
 
 def test_the_followers_road_keeps_addressing_the_profile_it_walks():

@@ -54,12 +54,12 @@ def _actions(usernames, previews, timestamps):
 
 def test_get_message_requests_scrapes_fields():
     dm = _actions(
-        usernames=['‎⁨NK19⁩', 'wifil'],
+        usernames=['‎⁨QZ19⁩', 'demox'],
         previews=['Salut !', 'Coucou'],
         timestamps=['2 j', '5 j'],
     )
     reqs = dm.get_message_requests(max_items=30)
-    assert [r['username'] for r in reqs] == ['NK19', 'wifil']  # bidi nettoyé
+    assert [r['username'] for r in reqs] == ['QZ19', 'demox']  # bidi nettoyé
     assert reqs[0]['preview'] == 'Salut !'
     assert reqs[0]['timestamp'] == '2 j'
 

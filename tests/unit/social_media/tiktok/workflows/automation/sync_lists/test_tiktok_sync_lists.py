@@ -90,14 +90,14 @@ def test_a_run_reads_the_list_it_was_asked_for():
 
 def test_a_row_pairs_its_own_handle_and_button():
     screen = _Screen(
-        names=[_Node("Charli", 100), _Node("Zach", 300)],
-        handles=[_Node("charlidamelio", 160), _Node("zachking", 360)],
+        names=[_Node("Étoile", 100), _Node("Magic", 300)],
+        handles=[_Node("demodetoile", 160), _Node("demomagic", 360)],
         buttons=[_Node("Suivis", 110), _Node("Ami(e)s", 310)],
     )
     rows = _workflow(screen)._read_visible_rows()
     assert rows == [
-        {"display_name": "Charli", "username": "charlidamelio", "relationship": "Suivis"},
-        {"display_name": "Zach", "username": "zachking", "relationship": "Ami(e)s"},
+        {"display_name": "Étoile", "username": "demodetoile", "relationship": "Suivis"},
+        {"display_name": "Magic", "username": "demomagic", "relationship": "Ami(e)s"},
     ]
 
 
@@ -109,20 +109,20 @@ def test_a_missing_handle_does_not_shift_onto_the_next_row():
     the first, and every row after it would be wrong too — silently, with plausible data.
     """
     screen = _Screen(
-        names=[_Node("Diamanta97238", 100), _Node("Charli", 300)],
-        handles=[_Node("charlidamelio", 360)],           # belongs to the SECOND row
+        names=[_Node("Demofan97238", 100), _Node("Étoile", 300)],
+        handles=[_Node("demodetoile", 360)],           # belongs to the SECOND row
         buttons=[_Node("Suivis", 110), _Node("Suivis", 310)],
     )
     rows = _workflow(screen)._read_visible_rows()
-    assert rows[0]["display_name"] == "Diamanta97238"
+    assert rows[0]["display_name"] == "Demofan97238"
     assert rows[0]["username"] == ""
-    assert rows[1]["username"] == "charlidamelio"
+    assert rows[1]["username"] == "demodetoile"
 
 
 def test_an_empty_field_is_not_a_row():
-    screen = _Screen(names=[_Node("", 100), _Node("Zach", 300)], handles=[], buttons=[])
+    screen = _Screen(names=[_Node("", 100), _Node("Magic", 300)], handles=[], buttons=[])
     rows = _workflow(screen)._read_visible_rows()
-    assert [row["display_name"] for row in rows] == ["Zach"]
+    assert [row["display_name"] for row in rows] == ["Magic"]
 
 
 # --- the relationship ----------------------------------------------------------------------

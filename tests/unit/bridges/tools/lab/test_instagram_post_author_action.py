@@ -7,7 +7,7 @@ from bridges.tools.lab.actions.instagram.scraping import read_post_author
 
 
 class _PostUrl:
-    author = "abelstudios.au"
+    author = "demostudio.au"
 
     def __init__(self, device):
         self.device = device
@@ -22,7 +22,7 @@ def test_it_reads_the_author_through_the_post_url_workflow(monkeypatch):
     result = read_post_author(SimpleNamespace(device="warm"), {})
 
     assert result["success"] is True
-    assert result["details"]["author"] == "abelstudios.au"
+    assert result["details"]["author"] == "demostudio.au"
 
 
 def test_an_unreadable_author_is_a_failed_read(monkeypatch):

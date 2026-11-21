@@ -108,17 +108,17 @@ def test_rows_without_a_handle_are_dropped():
 
 
 def test_the_handles_come_from_the_comment_sheet():
-    rows = [{"username": "secretdrxx"}, {"username": "@laurie_bouchardd"}]
+    rows = [{"username": "demosecret"}, {"username": "@laurie_demo"}]
 
-    assert _resolve(PostUrlConfig(post_url="u"), rows=rows) == ["secretdrxx", "laurie_bouchardd"]
+    assert _resolve(PostUrlConfig(post_url="u"), rows=rows) == ["demosecret", "laurie_demo"]
 
 
 def test_the_same_person_commenting_twice_is_visited_once():
     """Quelqu'un qui commente trois fois est une personne, pas trois cibles — et le budget de
     profils se dépenserait trois fois sur elle."""
-    rows = [{"username": "vic961226"}, {"username": "VIC961226"}, {"username": "@vic961226"}]
+    rows = [{"username": "demo961226"}, {"username": "DEMO961226"}, {"username": "@demo961226"}]
 
-    assert _resolve(PostUrlConfig(post_url="u"), rows=rows) == ["vic961226"]
+    assert _resolve(PostUrlConfig(post_url="u"), rows=rows) == ["demo961226"]
 
 
 def test_the_resolved_list_is_handed_to_the_inherited_loop():

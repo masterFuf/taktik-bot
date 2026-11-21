@@ -2,8 +2,8 @@
 
 Data modelled on a real device dump:
 - ligne « Demandes de messages » (l35 « Tu as reçu 3 demandes ») -> exclue
-- Matthiasbrtl_ : aperçu = leur message -> non-répondu
-- wifil : aperçu = « Envoyé il y a 5 j » -> on a parlé en dernier -> répondu
+- Demopartner_ : aperçu = leur message -> non-répondu
+- demox : aperçu = « Envoyé il y a 5 j » -> on a parlé en dernier -> répondu
 """
 
 import types
@@ -58,18 +58,18 @@ def _make_actions(usernames, previews):
 
 def test_unreplied_detection_from_real_inbox():
     dm = _make_actions(
-        usernames=['Demandes de messages', 'Matthiasbrtl_', 'wifil'],
+        usernames=['Demandes de messages', 'Demopartner_', 'demox'],
         previews=['Tu as reçu 3 demandes', '.. Salut, je suis intéressé', 'Envoyé il y a 5\xa0j'],
     )
     convos = dm.get_inbox_conversations(max_items=30)
 
     # The message-requests row is excluded
     names = [c['username'] for c in convos]
-    assert names == ['Matthiasbrtl_', 'wifil']
+    assert names == ['Demopartner_', 'demox']
 
     by_name = {c['username']: c['unreplied'] for c in convos}
-    assert by_name['Matthiasbrtl_'] is True   # leur message en dernier
-    assert by_name['wifil'] is False          # "Envoyé ..." -> on a parlé en dernier
+    assert by_name['Demopartner_'] is True    # leur message en dernier
+    assert by_name['demox'] is False          # "Envoyé ..." -> on a parlé en dernier
 
 
 def test_unreplied_detection_seen_marker_is_replied():

@@ -14,13 +14,13 @@ PREFIXES = ["Sent", "Envoyé"]
 
 
 def test_outgoing_detected_en_and_fr():
-    assert is_outgoing_last_message("dsnutrition._, Sent 49m ago", "dsnutrition._", PREFIXES) is True
-    assert is_outgoing_last_message("Fabrice ...., Envoyé il y a 49 min", "Fabrice ....", PREFIXES) is True
+    assert is_outgoing_last_message("demonutrition._, Sent 49m ago", "demonutrition._", PREFIXES) is True
+    assert is_outgoing_last_message("Demopal ...., Envoyé il y a 49 min", "Demopal ....", PREFIXES) is True
 
 
 def test_incoming_message_is_not_outgoing():
-    cd = "blissand_glow, Merci de t être abonnée à ma page et bienvenue !! ·, 2w"
-    assert is_outgoing_last_message(cd, "blissand_glow", PREFIXES) is False
+    cd = "demo_glow, Merci de t être abonnée à ma page et bienvenue !! ·, 2w"
+    assert is_outgoing_last_message(cd, "demo_glow", PREFIXES) is False
 
 
 def test_empty_or_plain_message_is_not_outgoing():

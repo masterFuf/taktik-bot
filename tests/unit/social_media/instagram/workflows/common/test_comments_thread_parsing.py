@@ -1,9 +1,9 @@
 """Pairing a comment's heart to the right comment.
 
 A comment row carries no resource-id, so the control is paired to its author by geometry.
-The fixture below is copied verbatim from a real device dump (2026-02-08) — three comments,
-two of them already carrying likes, one with none — because inventing a hierarchy would only
-test the invention.
+The fixture below is copied from a real device dump (2026-02-08), account names invented —
+three comments, two of them already carrying likes, one with none — because inventing a
+hierarchy would only test the invention.
 """
 
 from taktik.core.shared.device.ui_dump import parse_ui_dump
@@ -41,10 +41,10 @@ REAL_THREAD = """
           content-desc="1 likes. Double tap to like comment and press and hold to see all likes"/>
   </node>
   <node class="android.view.ViewGroup" bounds="[0,334][576,547]" content-desc="">
-    <node class="android.widget.ImageView" bounds="[85,350][127,392]" content-desc="Go to taktik_r2d2's profile"/>
+    <node class="android.widget.ImageView" bounds="[85,350][127,392]" content-desc="Go to demo_r2d2's profile"/>
     <node class="android.view.ViewGroup" bounds="[131,334][492,547]" content-desc="">
-      <node class="android.view.ViewGroup" bounds="[131,346][492,500]" content-desc="taktik_r2d2 ">
-        <node class="android.widget.Button" bounds="[145,346][243,371]" content-desc="" text="taktik_r2d2"/>
+      <node class="android.view.ViewGroup" bounds="[131,346][492,500]" content-desc="demo_r2d2 ">
+        <node class="android.widget.Button" bounds="[145,346][243,371]" content-desc="" text="demo_r2d2"/>
       </node>
       <node class="android.widget.Button" bounds="[145,500][217,547]" content-desc="Reply" text="Reply"/>
     </node>
@@ -88,7 +88,7 @@ def test_each_commenter_gets_its_own_heart():
     """Three rows, three distinct controls — no cross-matching between neighbours."""
     expected = {
         "commenter42": (492, 185, 576, 275),
-        "taktik_r2d2": (492, 334, 576, 424),
+        "demo_r2d2": (492, 334, 576, 424),
         "commenter77": (492, 547, 576, 637),
     }
     for username, bounds in expected.items():
@@ -99,7 +99,7 @@ def test_each_commenter_gets_its_own_heart():
 
 
 def test_the_full_box_is_returned_so_the_tap_can_be_humanised():
-    found = find_comment_like_target(_root(), "taktik_r2d2", EN_LIKE, EN_UNLIKE)
+    found = find_comment_like_target(_root(), "demo_r2d2", EN_LIKE, EN_UNLIKE)
     left, top, right, bottom = found["bounds"]
     assert right > left and bottom > top
 
@@ -124,7 +124,7 @@ def test_an_already_liked_comment_is_reported_as_such():
         "Tap to like comment",
         "1 like. Double tap to unlike comment and press and hold to see all likes",
     )
-    found = find_comment_like_target(_root(liked), "taktik_r2d2", EN_LIKE, EN_UNLIKE)
+    found = find_comment_like_target(_root(liked), "demo_r2d2", EN_LIKE, EN_UNLIKE)
     assert found is not None
     assert found["already_liked"] is True
 
@@ -137,7 +137,7 @@ def test_french_liked_state_is_not_read_as_not_liked():
         "Tap to like comment",
         "Appuyez deux fois pour ne plus aimer le commentaire",
     )
-    found = find_comment_like_target(_root(french), "taktik_r2d2", FR_LIKE, FR_UNLIKE)
+    found = find_comment_like_target(_root(french), "demo_r2d2", FR_LIKE, FR_UNLIKE)
     assert found is not None
     assert found["already_liked"] is True
 
@@ -146,14 +146,14 @@ def test_french_not_liked_state_is_actionable():
     french = REAL_THREAD.replace(
         "Tap to like comment", "Appuyez deux fois pour aimer le commentaire",
     )
-    found = find_comment_like_target(_root(french), "taktik_r2d2", FR_LIKE, FR_UNLIKE)
+    found = find_comment_like_target(_root(french), "demo_r2d2", FR_LIKE, FR_UNLIKE)
     assert found["already_liked"] is False
 
 
 def test_a_row_whose_control_matches_no_known_label_is_not_tapped():
     """Locale drift must not produce a blind tap on an unidentified control."""
     drifted = REAL_THREAD.replace("Tap to like comment", "Etwas ganz anderes")
-    assert find_comment_like_target(_root(drifted), "taktik_r2d2", EN_LIKE, EN_UNLIKE) is None
+    assert find_comment_like_target(_root(drifted), "demo_r2d2", EN_LIKE, EN_UNLIKE) is None
 
 
 def test_the_post_cards_counters_are_not_mistaken_for_a_row():
@@ -173,7 +173,7 @@ def test_each_reply_button_belongs_to_its_own_comment():
     — and it must not drift by one row: answering under the wrong comment is not
     recoverable."""
     assert find_comment_reply_target(_root(), "commenter42", REPLY_LABELS) == (98, 255, 170, 302)
-    assert find_comment_reply_target(_root(), "taktik_r2d2", REPLY_LABELS) == (145, 500, 217, 547)
+    assert find_comment_reply_target(_root(), "demo_r2d2", REPLY_LABELS) == (145, 500, 217, 547)
     assert find_comment_reply_target(_root(), "commenter77", REPLY_LABELS) == (98, 641, 170, 670)
 
 
@@ -225,12 +225,12 @@ COMPOSE_THREAD = """
     </node>
   </node>
   <node class="android.view.ViewGroup" bounds="[0,1337][1080,1540]" content-desc="">
-    <node class="android.widget.ImageView" bounds="[148,1364][222,1438]" content-desc="Go to taktik_r2d2's profile"/>
+    <node class="android.widget.ImageView" bounds="[148,1364][222,1438]" content-desc="Go to demo_r2d2's profile"/>
     <node class="android.view.ViewGroup" bounds="[229,1358][933,1459]" content-desc="">
-      <node class="android.widget.TextView" bounds="[253,1358][462,1401]" text="taktik_r2d2" content-desc="taktik_r2d2&#160; "/>
+      <node class="android.widget.TextView" bounds="[253,1358][462,1401]" text="demo_r2d2" content-desc="demo_r2d2&#160; "/>
       <node class="android.view.ViewGroup" bounds="[465,1358][511,1401]" text="5h" content-desc="5h"/>
       <node class="android.view.ViewGroup" bounds="[253,1412][619,1459]"
-            text="taktik_r2d2 said @commenter42 right!?" content-desc="taktik_r2d2 said @commenter42 right!?">
+            text="demo_r2d2 said @commenter42 right!?" content-desc="demo_r2d2 said @commenter42 right!?">
         <node class="android.widget.Button" bounds="[253,1412][499,1459]" text="@commenter42" content-desc=""/>
       </node>
     </node>
@@ -252,20 +252,20 @@ def _compose_root():
 def test_compose_usernames_are_found_despite_the_repeated_content_desc():
     root = _compose_root()
     assert find_comment_reply_target(root, "commenter42", ["reply"]) is not None
-    assert find_comment_reply_target(root, "taktik_r2d2", ["reply"]) is not None
+    assert find_comment_reply_target(root, "demo_r2d2", ["reply"]) is not None
 
 
 def test_compose_reply_lands_under_its_own_comment():
     root = _compose_root()
     assert find_comment_reply_target(root, "commenter42", ["reply"]) == (172, 1199, 363, 1280)
-    assert find_comment_reply_target(root, "taktik_r2d2", ["reply"]) == (253, 1459, 444, 1540)
+    assert find_comment_reply_target(root, "demo_r2d2", ["reply"]) == (253, 1459, 444, 1540)
 
 
 def test_a_mention_inside_a_body_is_not_read_as_its_own_comment_row():
-    # The @commenter42 mention sits INSIDE taktik_r2d2's body, between that username and its
+    # The @commenter42 mention sits INSIDE demo_r2d2's body, between that username and its
     # Reply. Counting it as a row would cut the row short and lose the Reply underneath it.
     root = _compose_root()
-    assert find_comment_reply_target(root, "taktik_r2d2", ["reply"]) == (253, 1459, 444, 1540)
+    assert find_comment_reply_target(root, "demo_r2d2", ["reply"]) == (253, 1459, 444, 1540)
 
 
 def test_compose_like_control_is_paired_to_its_row():
@@ -280,7 +280,7 @@ def test_a_comment_that_already_has_likes_is_actionable():
     # A comment carrying likes describes its heart with the article ("to like A comment"), which
     # the earlier single fragment missed -- so those comments were silently never liked.
     root = _compose_root()
-    target = find_comment_like_target(root, "taktik_r2d2", EN_LIKE, EN_UNLIKE)
+    target = find_comment_like_target(root, "demo_r2d2", EN_LIKE, EN_UNLIKE)
     assert target is not None
     assert target["already_liked"] is False
 
@@ -294,7 +294,7 @@ def test_an_already_liked_comment_is_never_tapped_again():
         "45 J’aime. Appuyez deux fois pour ne plus aimer un commentaire et maintenez appuye",
     )
     target = find_comment_like_target(
-        parse_ui_dump(liked), "taktik_r2d2", FR_LIKE, FR_UNLIKE
+        parse_ui_dump(liked), "demo_r2d2", FR_LIKE, FR_UNLIKE
     )
     assert target is not None
     assert target["already_liked"] is True
@@ -305,7 +305,7 @@ def test_compose_bodies_are_read_with_their_author():
     # content-desc. Without this the persona reader came back empty on every post.
     assert read_comment_texts(_compose_root(), ["said", "a dit"]) == [
         ("commenter42", "what a place"),
-        ("taktik_r2d2", "@commenter42 right!?"),
+        ("demo_r2d2", "@commenter42 right!?"),
     ]
 
 
@@ -313,7 +313,7 @@ def test_a_body_survives_an_unknown_connector():
     # Degrade to a slightly noisy line rather than to nothing when the language is not covered.
     assert read_comment_texts(_compose_root(), []) == [
         ("commenter42", "said what a place"),
-        ("taktik_r2d2", "said @commenter42 right!?"),
+        ("demo_r2d2", "said @commenter42 right!?"),
     ]
 
 

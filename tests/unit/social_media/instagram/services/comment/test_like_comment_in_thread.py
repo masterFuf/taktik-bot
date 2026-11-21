@@ -28,8 +28,8 @@ HEART = (926, 761, 1080, 926)
 THREAD = """
 <hierarchy>
   <node class="android.view.ViewGroup" bounds="[0,334][576,547]" content-desc="">
-    <node class="android.view.ViewGroup" bounds="[131,346][492,500]" content-desc="taktik_r2d2 ">
-      <node class="android.widget.Button" bounds="[145,346][243,371]" content-desc="" text="taktik_r2d2"/>
+    <node class="android.view.ViewGroup" bounds="[131,346][492,500]" content-desc="demo_r2d2 ">
+      <node class="android.widget.Button" bounds="[145,346][243,371]" content-desc="" text="demo_r2d2"/>
     </node>
     <node class="android.widget.Button" bounds="[492,334][576,424]" content-desc="{state}"/>
   </node>
@@ -124,7 +124,7 @@ def test_an_already_liked_comment_is_left_alone():
     session = _Session()
     act = _action(ALREADY_LIKED, session=session)
 
-    result = act.like_comment_in_thread("taktik_r2d2")
+    result = act.like_comment_in_thread("demo_r2d2")
 
     assert result["success"] is False
     assert result["skipped_reason"] == "already_liked"
@@ -137,7 +137,7 @@ def test_an_unreadable_control_is_treated_as_untouchable():
     """Locale drift, or an Instagram relabel: if we cannot tell liked from not-liked, we
     do not gamble — a missed like costs nothing, a wrong tap is visible to the target."""
     act = _action(THREAD.format(state="Etwas ganz anderes"))
-    result = act.like_comment_in_thread("taktik_r2d2")
+    result = act.like_comment_in_thread("demo_r2d2")
     assert result["success"] is False
     assert act.device.taps == []
 

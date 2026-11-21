@@ -3,7 +3,7 @@
 ``send_message`` must only report success once our text is confirmed as the newest
 OUTGOING bubble in the thread. A click that does not actually submit (empty composer,
 mis-targeted button, IG hiccup) returns False so the caller never persists a phantom
-reply that was never delivered (the blissand_glow case: a `sent` row in dm_messages
+reply that was never delivered (the demo_glow case: a `sent` row in dm_messages
 with no matching message in the real conversation).
 """
 

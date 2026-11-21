@@ -7,7 +7,7 @@ was filtered out as "too few likes" whatever threshold the operator set. Same tr
 author ("Reel by X" vs "Reel de X"), which silently disabled the 7-day dedup.
 
 The strings below are copied verbatim from real UI dumps (Instagram 410.0.0.53.71, French
-phone, hashtag #esthétique, 31/07/2026).
+phone, hashtag #esthétique, 31/07/2026), the account names replaced by invented ones.
 """
 
 import pytest
@@ -61,10 +61,10 @@ def test_unreadable_is_none_not_zero(label):
 
 @pytest.mark.parametrize("label,expected", [
     # --- verbatim from the dumps (fr) ---
-    ("Reel de dolce_cocoon. Appuyez deux fois pour lire ou mettre en pause.", "dolce_cocoon"),
-    ("Reel de leprestige_coiffure. Appuyez deux fois pour lire ou mettre en pause.", "leprestige_coiffure"),
-    ("Reel de adesthetique__. Appuyez deux fois pour lire ou mettre en pause.", "adesthetique__"),
-    ("Reel de sourinails_au_salon_daubagne. Appuyez deux fois", "sourinails_au_salon_daubagne"),
+    ("Reel de demo_cocoon. Appuyez deux fois pour lire ou mettre en pause.", "demo_cocoon"),
+    ("Reel de demo_coiffure. Appuyez deux fois pour lire ou mettre en pause.", "demo_coiffure"),
+    ("Reel de demoesthe__. Appuyez deux fois pour lire ou mettre en pause.", "demoesthe__"),
+    ("Reel de demonails_au_salon_demo. Appuyez deux fois", "demonails_au_salon_demo"),
     # --- other locales ---
     ("Reel by john_doe. Double-tap to play or pause.", "john_doe"),
     ("Reel von marie.dupont. Zweimal tippen", "marie.dupont"),
@@ -78,7 +78,7 @@ def test_reads_the_author_whatever_the_language(label, expected):
     # instead of the closing dot the rule used to require -- and no author came back at all.
     # Verbatim from a 442 device.
     ("Reel de studiodemo, 96 J’aime, 9 commentaires, 9 août", "studiodemo"),
-    ("Reel by taktik_r2d2, 12 likes, 3 comments", "taktik_r2d2"),
+    ("Reel by demo_r2d2, 12 likes, 3 comments", "demo_r2d2"),
     # A dot inside the username still survives the comma rule.
     ("Reel de marie.dupont, 4 J’aime", "marie.dupont"),
 ])
@@ -176,7 +176,7 @@ class _DeviceServingMediaLabel:
     # Verbatim from a 442 device. Both counts live in ONE string, which is what makes the read
     # atomic -- and the apostrophe is typographic, which is what used to break the likes half.
     ("Reel de studiodemo, 96 J’aime, 9 commentaires, 9 août", 96, 9),
-    ("Reel by taktik_r2d2, 12 likes, 3 comments", 12, 3),
+    ("Reel by demo_r2d2, 12 likes, 3 comments", 12, 3),
     ("Reel de marie, 4,5 K J'aime, 18 commentaires", 4500, 18),
 ])
 def test_both_counts_are_read_from_the_same_media_label(label, likes, comments):

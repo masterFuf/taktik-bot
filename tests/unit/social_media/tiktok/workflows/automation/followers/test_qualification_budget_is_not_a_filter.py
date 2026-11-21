@@ -9,7 +9,7 @@ rejected every account above four followers -- all of them. Three profiles logge
 AI hook lives inside the branch a filtered profile never enters. The budget was moved to
 `maxProfiles` and the symptom went away.
 
-**Afternoon.** A Followers run on @adaluz_cabezas1 visited four profiles and interacted with none:
+**Afternoon.** A Followers run on @demo_cabezas1 visited four profiles and interacted with none:
 `Too many followers (73 > 20)`, where 20 was the number of profiles the run was allowed to visit.
 Moving the qualification call had cured one caller and left the mechanism standing -- and the
 Followers page had been sending its budget under that same name since filtering shipped on
@@ -39,23 +39,23 @@ QUALIFICATION_PAYLOAD = {
     'ai': {'enabled': True, 'profileAnalysis': True},
 }
 
-# The payload the Followers page sends for "visit 20 followers of @adaluz_cabezas1" -- the run
+# The payload the Followers page sends for "visit 20 followers of @demo_cabezas1" -- the run
 # that visited four profiles and interacted with none.
 FOLLOWERS_PAYLOAD = {
     'deviceId': 'test-device', 'workflowType': 'followers',
-    'targets': ['adaluz_cabezas1'], 'maxFollowers': 20,
+    'targets': ['demo_cabezas1'], 'maxFollowers': 20,
     'maxLikesPerSession': 50, 'maxFollowsPerSession': 20, 'minPostsPerProfile': 1, 'maxPostsPerProfile': 2,
     'likeProbability': 30, 'followProbability': 10,
 }
 
 BIG_ACCOUNT = tiktok_profile_for_filtering(
-    {'username': 'squeezie', 'followers_count': 5_300_000, 'videos_count': 9},
+    {'username': 'demo_star', 'followers_count': 5_300_000, 'videos_count': 9},
 )
 
-# @jonathan.leiva80, first profile of the run, rejected at 73 followers against a budget of 20.
+# @jonathan.demo80, first profile of the run, rejected at 73 followers against a budget of 20.
 ORDINARY_ACCOUNT = tiktok_profile_for_filtering(
-    {'username': 'jonathan.leiva80', 'followers_count': 73, 'following_count': 120,
-     'videos_count': 8, 'bio': 'padel', 'display_name': 'Jonathan Leiva'},
+    {'username': 'jonathan.demo80', 'followers_count': 73, 'following_count': 120,
+     'videos_count': 8, 'bio': 'padel', 'display_name': 'Jonathan Demo'},
 )
 
 

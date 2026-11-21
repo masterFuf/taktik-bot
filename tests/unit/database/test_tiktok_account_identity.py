@@ -28,10 +28,10 @@ from unit.paths import CORE
 
 
 @pytest.mark.parametrize("handle", [
-    "papillones",
+    "demofanes",
     "demo.2",
     "compte.demo.extraits",
-    "youssoufdiallo3300",
+    "demouser3300",
     "a_b.c",
 ])
 def test_a_real_handle_is_accepted(handle):
@@ -39,8 +39,8 @@ def test_a_real_handle_is_accepted(handle):
 
 
 @pytest.mark.parametrize("shown", [
-    "Papill(on)és",       # nom d'affichage dont le repli donne @papillones
-    "Enzo Resell",        # espace
+    "Démo(fan)és",        # nom d'affichage dont le repli donne @demofanes
+    "Enzo Demo",          # espace
     "DemoFan",            # majuscules : c'est ce qui l'a fait passer quand on minusculait avant
     "..........",         # pseudo tout-emoji mangé par le dump
     "",

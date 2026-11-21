@@ -1,9 +1,9 @@
 """A post in collaboration is filed under its first author, never under the whole header line.
 
 Seen on a phone (Pixel 4a, Instagram 410, hashtag #videoproduction): the author line of a
-collaboration post reads "abelstudios.au et mark.kobakian", the hashtag workflow took it whole,
-and the like was filed as `LIKE` on "@abelstudios.au et mark.kobakian", a profile that does not
-exist. The Feed's cleaner glued the same line into "abelstudios.auetmark.kobakian", and the post
+collaboration post reads "demostudio.au et paul.demo", the hashtag workflow took it whole,
+and the like was filed as `LIKE` on "@demostudio.au et paul.demo", a profile that does not
+exist. The Feed's cleaner glued the same line into "demostudio.auetpaul.demo", and the post
 URL fallback returned it whole.
 
 The header lines below are the shapes found in the Lab dumps (`row_feed_photo_profile_name`),
@@ -25,18 +25,18 @@ from taktik.core.social_media.instagram.workflows.automation.post_url.mixins.url
 from taktik.core.social_media.instagram.ui.extractors import username_from_author_header
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_SELECTORS
 
-COLLAB = "abelstudios.au et mark.kobakian"
+COLLAB = "demostudio.au et paul.demo"
 
 
 @pytest.mark.parametrize("line, author", [
-    ("abelstudios.au et mark.kobakian", "abelstudios.au"),
-    ("studioalldaylong and ab.buxton", "studioalldaylong"),
-    ("lisa.maria.b   and inseltreffbarbados", "lisa.maria.b"),
+    ("demostudio.au et paul.demo", "demostudio.au"),
+    ("studiodemolong and ab.demo", "studiodemolong"),
+    ("lisa.demo.b   and demoislandbar", "lisa.demo.b"),
     ("meta   and 2 others", "meta"),
-    ("lequartiergenial et 3 autres personnes", "lequartiergenial"),
+    ("demoquartier et 3 autres personnes", "demoquartier"),
     ("bazaarfrance   et cartier  ", "bazaarfrance"),
-    ("chachafoodandtravel et cottage_ofilduloir", "chachafoodandtravel"),
-    ("mo.de_festival", "mo.de_festival"),
+    ("demofoodandtravel et cottage_demo", "demofoodandtravel"),
+    ("mo.de_demofest", "mo.de_demofest"),
     ("@Bob_Studio", "bob_studio"),
 ])
 def test_the_first_handle_of_the_header_is_the_author(line, author):
@@ -86,7 +86,7 @@ def test_the_hashtag_files_a_collaboration_under_its_first_author():
 
     metadata = finder._extract_current_post_metadata(is_reel=False)
 
-    assert metadata['author'] == "abelstudios.au"
+    assert metadata['author'] == "demostudio.au"
 
 
 def test_post_url_reads_the_first_author_from_the_header():
@@ -97,7 +97,7 @@ def test_post_url_reads_the_first_author_from_the_header():
         profile_image_selectors=[], header_selectors=['header_sel'], username_extraction_selectors=[])
     handler.device = _Device(['header_sel'], COLLAB)
 
-    assert handler._extract_author_username() == "abelstudios.au"
+    assert handler._extract_author_username() == "demostudio.au"
 
 
 def test_post_url_text_fallback_never_returns_the_whole_line():
@@ -109,4 +109,4 @@ def test_post_url_text_fallback_never_returns_the_whole_line():
     handler.device = _Device([], None)
     handler._get_text_from_element = lambda selector: COLLAB
 
-    assert handler._extract_author_username() == "abelstudios.au"
+    assert handler._extract_author_username() == "demostudio.au"

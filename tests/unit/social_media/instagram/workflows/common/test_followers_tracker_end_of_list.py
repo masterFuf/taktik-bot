@@ -5,7 +5,7 @@ last five entries of `visible_history`, and that history is fed on EVERY scan. T
 deliberately rescans the same page while it still holds a fresh follower (process one -> back ->
 rescan), so five identical entries could pile up with the list never having been scrolled once.
 
-Evidence from the run of cca_gzk on @raffaelthielmann: the five entries that ended it all carry
+Evidence from the run of demo_client on @demo_target: the five entries that ended it all carry
 `scroll_count = 26` — the same scroll. The run stopped at 55 usernames of a 1 002-follower list.
 Across the eighteen runs filed `end_of_list_repeated`, the verdict always followed 9 to 19
 consecutive scans with no scroll between them, and never a scroll that brought nothing.

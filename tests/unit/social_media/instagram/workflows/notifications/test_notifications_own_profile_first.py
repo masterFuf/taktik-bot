@@ -70,7 +70,7 @@ def test_the_account_read_on_screen_is_used_when_the_front_sent_none(_spy):
 
 def test_the_front_keeps_deciding_when_it_knows_the_account(_spy):
     """Pure addition: a caller that already knows the account is not overruled."""
-    assert commands._refresh_own_account(HOST, _Bridge(), 'cca_gzk') == 'cca_gzk'
+    assert commands._refresh_own_account(HOST, _Bridge(), 'demo_client') == 'demo_client'
 
 
 def test_a_failed_profile_read_still_hands_the_feed_back(monkeypatch, _spy):
@@ -87,7 +87,7 @@ def test_a_failed_profile_read_still_hands_the_feed_back(monkeypatch, _spy):
 
     monkeypatch.setattr(profile_mod, 'ProfileBusiness', _Broken)
 
-    assert commands._refresh_own_account(HOST, _Bridge(), 'cca_gzk') == 'cca_gzk'
+    assert commands._refresh_own_account(HOST, _Bridge(), 'demo_client') == 'demo_client'
     assert 'navigate_to_home' in _spy
 
 

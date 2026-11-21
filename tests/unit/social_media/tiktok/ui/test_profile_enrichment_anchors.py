@@ -179,7 +179,7 @@ def test_the_badge_anchor_does_not_depend_on_the_language():
 
 
 @pytest.mark.parametrize("text,expected", [
-    ("12,3 Md", 12_300_000_000),   # @charlidamelio, enregistrée avec 0 j'aime
+    ("12,3 Md", 12_300_000_000),   # @demodetoile, enregistrée avec 0 j'aime
     ("2,1Md", 2_100_000_000),
     ("12.3B", 12_300_000_000),     # la même chose en anglais, qui marchait déjà
     ("159,3 M", 159_300_000),

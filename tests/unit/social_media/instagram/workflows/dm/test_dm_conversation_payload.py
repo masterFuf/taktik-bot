@@ -14,16 +14,16 @@ from taktik.core.database.repositories.messaging.dm_message_repository import Dm
 class TestInboxPreviewMatchesKnown:
     def test_full_message_visible_in_row_matches(self):
         # Non-truncated row: the stored last message appears verbatim in the inbox digest.
-        content_desc = "fabrice, Trop cool ! Content que ca roule pour toi aussi, 11:27"
+        content_desc = "demopal, Trop cool ! Content que ca roule pour toi aussi, 21:27"
         assert inbox_preview_matches_known(
-            content_desc, "fabrice", "Trop cool ! Content que ca roule pour toi aussi"
+            content_desc, "demopal", "Trop cool ! Content que ca roule pour toi aussi"
         )
 
     def test_truncated_preview_prefix_matches(self):
         # Truncated row: the visible prefix (before the ellipsis) prefixes the stored message.
-        content_desc = "dsnutrition._, Salut ! Merci beaucoup pour ton message et t…, 09:41"
+        content_desc = "demonutrition._, Salut ! Merci beaucoup pour ton message et t…, 07:41"
         known = "Salut ! Merci beaucoup pour ton message et toute ta gentillesse"
-        assert inbox_preview_matches_known(content_desc, "dsnutrition._", known)
+        assert inbox_preview_matches_known(content_desc, "demonutrition._", known)
 
     def test_new_different_message_does_not_match(self):
         content_desc = "alice, Une toute nouvelle question sans rapport, 10:00"
@@ -36,7 +36,7 @@ class TestInboxPreviewMatchesKnown:
     def test_outgoing_digest_row_does_not_match_stored_text(self):
         # When WE sent last, the row shows a "Sent…" digest, not the message — never a match.
         assert not inbox_preview_matches_known(
-            "fabrice, Envoye il y a 2 h", "fabrice", "Trop cool ! Content que ca roule"
+            "demopal, Envoye il y a 2 h", "demopal", "Trop cool ! Content que ca roule"
         )
 
     def test_empty_inputs_do_not_match(self):
@@ -46,39 +46,39 @@ class TestInboxPreviewMatchesKnown:
     def test_outgoing_author_label_truncated_matches(self):
         # OUR own long last message is shown as "Vous : <body…>" (FR author label). The stored
         # body has no label -> the label must be stripped before the truncated-prefix match.
-        content_desc = "blissand_glow, Vous : Ahah oui c'est ca trop contente de…, 2 j"
+        content_desc = "demo_glow, Vous : Ahah oui c'est ca trop contente de…, 2 j"
         known = "Ahah oui c'est ca trop contente de t'avoir trouvee aussi"
-        assert inbox_preview_matches_known(content_desc, "blissand_glow", known)
+        assert inbox_preview_matches_known(content_desc, "demo_glow", known)
 
     def test_english_author_label_matches(self):
         content_desc = "someone, You: Hello there friend, how are you…, 1 h"
         assert inbox_preview_matches_known(content_desc, "someone", "Hello there friend, how are you doing today")
 
     def test_emoji_and_invisible_chars_dont_block_match(self):
-        # Real device case (Fabrice): inbox row carries a U+200E LRM + emoji + '·' separator vs the
+        # Real device case (Demopal): inbox row carries a U+200E LRM + emoji + '·' separator vs the
         # stored "Oui merci 😁" — must still match on the alphanumeric core ("oui merci").
-        content_desc = "Fabrice \U0001F1EB\U0001F1F7, ‎Oui merci \U0001F601 ·, 7h"
-        assert inbox_preview_matches_known(content_desc, "Fabrice \U0001F1EB\U0001F1F7", "Oui merci \U0001F601")
+        content_desc = "Demopal \U0001F1EB\U0001F1F7, ‎Oui merci \U0001F601 ·, 7h"
+        assert inbox_preview_matches_known(content_desc, "Demopal \U0001F1EB\U0001F1F7", "Oui merci \U0001F601")
         # An emoji VARIANT (😋 vs 😁) doesn't block it either (same text core).
-        assert inbox_preview_matches_known(content_desc, "Fabrice \U0001F1EB\U0001F1F7", "Oui merci \U0001F60B")
+        assert inbox_preview_matches_known(content_desc, "Demopal \U0001F1EB\U0001F1F7", "Oui merci \U0001F60B")
 
     def test_different_short_message_still_does_not_match(self):
         # Robust normalisation must not over-match: a genuinely different message is not skipped.
-        content_desc = "fabrice, ‎Bonne soiree \U0001F60A ·, 1 m"
-        assert not inbox_preview_matches_known(content_desc, "fabrice", "Oui merci")
+        content_desc = "demopal, ‎Bonne soiree \U0001F60A ·, 1 m"
+        assert not inbox_preview_matches_known(content_desc, "demopal", "Oui merci")
 
     def test_outgoing_author_label_new_message_does_not_match(self):
         # A genuinely NEW outgoing message (different body) must NOT be skipped.
-        content_desc = "blissand_glow, Vous : Un message totalement nouveau et different…, 1 m"
+        content_desc = "demo_glow, Vous : Un message totalement nouveau et different…, 1 m"
         known = "Ahah oui c'est ca trop contente de t'avoir trouvee aussi"
-        assert not inbox_preview_matches_known(content_desc, "blissand_glow", known)
+        assert not inbox_preview_matches_known(content_desc, "demo_glow", known)
 
 
 class TestMaskedPreview:
     def test_masks_alnum_keeps_structure(self):
         # Letters/digits -> 'x'; commas, spaces and the IG '.' separator survive so a digest row
         # ("Envoye il y a X min", no separator) reads differently from an incoming-message row.
-        assert masked_preview("fabrice, Envoye il y a 49 min") == "xxxxxxx, xxxxxx xx x x xx xxx"
+        assert masked_preview("demopal, Envoye il y a 49 min") == "xxxxxxx, xxxxxx xx x x xx xxx"
         assert "·" in masked_preview("name, Bonjour ·, 2 sem")
         assert masked_preview("") == ""
 
@@ -154,8 +154,8 @@ class TestThreadAnswerStateDb:
         sync_id = threads.upsert(
             platform="instagram",
             account_id=1,
-            partner_username="dsnutrition._",
-            external_thread_id="dsnutrition._",
+            partner_username="demonutrition._",
+            external_thread_id="demonutrition._",
             last_message_text="Bonjour, merci pour ton abonnement",
             last_message_is_ours=False,  # clobbered by an ephemeral re-read
             message_count=1,
@@ -165,7 +165,7 @@ class TestThreadAnswerStateDb:
         msgs.add_message(platform="instagram", thread_sync_id=sync_id, direction="sent",
                          text="Salut, merci a toi", seq=1)
 
-        assert threads.find_sync_id_for_inbox("instagram", 1, "dsnutrition._") == sync_id
+        assert threads.find_sync_id_for_inbox("instagram", 1, "demonutrition._") == sync_id
         # We DID answer (a sent message is on record), even though the thread flag says otherwise.
         assert msgs.has_sent_message("instagram", sync_id) is True
         assert msgs.received_texts("instagram", sync_id) == ["Bonjour, merci pour ton abonnement"]
@@ -177,7 +177,7 @@ class TestThreadAnswerStateDb:
         assert has_unseen_incoming(visible, msgs.received_texts("instagram", sync_id)) is False
 
         # mark_answered re-asserts the (clobbered) thread flag.
-        assert threads.mark_answered("instagram", 1, "dsnutrition._") is True
+        assert threads.mark_answered("instagram", 1, "demonutrition._") is True
         row = conn.execute(
             "SELECT last_message_is_ours, can_reply FROM dm_threads WHERE sync_id = ?", (sync_id,)
         ).fetchone()
@@ -205,14 +205,14 @@ class TestThreadAnswerStateDb:
         assert msgs.last_direction("instagram", sync_id) == "received"
 
     def test_recent_texts_matches_when_denormalised_last_is_stale(self, conn):
-        # Fabrice case: dm_threads.last_message_text is STALE ("Salut ..."), but dm_messages has
+        # Demopal case: dm_threads.last_message_text is STALE ("Salut ..."), but dm_messages has
         # the real last received message ("Oui merci 😋"). Matching the inbox preview against the
         # recent dm_messages (not the denormalised field) is what lets the early-exit skip.
         threads = DmThreadRepository(conn)
         msgs = DmMessageRepository(conn)
         sync_id = threads.upsert(
-            platform="instagram", account_id=1, partner_username="fabrice",
-            external_thread_id="Fabrice", last_message_text="Salut ! Comment ca va ?",  # stale
+            platform="instagram", account_id=1, partner_username="demopal",
+            external_thread_id="Demopal", last_message_text="Salut ! Comment ca va ?",  # stale
             last_message_is_ours=True, message_count=2,
         )
         msgs.add_message(platform="instagram", thread_sync_id=sync_id, direction="sent",
@@ -221,9 +221,9 @@ class TestThreadAnswerStateDb:
                          text="Oui merci", seq=1, sent_at="2026-06-02 09:00:00")
         recent = msgs.recent_texts("instagram", sync_id)
         assert "Oui merci" in recent  # the real last message is on record (both directions)
-        # The inbox preview "fabrice, Oui merci ·, 2 j" matches a recent message -> would skip.
+        # The inbox preview "demopal, Oui merci ·, 2 j" matches a recent message -> would skip.
         assert any(
-            inbox_preview_matches_known("fabrice, Oui merci ·, 2 j", "fabrice", t) for t in recent
+            inbox_preview_matches_known("demopal, Oui merci ·, 2 j", "demopal", t) for t in recent
         )
 
     def test_thread_without_sent_message(self, conn):

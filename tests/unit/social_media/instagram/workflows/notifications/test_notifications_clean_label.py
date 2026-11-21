@@ -34,20 +34,20 @@ def test_like_drops_only_time():
 def test_english_follow_back_and_more():
     assert clean_label("follower_demo57 started following you. 3d Follow back") \
         == "follower_demo57 started following you"
-    assert clean_label("linstitut_elegance liked your comment: Félicitations pour cette belle… more 2d") \
-        == "linstitut_elegance liked your comment: Félicitations pour cette belle"
+    assert clean_label("demo_elegance liked your comment: Félicitations pour cette belle… more 2d") \
+        == "demo_elegance liked your comment: Félicitations pour cette belle"
 
 
 def test_sanitize_strips_replacement_char_and_normalizes_nbsp():
-    # The device a11y dump emits U+FFFD for some username badges (e.g. "atelier_lc_<U+FFFD>").
-    assert sanitize_text("atelier_lc_�") == "atelier_lc_"
+    # The device a11y dump emits U+FFFD for some username badges (e.g. "atelier_demo_<U+FFFD>").
+    assert sanitize_text("atelier_demo_�") == "atelier_demo_"
     assert sanitize_text("a​b‮c") == "abc"  # zero-width + bidi control removed
     assert sanitize_text("foo\xa0:\xa0bar") == "foo : bar"  # NBSP -> space
 
 
 def test_clean_label_drops_replacement_char():
-    assert clean_label("atelier_lc_� a commencé à vous suivre. 3 j") \
-        == "atelier_lc_ a commencé à vous suivre"
+    assert clean_label("atelier_demo_� a commencé à vous suivre. 3 j") \
+        == "atelier_demo_ a commencé à vous suivre"
 
 
 def test_longest_clean_run_anchors_before_emoji_placeholder():
@@ -63,6 +63,6 @@ def test_longest_clean_run_empty_when_no_long_clean_run():
 
 
 def test_idempotent_and_clean_input_untouched():
-    clean = "samir.akarioh a commencé à vous suivre"
+    clean = "samir.demo a commencé à vous suivre"
     assert clean_label(clean) == clean
     assert clean_label(clean_label(clean)) == clean

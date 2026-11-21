@@ -5,8 +5,8 @@ même post, si une légende correspond à un mot de niche, et — c'est ce qui l
 module commun — si le nom affiché en tête d'une conversation est bien la personne à qui on voulait
 écrire.
 
-Le défaut mesuré sur appareil le 2026-08-30 : l'en-tête affiche `Papill(on)és` là où le pseudo est
-`papillones`. Le garde d'envoi comparait les deux littéralement — ni l'un ni l'autre ne se contient
+Le défaut mesuré sur appareil le 2026-08-30 : l'en-tête affiche `Démo(fan)és` là où le pseudo est
+`demofanes`. Le garde d'envoi comparait les deux littéralement — ni l'un ni l'autre ne se contient
 — et refusait donc d'écrire à exactement la bonne personne. Le message n'est jamais parti, et le
 Welcome DM tenait ce chemin pour non vérifié depuis.
 """
@@ -17,10 +17,10 @@ from taktik.core.shared.text import fold_for_match
 
 
 @pytest.mark.parametrize("shown,handle", [
-    ("Papill(on)és", "papillones"),       # la forme du cas qui a bloqué l'envoi
+    ("Démo(fan)és", "demofanes"),         # la forme du cas qui a bloqué l'envoi
     ("Démo", "demo"),
     ("  Compte.Demo  ", "comptedemo"),
-    ("@papillones", "papillones"),
+    ("@demofanes", "demofanes"),
     ("Lea 🔥", "lea"),                     # emoji intact
     ("Lea ..", "lea"),                     # le même, mangé par le dump
 ])

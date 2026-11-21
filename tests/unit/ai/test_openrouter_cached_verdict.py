@@ -7,7 +7,7 @@ without re-paying the vision classification.
 from taktik.core.ai.providers.openrouter import AIService
 
 CACHED = {
-    "username": "karyu_nails",
+    "username": "demo_nails",
     "niche_category": "beauty_wellness",
     "niche": "Hair & Nail Art",
     "profession": "Nail Artist",
@@ -42,7 +42,7 @@ def test_valid_verdict_is_parsed_and_normalized(monkeypatch):
                                 '"follow": true, "comment": false, '
                                 '"like": true, "score": 0.85, "reason": "direct niche"}')
     out = svc.engagement_verdict_for_known_profile(
-        "karyu_nails", CACHED, account_niche="beauty_wellness", response_language="fr")
+        "demo_nails", CACHED, account_niche="beauty_wellness", response_language="fr")
     assert out["success"] is True
     e = out["engagement"]
     assert e["relevant"] is True and e["follow"] is True and e["comment"] is True
@@ -80,7 +80,7 @@ def test_prompt_carries_account_and_cached_niches(monkeypatch):
                                 '"comment": false, "like": true, "score": 0.7, '
                                 '"reason": "ok"}', capture=capture)
     svc.engagement_verdict_for_known_profile(
-        "karyu_nails", CACHED,
+        "demo_nails", CACHED,
         account_niche="beauty_wellness",
         account_sub_niche="Nail Art",
         account_persona={
@@ -173,7 +173,7 @@ def test_cached_verdict_receives_all_available_candidate_evidence(monkeypatch):
     )
 
     out = svc.engagement_verdict_for_known_profile(
-        "karyu_nails",
+        "demo_nails",
         cached,
         account_niche="Business coaching for beauty institutes",
         account_persona={"targetAudience": "Beauty institute owners"},

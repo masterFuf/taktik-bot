@@ -1062,7 +1062,7 @@ def test_no_context_at_all_is_skipped_not_invented(monkeypatch):
     action_cls = _install_comment_hook(monkeypatch, FakeAI(), captured)
     # No scroll_actions at all: no framed context, no caption -> nothing to ground on.
     host = SimpleNamespace()
-    result = action_cls.comment_on_post(host, username="_jimmy_gauthier")
+    result = action_cls.comment_on_post(host, username="_jimmy_demo")
 
     assert result["skipped"] is True
     assert "posted" not in captured

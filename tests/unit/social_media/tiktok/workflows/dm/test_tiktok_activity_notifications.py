@@ -52,7 +52,7 @@ def test_get_notifications_classifies_and_excludes_new_followers():
     dm = _actions(
         titles=['Nouveaux followers', 'Activité', 'Notifications système'],
         previews=[
-            'NK19 a commencé à te suivre.',
+            'QZ19 a commencé à te suivre.',
             'Nico Lito, AvaBack Fa et 10 autres ont vu ton profil',
             'LIVE: Tes spectateur(trice)s veulent en voir plus',
         ],

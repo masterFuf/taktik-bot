@@ -59,8 +59,8 @@ def test_without_a_date_AND_without_a_caption_there_is_no_key():
     """Le second défaut révélé par la FYP : `tv_post_time` n'y existe pas. Une vidéo sans légende
     y serait identifiée par son seul auteur — et TOUTES les vidéos sans légende de cet auteur
     tomberaient dans la même ligne. Même arbitrage que pour l'auteur manquant : ne rien stocker."""
-    assert tiktok_post_key("charli d’amelio", "", "") is None
-    assert tiktok_post_key("charli d’amelio", None, None) is None
+    assert tiktok_post_key("demo d’étoile", "", "") is None
+    assert tiktok_post_key("demo d’étoile", None, None) is None
 
 
 # --- deux posts différents donnent deux clés ----------------------------------------------------
@@ -83,7 +83,7 @@ def test_the_author_is_folded_as_hard_as_the_caption():
 
     La première version gardait la ponctuation de l'auteur, pour que `demo.2` et `demo2` restent
     deux comptes. L'écran a tranché autrement : la FYP rend un **nom d'affichage**, pas un pseudo
-    — le Lab a renvoyé `charli d'amelio`, espace et apostrophe courbe comprises — et un nom
+    — le Lab a renvoyé `demo d'étoile`, espace et apostrophe courbe comprises — et un nom
     d'affichage porte très souvent un emoji, que le dump réduit à deux points. Garder la
     ponctuation faisait donc deux clés pour un même post, ce que la clé existe pour empêcher.
 
@@ -101,10 +101,10 @@ def test_an_emoji_in_the_display_name_keys_the_same_eaten_or_not():
 
 
 def test_the_display_name_of_the_fyp_keys_cleanly():
-    """Ce que le Lab a réellement renvoyé, avant correction : `tiktok:charli d'amelio:...`."""
-    key = tiktok_post_key("charli d’amelio", "", "dc @Kittrell")
+    """Ce que le Lab a réellement renvoyé, avant correction : `tiktok:demo d'étoile:...`."""
+    key = tiktok_post_key("demo d’étoile", "", "dc @Demoduo")
 
-    assert key == "tiktok:charlidamelio:nodate:" + key.rsplit(":", 1)[-1]
+    assert key == "tiktok:demodetoile:nodate:" + key.rsplit(":", 1)[-1]
     assert " " not in key and "’" not in key
 
 
