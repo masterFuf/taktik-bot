@@ -71,6 +71,27 @@ def test_without_the_447_loading_rows_a_loading_screen_is_not_read_as_an_answer(
         assert read_search_results(ScreenSnapshot(LOADING_ABSENT), "user_2") is State.UNRECOGNIZED
 
 
+class _TwoCapturesAtOnce:
+    """One photo that answers as two real captures together (`exists`, the one question
+    `read_search_results` asks of a photo). No capture shows the grey rows and the row of the query
+    on one tree (Pixel 6a, Instagram 447, 2026-11-20): this is the moment the order of the reading
+    is for, a query row drawn while rows still load."""
+
+    def __init__(self, *screens):
+        self._photos = [ScreenSnapshot(screen) for screen in screens]
+
+    def exists(self, selectors):
+        return any(photo.exists(selectors) for photo in self._photos)
+
+
+def test_rows_still_loading_are_read_before_the_row_of_the_query():
+    """A list whose rows still load has not answered, even with its query row drawn: loading is
+    read first. Read the other way, the query row would say « not listed » of an account on its way."""
+    photo = _TwoCapturesAtOnce(LOADING_ABSENT, LOADED_ABSENT)
+    with selectors_of(SEARCH_447):
+        assert read_search_results(photo, "user_3") is State.LOADING
+
+
 @pytest.fixture
 def no_waiting(monkeypatch):
     monkeypatch.setattr(search_navigation, "SEARCH_RESULTS_TIMEOUT_S", 0.0)
