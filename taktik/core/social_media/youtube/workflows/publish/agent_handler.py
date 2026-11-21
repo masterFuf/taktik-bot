@@ -13,6 +13,7 @@ from typing import Any, Callable, Mapping
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.handler_params import merge_invocation_payload
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
+from taktik.core.shared.diagnostics.run_door import open_run_door
 from taktik.core.social_media.youtube.workflows.publish.payload import (
     SHORT_TITLE_MAX_LENGTH,
     check_upload_file,
@@ -37,9 +38,12 @@ def run_youtube_upload(
     status=None,
     workflow_factory: YouTubeUploadWorkflowFactory = YouTubeUploadWorkflow,
 ) -> dict[str, Any]:
-    """Read the payload, refuse a missing file, wire the host's callbacks, then upload."""
+    """Read the payload, refuse a missing file, wire the host's callbacks, then upload. A locked phone
+    or a phone without network raises `RunRefused` once the file is checked, before the app opens."""
     request = youtube_upload_request_from_payload(payload)
     check_upload_file(request)
+    # A locked phone or a phone without network does not start its run, from any host (`RunRefused`).
+    open_run_door(device_id)
     set_callbacks(log=log, status=status)
     if request.title_trimmed and log is not None:
         log("warning", f"YouTube Shorts title trimmed to {SHORT_TITLE_MAX_LENGTH} characters")

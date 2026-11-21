@@ -22,10 +22,12 @@ from bridges.common.bootstrap import setup_environment
 setup_environment()
 
 from bridges.common.entrypoint import run_bridge_main
+from bridges.common.network import send_run_refusal
 from bridges.common.signal_handler import setup_signal_handlers
 from bridges.youtube.account.workflows import run_youtube_account_login, run_youtube_account_logout
 from bridges.common.bridge_base import _ipc, send_error, send_status
 from bridges.youtube.common.session import cleanup_youtube_app, prepare_youtube_session
+from taktik.core.shared.diagnostics.run_halt import RunRefused
 
 
 class YouTubeAccountBridge:
@@ -63,6 +65,10 @@ class YouTubeAccountBridge:
             if self.workflow_type == "logout":
                 return run_youtube_account_logout(self.config, device=session.device, device_id=self.device_id)
             send_error(f"Unknown workflowType: {self.workflow_type}")
+            return 1
+        except RunRefused as refused:
+            # The launcher's door, once the phone is connected: YouTube was not opened.
+            send_run_refusal(refused, "Account")
             return 1
         finally:
             cleanup_youtube_app(self.device_id)

@@ -3,7 +3,9 @@
 from typing import Any, Callable
 
 from bridges.common.entrypoint import send_run_error
+from bridges.common.network import send_run_refusal
 from bridges.gmail.account.persistence import persist_gmail_account
+from taktik.core.shared.diagnostics.run_halt import RunRefused
 from taktik.core.social_media.gmail.workflows.agent_handler import (
     GMAIL_ACCOUNT_SCAN_ACCOUNTS_WORKFLOW_ID,
     run_gmail_account,
@@ -44,6 +46,10 @@ def run_gmail_scan_accounts(
             error_type=result.get("error_type"),
         )
         return 0 if success else 1
+    except RunRefused as refused:
+        # The launcher's door: Gmail was not opened.
+        send_run_refusal(refused, "Gmail scan_accounts")
+        return 1
     except Exception as exc:  # noqa: BLE001
         send_run_error(f"Gmail scan_accounts error: {exc}", exc)
         return 1

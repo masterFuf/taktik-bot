@@ -11,6 +11,7 @@ from typing import Any, Callable, Mapping
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.handler_params import merge_invocation_payload, required_text_param, text_param
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
+from taktik.core.shared.diagnostics.run_door import open_run_door
 from taktik.core.social_media.youtube.workflows.account.account_workflow import (
     YouTubeAccountWorkflow,
 )
@@ -35,7 +36,13 @@ def run_youtube_account(
     account_repository=None,
     workflow_factory: YouTubeAccountWorkflowFactory = YouTubeAccountWorkflow,
 ) -> dict[str, Any]:
-    """Log in or out of YouTube with already-read params."""
+    """Log in or out of YouTube with already-read params. A locked phone or a phone without network
+    raises `RunRefused` before the app is touched."""
+    if workflow_id not in YOUTUBE_ACCOUNT_WORKFLOW_IDS:
+        raise ValueError(f"Unsupported YouTube account workflow id: {workflow_id}")
+
+    # A locked phone or a phone without network does not start its run, from any host (`RunRefused`).
+    open_run_door(device_id)
     workflow = workflow_factory(
         device,
         device_id,
@@ -47,9 +54,8 @@ def run_youtube_account(
             email=params["email"],
             password=params.get("password", ""),
         )
-    if workflow_id == YOUTUBE_ACCOUNT_LOGOUT_WORKFLOW_ID:
-        return workflow.logout(email=params.get("email", ""))
-    raise ValueError(f"Unsupported YouTube account workflow id: {workflow_id}")
+    # The other id: YOUTUBE_ACCOUNT_LOGOUT_WORKFLOW_ID.
+    return workflow.logout(email=params.get("email", ""))
 
 
 def build_youtube_account_handler(

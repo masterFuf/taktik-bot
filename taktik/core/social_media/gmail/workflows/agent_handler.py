@@ -16,6 +16,7 @@ from taktik.core.kernel.handler_params import (
     text_param,
     value_param,
 )
+from taktik.core.shared.diagnostics.run_door import open_run_door
 from taktik.core.social_media.gmail.workflows.account import GmailWorkflow
 
 
@@ -44,7 +45,14 @@ def run_gmail_account(
     account_unpersister: AccountPersister | None = None,
     workflow_factory: GmailWorkflowFactory = GmailWorkflow,
 ) -> dict[str, Any]:
-    """Run one Gmail account workflow with already-read params, then persist its outcome."""
+    """Run one Gmail account workflow with already-read params, then persist its outcome. Each flow
+    drives the phone's Gmail app: a locked phone or a phone without network raises `RunRefused`
+    before the app is touched."""
+    if workflow_id not in GMAIL_ACCOUNT_WORKFLOW_IDS:
+        raise ValueError(f"Unsupported Gmail account workflow id: {workflow_id}")
+
+    # A locked phone or a phone without network does not start its run, from any host (`RunRefused`).
+    open_run_door(device_id)
     workflow = workflow_factory(device, device_id, notifier=notifier)
 
     if workflow_id == GMAIL_ACCOUNT_LOGIN_WORKFLOW_ID:
@@ -62,16 +70,14 @@ def run_gmail_account(
     if workflow_id == GMAIL_ACCOUNT_READ_OTP_WORKFLOW_ID:
         return workflow.get_latest_verification_code(**params)
 
-    if workflow_id == GMAIL_ACCOUNT_SCAN_ACCOUNTS_WORKFLOW_ID:
-        result = workflow.scan_accounts()
-        if result.get("success") and account_persister is not None:
-            for account in result.get("accounts", []):
-                email = account.get("email") if isinstance(account, Mapping) else None
-                if email:
-                    account_persister(str(email))
-        return result
-
-    raise ValueError(f"Unsupported Gmail account workflow id: {workflow_id}")
+    # The last id: GMAIL_ACCOUNT_SCAN_ACCOUNTS_WORKFLOW_ID.
+    result = workflow.scan_accounts()
+    if result.get("success") and account_persister is not None:
+        for account in result.get("accounts", []):
+            email = account.get("email") if isinstance(account, Mapping) else None
+            if email:
+                account_persister(str(email))
+    return result
 
 
 def build_gmail_account_handler(

@@ -1,9 +1,12 @@
-"""The publication, the account flows and the tasks open the door of a run, as the other launchers do.
+"""The publication, the account flows, the tasks, YouTube, Threads and Gmail open the door of a run,
+as the other launchers do.
 
 They did not: on a locked phone, a publication, a login or a story relay started, then failed on its
 selectors a minute later where the motive was a locked phone. Each launcher now opens
 `open_run_door` before the app is touched, and each bridge says the refusal on its coded `error`
-line (`send_run_refusal`), the line the desktop translates.
+line (`send_run_refusal`), the line the desktop translates. YouTube (account, upload), Threads
+(search, feed) and Gmail (its four account flows, all on the phone's Gmail app) followed on
+2026-11-21.
 """
 
 from __future__ import annotations
@@ -97,8 +100,59 @@ def _tiktok_account(tmp_path):
                               app=_NeverApp(), logout_workflow_factory=_never)
 
 
+def _youtube_account(tmp_path):
+    from taktik.core.social_media.youtube.workflows.account.agent_handler import (
+        YOUTUBE_ACCOUNT_LOGOUT_WORKFLOW_ID,
+        run_youtube_account,
+    )
+
+    return run_youtube_account(YOUTUBE_ACCOUNT_LOGOUT_WORKFLOW_ID, {"email": ""}, device=object(),
+                               device_id=SERIAL, workflow_factory=_never)
+
+
+def _youtube_upload(tmp_path):
+    from taktik.core.social_media.youtube.workflows.publish.agent_handler import run_youtube_upload
+
+    return run_youtube_upload({"localPath": _media(tmp_path)}, device=object(), device_id=SERIAL,
+                              workflow_factory=_never)
+
+
+def _threads_search(tmp_path):
+    from taktik.core.social_media.threads.workflows.agent_handler import run_threads_search
+
+    return run_threads_search({"deviceId": SERIAL, "searchQuery": "coffee"}, search_runner=_never,
+                              on_started=_never)
+
+
+def _threads_feed(tmp_path):
+    from taktik.core.social_media.threads.workflows.agent_handler import run_threads_feed
+
+    return run_threads_feed({"deviceId": SERIAL}, feed_runner=_never, on_started=_never)
+
+
+def _gmail_account(workflow_id: str, params: Dict[str, Any]):
+    def launch(tmp_path):
+        from taktik.core.social_media.gmail.workflows.agent_handler import run_gmail_account
+
+        return run_gmail_account(workflow_id, params, device=object(), device_id=SERIAL, workflow_factory=_never)
+
+    launch.__name__ = f"_gmail_{workflow_id.rsplit('.', 1)[-1]}"
+    return launch
+
+
+_GMAIL_FLOWS = [
+    _gmail_account("gmail.account.login", {"email": "a@example.com", "password": "secret"}),
+    _gmail_account("gmail.account.logout", {"email": "a@example.com"}),
+    _gmail_account("gmail.account.read_otp", {"email": "a@example.com", "sender_filter": None,
+                                              "subject_filter": None, "timeout": 120}),
+    _gmail_account("gmail.account.scan_accounts", {}),
+]
+
+
 @pytest.mark.parametrize("launch", [_instagram_publish, _instagram_account, _instagram_story_relay,
-                                    _tiktok_publish, _tiktok_account])
+                                    _tiktok_publish, _tiktok_account, _youtube_account, _youtube_upload,
+                                    _threads_search, _threads_feed, *_GMAIL_FLOWS],
+                         ids=lambda launch: launch.__name__.lstrip("_"))
 def test_a_locked_phone_refuses_the_run_before_the_app(locked, tmp_path, launch):
     with pytest.raises(run_door.PhoneLockedError) as refused:
         launch(tmp_path)
@@ -189,3 +243,74 @@ def test_the_account_bridges_say_the_refusal_and_nothing_after_it(locked, lines,
     assert ended.value.code == 1
     assert len(_refusal(lines)) == 1
     assert [line for line in lines if line["type"] == "error"] == _refusal(lines)
+
+
+def _session(*_args, **_kwargs):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(device=object(), connection=None)
+
+
+def _only_the_refusal(lines) -> bool:
+    """One coded refusal, and no other `error` line nor a result after it."""
+    errors = [line for line in lines if line["type"] == "error"]
+    results = [line for line in lines if line["type"] in ("account_result", "upload_result")]
+    return len(_refusal(lines)) == 1 and errors == _refusal(lines) and not results
+
+
+@pytest.mark.parametrize("workflow_type, config", [
+    ("login", {"email": "a@example.com"}),
+    ("logout", {"email": "a@example.com"}),
+])
+def test_the_youtube_account_bridge_says_the_refusal(locked, lines, monkeypatch, workflow_type, config):
+    import bridges.youtube.account.youtube_account_bridge as bridge
+
+    monkeypatch.setattr(bridge, "prepare_youtube_session", _session)
+    monkeypatch.setattr(bridge, "cleanup_youtube_app", lambda device_id: None)
+
+    code = bridge.YouTubeAccountBridge({"deviceId": SERIAL, "workflowType": workflow_type, **config}).run()
+
+    assert code == 1
+    assert _only_the_refusal(lines)
+
+
+def test_the_youtube_upload_bridge_says_the_refusal(locked, lines, monkeypatch, tmp_path):
+    import bridges.youtube.publish.youtube_upload_bridge as bridge
+
+    monkeypatch.setattr(bridge, "prepare_youtube_session", _session)
+    monkeypatch.setattr(bridge, "cleanup_youtube_app", lambda device_id: None)
+
+    code = bridge.YouTubeUploadBridge({"deviceId": SERIAL, "localPath": _media(tmp_path)}).run()
+
+    assert code == 1
+    assert _only_the_refusal(lines)
+
+
+@pytest.mark.parametrize("runner, config", [
+    ("bridges.threads.automation.search:run_follow", {"deviceId": SERIAL, "searchQuery": "coffee"}),
+    ("bridges.threads.automation.feed:run_feed", {"deviceId": SERIAL}),
+], ids=["search", "feed"])
+def test_the_threads_runners_say_the_refusal(locked, lines, runner, config):
+    module, name = runner.split(":")
+    run = getattr(__import__(module, fromlist=[name]), name)
+
+    assert run(config) is False
+    assert _only_the_refusal(lines)
+
+
+@pytest.mark.parametrize("workflow_type, config", [
+    ("login", {"email": "a@example.com", "password": "secret"}),
+    ("logout", {"email": "a@example.com"}),
+    ("read_otp", {"email": "a@example.com"}),
+    ("scan_accounts", {}),
+])
+def test_the_gmail_account_bridge_says_the_refusal(locked, lines, monkeypatch, workflow_type, config):
+    import bridges.gmail.account.gmail_account_bridge as bridge
+
+    monkeypatch.setattr(bridge, "prepare_gmail_session", _session)
+    monkeypatch.setattr(bridge, "cleanup_gmail_app", lambda device_id: None)
+
+    code = bridge.GmailAccountBridge({"deviceId": SERIAL, "workflowType": workflow_type, **config}).run()
+
+    assert code == 1
+    assert _only_the_refusal(lines)

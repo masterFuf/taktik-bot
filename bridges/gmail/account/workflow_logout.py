@@ -3,8 +3,10 @@
 from typing import Any, Callable
 
 from bridges.common.entrypoint import send_run_error
+from bridges.common.network import send_run_refusal
 from bridges.gmail.account.persistence import unpersist_gmail_account
 from bridges.gmail.account.workflow_result import finish_account_result
+from taktik.core.shared.diagnostics.run_halt import RunRefused
 from taktik.core.social_media.gmail.workflows.agent_handler import (
     GMAIL_ACCOUNT_LOGOUT_WORKFLOW_ID,
     logout_params_from_payload,
@@ -50,6 +52,10 @@ def run_gmail_logout(
             send_status=send_status,
             send_message=send_message,
         )
+    except RunRefused as refused:
+        # The launcher's door: Gmail was not opened.
+        send_run_refusal(refused, "Gmail logout")
+        return 1
     except Exception as exc:  # noqa: BLE001
         send_run_error(f"Gmail logout error: {exc}", exc)
         return 1

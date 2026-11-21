@@ -3,6 +3,8 @@
 from typing import Any, Callable, Mapping
 
 from bridges.common.entrypoint import send_run_error
+from bridges.common.network import send_run_refusal
+from taktik.core.shared.diagnostics.run_halt import RunRefused
 
 
 def run_youtube_upload_workflow(
@@ -41,6 +43,10 @@ def run_youtube_upload_workflow(
         )
         return 0 if success else 1
 
+    except RunRefused as refused:
+        # The launcher's door, once the phone is connected: nothing was opened nor uploaded.
+        send_run_refusal(refused, "Upload")
+        return 1
     except Exception as exc:
         send_run_error(f"Upload workflow error: {exc}", exc)
         return 1

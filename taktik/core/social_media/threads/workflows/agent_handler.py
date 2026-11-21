@@ -17,6 +17,7 @@ from typing import Any, Callable, Mapping, Optional
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.handler_params import merge_invocation_payload
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
+from taktik.core.shared.diagnostics.run_door import open_run_door
 from taktik.core.social_media.threads.workflows.feed_and_interact import (
     FeedInteractConfig,
     run_feed_and_interact,
@@ -62,8 +63,11 @@ def run_threads_search(
     on_started: Optional[StartedHook] = None,
     on_finished: Optional[FinishedHook] = None,
 ) -> dict[str, Any]:
-    """Read a follow payload, then run one Threads search-and-interact session."""
+    """Read a follow payload, then run one Threads search-and-interact session. A locked phone or a
+    phone without network raises `RunRefused` before Threads is touched."""
     config = threads_search_config_from_payload(payload)
+    # A locked phone or a phone without network does not start its run, from any host (`RunRefused`).
+    open_run_door(config.device_id)
     _announce(
         on_log,
         f"[threads:search] device={config.device_id} query={config.search_query!r} "
@@ -94,8 +98,11 @@ def run_threads_feed(
     on_started: Optional[StartedHook] = None,
     on_finished: Optional[FinishedHook] = None,
 ) -> dict[str, Any]:
-    """Read a feed payload, then run one Threads feed-and-interact session."""
+    """Read a feed payload, then run one Threads feed-and-interact session. A locked phone or a phone
+    without network raises `RunRefused` before Threads is touched."""
     config = threads_feed_config_from_payload(payload)
+    # A locked phone or a phone without network does not start its run, from any host (`RunRefused`).
+    open_run_door(config.device_id)
     _announce(
         on_log,
         f"[threads:feed] device={config.device_id} max={config.max_profiles} "

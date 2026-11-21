@@ -3,7 +3,9 @@
 from typing import Any, Callable
 
 from bridges.common.entrypoint import send_run_error
+from bridges.common.network import send_run_refusal
 from bridges.gmail.account.workflow_result import finish_account_result
+from taktik.core.shared.diagnostics.run_halt import RunRefused
 from taktik.core.social_media.gmail.workflows.agent_handler import (
     GMAIL_ACCOUNT_READ_OTP_WORKFLOW_ID,
     read_otp_params_from_payload,
@@ -49,6 +51,10 @@ def run_gmail_read_otp(
             send_message=send_message,
             extra={"code": result.get("code")},
         )
+    except RunRefused as refused:
+        # The launcher's door: Gmail was not opened.
+        send_run_refusal(refused, "Gmail OTP")
+        return 1
     except Exception as exc:  # noqa: BLE001
         send_run_error(f"Gmail OTP error: {exc}", exc)
         return 1

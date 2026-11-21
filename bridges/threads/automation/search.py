@@ -1,8 +1,10 @@
 """Threads search runner used by the bridge dispatcher: `run_threads_search` with IPC events."""
 
 from bridges.common.entrypoint import send_run_error
+from bridges.common.network import send_run_refusal
 from bridges.threads.automation.base import send_error, send_status
 from bridges.threads.automation.events import build_threads_callbacks, emit_threads_completion
+from taktik.core.shared.diagnostics.run_halt import RunRefused
 
 
 def run_follow(config: dict) -> bool:
@@ -21,6 +23,10 @@ def run_follow(config: dict) -> bool:
         )
     except ThreadsSearchQueryMissing:
         send_error("No search query provided", error_code="threads.no_query")
+        return False
+    except RunRefused as refused:
+        # The launcher's door: Threads was not touched.
+        send_run_refusal(refused, "Threads search workflow")
         return False
     except Exception as exc:  # noqa: BLE001
         send_run_error(f"Threads search workflow crashed: {exc}", exc, error_code="threads.workflow_crash")
