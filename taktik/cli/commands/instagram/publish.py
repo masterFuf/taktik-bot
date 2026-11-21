@@ -24,6 +24,7 @@ def _run(post_type: str, device_id: str | None, media: tuple[str, ...], caption:
     from taktik.cli.commands.workflows import _choose_phone
     from taktik.cli.hosts.instagram import CliInstagramHost
     from taktik.cli.hosts.phone import PhoneNotConnectedError
+    from taktik.core.shared.diagnostics.run_halt import RunRefused
     from taktik.core.shared.diagnostics.run_start import run_scope
     from taktik.core.social_media.instagram.workflows.publish.agent_handler import run_instagram_publish
     from taktik.core.social_media.instagram.workflows.publish.payload import PublishRequestError
@@ -62,7 +63,8 @@ def _run(post_type: str, device_id: str | None, media: tuple[str, ...], caption:
             # The phone the automation and the scraping get from the CLI, on the Instagram the launcher reads.
             result = run_instagram_publish(payload, device_id=phone.device_id,
                                            connect=CliInstagramHost(phone).run_phone, log=_log, status=_status)
-        except (PublishRequestError, PhoneNotConnectedError) as exc:
+        except (PublishRequestError, PhoneNotConnectedError, RunRefused) as exc:
+            # A refused run (a locked phone, no network) reads « PHONE_LOCKED: ... »: its code, then why.
             console.print(f"[red]{exc}[/red]")
             raise SystemExit(1)
 

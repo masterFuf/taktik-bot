@@ -176,3 +176,35 @@ def test_the_menu_publishes_through_the_production_workflow(wired, monkeypatch):
 
     monkeypatch.setattr(prod, "InstagramPostWorkflow", Failing)
     assert publish_cmds.run_publish("post", "dev-1", (wired("a.png"),), "hello", "#travel") is False
+
+
+def _phone_stays_locked(monkeypatch):
+    """The run's door, as on a phone whose lock asks for a code: it refuses before the app opens."""
+    from taktik.core.shared.diagnostics.run_door import PhoneLockedError
+    from taktik.core.social_media.instagram.workflows.publish import agent_handler
+
+    def door(device_id):
+        raise PhoneLockedError(device_id)
+
+    monkeypatch.setattr(agent_handler, "open_run_door", door)
+
+
+def test_a_refused_run_is_said_with_its_code_and_exits_non_zero(wired, monkeypatch):
+    """A locked phone or a phone without network refuses the run (`RunRefused`): the command says the
+    code, as the bridges do on their error line, and exits 1 instead of a Python trace."""
+    _phone_stays_locked(monkeypatch)
+
+    result = CliRunner().invoke(publish_cmds.publish, ["post", wired("a.png")])
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)  # a clean exit, not the refusal itself
+    assert "PHONE_LOCKED" in result.output
+    assert RecordingWorkflow.last is None
+
+
+def test_the_menu_comes_back_from_a_refused_run(wired, monkeypatch, capsys):
+    """« Post Content » of the menu on a locked phone: the menu goes on, it no longer stops on a trace."""
+    _phone_stays_locked(monkeypatch)
+
+    assert publish_cmds.run_publish("post", "dev-1", (wired("a.png"),)) is False
+    assert "PHONE_LOCKED" in capsys.readouterr().out
