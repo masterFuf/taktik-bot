@@ -83,6 +83,15 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
             self.logger.debug(f"Feed advance error: {e}")
             return {'on_feed': False}
 
+    def _leaves_on_stop(self) -> bool:
+        """The run's latch (a block seen anywhere, a lost phone or network), read where the loop
+        decides to go on. This loop once never read it, and kept liking after Instagram said stop
+        (2026-09-24)."""
+        if run_halt.arret_demande():
+            self.logger.warning("⛔ Run stop requested — leaving the feed")
+            return True
+        return False
+
     def _count_interacted_account(self, username: str, stats: Dict[str, Any]) -> bool:
         """The Feed's one rule for the accounts it interacted with: each counts once.
 
@@ -153,10 +162,10 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
             self.logger.debug(f"Author engagement failed: {exc}")
             return False
         finally:
-            # Always hand the feed back: the loop's next advance assumes we are on it, and a
-            # crawl that starts from a profile page walks somebody else's posts.
+            # Hand the feed back: the loop's next advance assumes we are on it, and a crawl that
+            # starts from a profile page walks somebody else's posts. After a stop, no gesture.
             try:
-                self.nav_actions.navigate_to_home()
+                run_halt.ranger_sauf_arret(self.nav_actions.navigate_to_home, "the way back to the feed")
             except Exception as exc:
                 self.logger.debug(f"Could not return to the feed: {exc}")
 
@@ -194,7 +203,7 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
             for key in self._LIKERS_WALK_COUNTS:
                 stats[key] = stats.get(key, 0) + post_stats.get(key, 0)
             try:
-                self.nav_actions.navigate_to_home()
+                run_halt.ranger_sauf_arret(self.nav_actions.navigate_to_home, "the way back to the feed")
             except Exception as exc:
                 self.logger.debug(f"Could not return to the feed: {exc}")
 
@@ -326,10 +335,7 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                 while (posts_liked < effective_config['max_interactions'] and
                        posts_checked < effective_config['max_posts_to_check']):
 
-                    # The run's lock (a block seen anywhere, a lost phone): this loop never read
-                    # it, and kept liking after Instagram said stop (2026-09-24).
-                    if run_halt.arret_demande():
-                        self.logger.warning("⛔ Run stop requested — leaving the feed")
+                    if self._leaves_on_stop():
                         break
 
                     posts_checked += 1
@@ -452,7 +458,9 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                         else:
                             feed_action, feed_reason = 'skip', 'Non liké (probabilité)'
 
-                        if blocked:
+                        # A block, or a stop asked during the like or the comment: no reading pause
+                        # (it browses a carousel), no excursion.
+                        if blocked or self._leaves_on_stop():
                             # The copilot card of this post first: it was liked.
                             IPCEmitter.emit_feed_decision(post_author, feed_action, reason=feed_reason)
                             break
@@ -478,6 +486,11 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                     # Copilot feed card (skip pure ad-skips, which leave feed_action None).
                     if feed_action is not None:
                         IPCEmitter.emit_feed_decision(post_author, feed_action, reason=feed_reason)
+
+                    # A stop during this post (its like, the author's profile, its likers): no
+                    # suggestions pass and no swipe, the screen stays where the stop found it.
+                    if self._leaves_on_stop():
+                        break
 
                     # The suggestions carousel reached the screen: leave to follow
                     # en masse, puis on revient poursuivre le feed la ou on en etait.

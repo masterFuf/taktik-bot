@@ -97,6 +97,10 @@ class HashtagBusiness(
         ):
             if not enabled:
                 continue
+            # A stop during the post's like or the previous walk: no other sheet is opened, the
+            # plan's loop reads the latch next and ends there.
+            if run_halt.arret_demande():
+                break
             if self._walk_post_people(hashtag, mode, budget, effective_config, stats, is_reel):
                 did_something = True
 
@@ -176,13 +180,11 @@ class HashtagBusiness(
             stats['errors'] += 1
             return False
         finally:
-            # Whatever happened, come back to the post: the next population — and the next
-            # advance — both assume we are standing on it.
+            # Come back to the post: the next population and the next advance both assume we are
+            # standing on it. After a stop, no gesture: the sheet stays open.
             try:
-                if mode == 'commenters':
-                    self._close_comments_view()
-                else:
-                    self._close_likers_popup()
+                close = self._close_comments_view if mode == 'commenters' else self._close_likers_popup
+                run_halt.ranger_sauf_arret(close, f"closing the {mode} sheet")
             except Exception as exc:
                 self.logger.debug(f"Could not close the {mode} view: {exc}")
 

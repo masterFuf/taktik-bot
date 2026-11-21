@@ -188,8 +188,26 @@ def attendre_sauf_arret(secondes: float) -> bool:
     return _arret is None
 
 
+def ranger_sauf_arret(geste: Callable[[], Any], quoi: str) -> bool:
+    """Make the tidy-up gesture `geste` (back to the feed, to a list, a sheet closed) unless a stop
+    is asked: after a stop the run makes no gesture at all, the screen stays as the stop found it
+    (Kevin's rule of 2026-11-16). `quoi` names the gesture in the log.
+
+    True: the gesture was made, whatever it answered. False: the latch is set, nothing was touched;
+    the caller then reads the latch before its next gesture, which would land on the wrong screen.
+    An exception of the gesture is the caller's.
+    """
+    arret = arret_demande()
+    if arret is not None:
+        logger.info(f"Run stop requested ({arret.get('code')}): {quoi} not done, the screen stays as it is")
+        return False
+    geste()
+    return True
+
+
 __all__ = [
-    "demander_arret", "arret_demande", "attendre_sauf_arret", "reinitialiser", "configurer_temoin",
+    "demander_arret", "arret_demande", "attendre_sauf_arret", "ranger_sauf_arret", "reinitialiser",
+    "configurer_temoin",
     "DEVICE_DISCONNECTED", "TARGET_APP_CRASHED", "ACTION_BLOCKED", "DESKTOP_GONE", "ACCOUNT_CHALLENGE",
     "NETWORK_LOST", "PHONE_LOCKED", "LIKE_UNCONFIRMED", "RunRefused",
 ]

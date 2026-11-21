@@ -176,8 +176,10 @@ class ColdDMWorkflow(
                 outcome = reached["outcome"]
                 self._record_outcome(reached, current=i + 1, recipient=recipient, account_id=account_id,
                                      session_id=session_id, ai_written=ai_dm_rules is not None)
-                if outcome == ACTION_BLOCKED:
-                    # No way back home: its Back would close the dialog, which is acting again.
+                if outcome == ACTION_BLOCKED or run_halt.arret_demande():
+                    # A block or a stop asked while this recipient was reached: no way back home
+                    # (its Back would close the dialog, which is acting again), no gesture at all.
+                    logger.warning(f"Run stop requested after {recipient}: no way home, no more DMs")
                     break
                 if outcome != SENT:
                     self.go_home()
@@ -195,7 +197,8 @@ class ColdDMWorkflow(
             except Exception as e:
                 logger.error(f"Error sending DM to {recipient}: {e}")
                 self.dms_failed += 1
-                self.go_home()
+                if not run_halt.ranger_sauf_arret(self.go_home, "the way back home"):
+                    break
 
         return build_cold_dm_summary(self)
 
