@@ -439,3 +439,45 @@ def test_every_declared_line_comes_out_of_a_real_path(automation_run, capsys, mo
 
     declared = {event.type for event in INSTAGRAM_AUTOMATION.events}
     assert declared - printed == set(), f"declared, printed by no real path: {sorted(declared - printed)}"
+
+
+# ------------------------------------------------------------------- a counter the bot did not read
+
+
+def test_the_run_s_account_with_counters_not_read_is_said_unknown(automation_run, capsys, monkeypatch):
+    """Our own profile read without its followers and with no posts count: `active_account` carries
+    null for both, never 0, and stays the declared line."""
+    from taktik.core.social_media.instagram.services.profile.extraction import ProfileExtraction
+
+    DesktopBridge, sent = automation_run
+    monkeypatch.setattr(ProfileExtraction, "get_complete_profile_info",
+                        lambda self, username=None, **k: {"username": username or "acting",
+                                                          "followers_count": None, "following_count": 3})
+
+    assert DesktopBridge(bridge_file("feed")).run() == 0
+    lines = sent + printed_lines(capsys.readouterr().out)
+
+    assert not line_problems(lines), line_problems(lines)
+    accounts = [line for line in lines if line["type"] == "active_account"]
+    assert accounts and all((line["followers"], line["following"], line["posts"]) == (None, 3, None)
+                            for line in accounts), accounts
+
+
+def test_an_action_on_a_profile_with_counters_not_read_says_them_unknown(monkeypatch):
+    """A profile followed, liked or watched whose followers were not read, and whose posts count the
+    read did not give: null on `profile_data`, never 0, on the declared lines."""
+    from taktik.core.social_media.instagram.actions.base.base_business.interaction_engine import (
+        InteractionEngineMixin,
+    )
+
+    sent = capture_lines(monkeypatch)
+    use_the_bridge_ipc(monkeypatch)
+    profile = {"username": "a_profile", "followers_count": None, "following_count": 80}
+    engine = SimpleNamespace()
+    InteractionEngineMixin._emit_follow_event(engine, "a_profile", profile)
+    InteractionEngineMixin._emit_like_event(engine, "a_profile", 2, profile)
+    InteractionEngineMixin._emit_story_event(engine, "a_profile", 3, 1, profile)
+
+    assert not line_problems(sent), line_problems(sent)
+    assert [line["profile_data"] for line in sent] == [
+        {"followers_count": None, "following_count": 80, "posts_count": None}] * 3

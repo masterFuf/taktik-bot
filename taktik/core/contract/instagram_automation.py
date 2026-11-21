@@ -491,9 +491,10 @@ ACTION_PROFILE = Shape(
     name="InstagramActionProfileData",
     doc="A profile's counters, as read before the action (`InteractionEngineMixin._emit_*_event`).",
     fields=(
-        Field("followers_count", "int", "Its followers."),
-        Field("following_count", "int", "The accounts it follows."),
-        Field("posts_count", "int", "Its posts."),
+        # A counter the bot could not read is null, never 0 (`profile/extraction.py`).
+        Field("followers_count", "int", "Its followers; null when not read.", nullable=True),
+        Field("following_count", "int", "The accounts it follows; null when not read.", nullable=True),
+        Field("posts_count", "int", "Its posts; null when not read.", nullable=True),
     ),
 )
 
@@ -511,9 +512,9 @@ EVENTS = (
     SESSION_START_EVENT,
     Event("active_account", doc="The account the run acts as, read on its profile.", fields=(
         Field("username", "string", "Its handle."),
-        Field("followers", "int", "Its followers."),
-        Field("following", "int", "The accounts it follows."),
-        Field("posts", "int", "Its posts."),
+        Field("followers", "int", "Its followers; null when not read.", nullable=True),
+        Field("following", "int", "The accounts it follows; null when not read.", nullable=True),
+        Field("posts", "int", "Its posts; null when not read.", nullable=True),
     )),
     Event("target_account", doc="A target account about to be worked.", fields=(
         Field("username", "string", "Its handle."),

@@ -784,18 +784,20 @@ class InteractionEngineMixin:
         """Send IPC follow event to frontend for WorkflowAnalyzer."""
         pd = profile_data or {}
         IPCEmitter.emit_follow(username, success=True, profile_data={
-            "followers_count": pd.get('followers_count', 0),
-            "following_count": pd.get('following_count', 0),
-            "posts_count": pd.get('posts_count', 0)
+            # A counter not read (None, or absent from the read) is null, never 0.
+            "followers_count": pd.get('followers_count'),
+            "following_count": pd.get('following_count'),
+            "posts_count": pd.get('posts_count')
         } if profile_data else None)
 
     def _emit_like_event(self, username: str, likes_count: int, profile_data: Dict[str, Any] = None):
         """Send IPC like event to frontend for WorkflowAnalyzer."""
         pd = profile_data or {}
         IPCEmitter.emit_like(username, likes_count=likes_count, profile_data={
-            "followers_count": pd.get('followers_count', 0),
-            "following_count": pd.get('following_count', 0),
-            "posts_count": pd.get('posts_count', 0)
+            # A counter not read (None, or absent from the read) is null, never 0.
+            "followers_count": pd.get('followers_count'),
+            "following_count": pd.get('following_count'),
+            "posts_count": pd.get('posts_count')
         } if profile_data else None)
 
     def _emit_story_event(self, username: str, stories_watched: int, stories_liked: int,
@@ -803,9 +805,10 @@ class InteractionEngineMixin:
         """Send IPC story event to frontend for the live panel & WorkflowAnalyzer."""
         pd = profile_data or {}
         IPCEmitter.emit_story(username, stories_watched=stories_watched, stories_liked=stories_liked, profile_data={
-            "followers_count": pd.get('followers_count', 0),
-            "following_count": pd.get('following_count', 0),
-            "posts_count": pd.get('posts_count', 0)
+            # A counter not read (None, or absent from the read) is null, never 0.
+            "followers_count": pd.get('followers_count'),
+            "following_count": pd.get('following_count'),
+            "posts_count": pd.get('posts_count')
         } if profile_data else None)
 
     # NOTE: the former `_interact_with_user` — a full duplicate of nav -> extract -> private

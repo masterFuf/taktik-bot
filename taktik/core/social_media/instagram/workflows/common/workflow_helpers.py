@@ -278,9 +278,10 @@ class WorkflowHelpers:
                 active_account_msg = {
                     "type": "active_account",
                     "username": profile_info.get('username', ''),
-                    "followers": profile_info.get('followers_count', 0),
-                    "following": profile_info.get('following_count', 0),
-                    "posts": profile_info.get('posts_count', 0),
+                    # A counter not read is null, never 0.
+                    "followers": profile_info.get('followers_count'),
+                    "following": profile_info.get('following_count'),
+                    "posts": profile_info.get('posts_count'),
                 }
                 print(json.dumps(active_account_msg), flush=True)
                 self.logger.info(f"Active account sent to frontend: @{profile_info['username']}")
