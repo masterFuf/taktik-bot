@@ -8,6 +8,10 @@ this test goes through the code of the last two with the real loop and the real 
 - the latch's motive only replaced a FAILED end, and a list that runs out ends `completed`;
 - the status was the caller's, and the profile-list loop always said COMPLETED.
 
+A profile the stop caught was counted an error of the panel too (`stats_manager.add_error`, « @x:
+error »), next to the stop's own motive: the loop now ends on the latch without one. The panel's
+error counter is recorded here, never replaced by a function that does nothing.
+
 The latch is set while the navigation waits, by the network watch itself (its rule, measured twice
 on the C57S's answer without network, without its thread): the line it ends on is the one the
 desktop's scheduler check plays (`scheduler-run-failure.cjs`, « a run whose phone lost its network »).
@@ -64,9 +68,11 @@ class _ProfileListRun(ProfileProcessingMixin, ProfileListWorkflowMixin):
         self.logger = logger
         self.session_manager = None
         self.nav_actions = SimpleNamespace(navigate_to_profile=navigate_to_profile)
+        #: What the panel's error counter received (`stats_manager.add_error`).
+        self.panel_errors = []
         self.stats_manager = SimpleNamespace(
             increment=lambda *args, **kwargs: None,
-            add_error=lambda *args, **kwargs: None,
+            add_error=self.panel_errors.append,
             display_stats=lambda *args, **kwargs: None,
             display_final_stats=lambda *args, **kwargs: None,
         )
@@ -94,9 +100,11 @@ def test_the_run_ends_on_the_lost_network_not_on_its_finished_list(capsys, monke
         assert [watch.tick(), watch.tick()] == [False, True]
         return False
 
-    _ProfileListRun(navigation_while_the_network_goes).interact_with_profile_list(['nasa'])
+    run = _ProfileListRun(navigation_while_the_network_goes)
+    stats = run.interact_with_profile_list(['nasa'])
 
     stop = _session_stop(capsys)
+    assert run.panel_errors == [] and stats['errors'] == 0, run.panel_errors
     assert stop['reason_code'] == 'network_lost'
     assert stop['status'] == 'INTERRUPTED'
     assert stop['reason'] == ('Network lost: no route to the Internet (ping: network is unreachable), '
@@ -104,8 +112,11 @@ def test_the_run_ends_on_the_lost_network_not_on_its_finished_list(capsys, monke
 
 
 def test_without_a_halt_the_same_run_stays_completed(capsys):
-    _ProfileListRun(lambda username: False).interact_with_profile_list(['nasa'])
+    run = _ProfileListRun(lambda username: False)
+    run.interact_with_profile_list(['nasa'])
 
     stop = _session_stop(capsys)
+    # A profile not opened without a stop is still an error of the panel.
+    assert len(run.panel_errors) == 1, run.panel_errors
     assert stop['reason_code'] == 'completed'
     assert stop['status'] == 'COMPLETED'

@@ -22,6 +22,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from taktik.core.social_media.instagram.actions.base.stats import create_workflow_stats, sync_aliases
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
+from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.social_media.instagram.actions.atomic.navigation.search_results import ProfileNavigationFailure
 from taktik.core.social_media.instagram.actions.base.ipc.emitter import IPCEmitter
@@ -161,6 +162,12 @@ class ProfileListWorkflowMixin:
                     account_id=account_id, session_id=session_id,
                     navigate_if_needed=True,
                 )
+
+                if result.was_error and run_halt.arret_demande():
+                    # The stop caught this profile (a lost network, a block): no error of the run, the
+                    # stop's motive says it, read off the latch at the end of the session.
+                    self.logger.warning(f"🛑 @{username} left: the run was asked to stop")
+                    break
 
                 if result.was_error:
                     stats['errors'] += 1
