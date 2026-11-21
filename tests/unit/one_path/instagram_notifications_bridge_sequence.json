@@ -24,8 +24,8 @@
     "type": "active_account",
     "username": "alpha_bot",
     "followers": 12,
-    "following": 0,
-    "posts": 0
+    "following": null,
+    "posts": null
    },
    {
     "type": "notification_step",
@@ -113,8 +113,8 @@
     "type": "active_account",
     "username": "alpha_bot",
     "followers": 12,
-    "following": 0,
-    "posts": 0
+    "following": null,
+    "posts": null
    },
    {
     "type": "notification_step",
@@ -207,8 +207,8 @@
     "type": "active_account",
     "username": "alpha_bot",
     "followers": 12,
-    "following": 0,
-    "posts": 0
+    "following": null,
+    "posts": null
    },
    {
     "type": "notification_step",
@@ -309,8 +309,8 @@
     "type": "active_account",
     "username": "alpha_bot",
     "followers": 12,
-    "following": 0,
-    "posts": 0
+    "following": null,
+    "posts": null
    },
    {
     "type": "notification_step",
