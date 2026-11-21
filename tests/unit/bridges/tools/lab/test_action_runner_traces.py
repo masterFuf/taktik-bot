@@ -593,3 +593,57 @@ def test_captured_phases_carry_a_layout_fingerprint(tmp_path):
 
     assert context.layout_fingerprints.get("before", "").startswith("v1:")
     assert not any(key.lower().startswith("layout") for key in artifacts)
+
+
+_TRILL = "com.ss.android.ugc.trill"
+
+
+def _phone_with_trill_only(monkeypatch):
+    """The answers of a phone that carries TikTok as `com.ss.android.ugc.trill` (a C57S, 43.1.4), and
+    no other TikTok package: `pm list packages` lists trill alone, `dumpsys` gives its version."""
+    from types import SimpleNamespace
+
+    from taktik.core.shared.device import app_inspection
+
+    def shell(serial, words, **_kwargs):
+        if words[:3] == ["pm", "list", "packages"]:
+            stdout = f"package:{_TRILL}\n" if words[-1] == _TRILL else ""
+        elif words[:2] == ["dumpsys", "package"] and words[-1] == _TRILL:
+            stdout = "    versionName=43.1.4\n"
+        else:
+            stdout = ""
+        return SimpleNamespace(returncode=0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(app_inspection, "run_adb_shell_process", shell)
+    monkeypatch.setattr(app_inspection, "_versions_read", {})
+
+
+def _tiktok_context(monkeypatch, foreground):
+    from bridges.tools.lab.action_test import artifacts
+
+    monkeypatch.setattr(artifacts, "_resolve_device_metadata", lambda bundle, device_id: {})
+    monkeypatch.setattr(artifacts, "_resolve_resolution", lambda bundle: None)
+    return artifacts.resolve_session_invariant_context(
+        bundle=_FakeBundle(), device_id="device-1", platform="tiktok",
+        current_app={"package": foreground, "activity": "MainActivity"},
+    )
+
+
+def test_tiktok_installed_as_trill_stamps_its_version_from_the_home_screen(monkeypatch):
+    """A session started from the home screen fell back to the default package
+    (`com.zhiliaoapp.musically`), not installed on this phone: every run went under `unknown-version`.
+    The bench takes the installed one of TikTok's packages (`shared/device/apps.py`)."""
+    _phone_with_trill_only(monkeypatch)
+
+    context = _tiktok_context(monkeypatch, "com.google.android.apps.nexuslauncher")
+
+    assert context.package_name == _TRILL
+    assert context.app_version == "43.1.4"
+
+
+def test_tiktok_in_the_foreground_as_trill_keeps_its_package(monkeypatch):
+    _phone_with_trill_only(monkeypatch)
+
+    context = _tiktok_context(monkeypatch, _TRILL)
+
+    assert (context.package_name, context.app_version) == (_TRILL, "43.1.4")

@@ -98,7 +98,7 @@ def resolve_session_invariant_context(
     (e.g. ``currentAppBefore``) so package resolution does not trigger an extra
     device round-trip.
     """
-    package_name = _resolve_package_name(bundle, platform, current_app=current_app)
+    package_name = _resolve_package_name(bundle, platform, device_id=device_id, current_app=current_app)
     app_version = _resolve_app_version(device_id, package_name, platform)
     device_metadata = _resolve_device_metadata(bundle, device_id)
     return SessionInvariantContext(
@@ -313,7 +313,8 @@ def artifact_dir_for(
     return context.artifact_dir
 
 
-def _resolve_package_name(bundle: Any, platform: str, *, current_app: dict | None = None) -> str | None:
+def _resolve_package_name(bundle: Any, platform: str, *, device_id: str = "",
+                          current_app: dict | None = None) -> str | None:
     """Resolve the package whose installed version stamps the run.
 
     The platform under test owns the stamp. Reading the foreground package first
@@ -324,12 +325,16 @@ def _resolve_package_name(bundle: Any, platform: str, *, current_app: dict | Non
     the home screen mislabels every one of its runs.
 
     The foreground package still wins when it belongs to the platform, so clones
-    (``com.instagram.android.c1``) keep stamping their own version.
+    (``com.instagram.android.c1``) keep stamping their own version. Otherwise the
+    installed one of the platform's packages (`shared/device/apps.py`) does: TikTok
+    installed as ``com.ss.android.ugc.trill`` stamped ``unknown-version`` while the
+    default package, absent from the phone, was read.
     """
     current = current_app if current_app is not None else _get_current_app(bundle)
     foreground = current.get("package") if current else None
 
     try:
+        from taktik.core.shared.device.app_inspection import is_package_installed
         from taktik.core.shared.device.apps import get_app_config, packages_for_platform
 
         known = packages_for_platform(platform)
@@ -338,6 +343,11 @@ def _resolve_package_name(bundle: Any, platform: str, *, current_app: dict | Non
             or any(foreground.startswith(f"{package}.") for package in known)
         ):
             return foreground
+
+        if device_id and device_id != UNKNOWN_DEVICE:
+            installed = next((package for package in known if is_package_installed(device_id, package)), None)
+            if installed:
+                return installed
 
         config = get_app_config(platform)
         if config:
