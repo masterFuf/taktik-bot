@@ -18,6 +18,7 @@ from typing import Any, Callable, Optional
 from loguru import logger
 
 from taktik.core.ai.credential import AICredential
+from taktik.core.contract.shared import PROFILE_NOT_FOUND, PROFILE_SEARCH_SLOW
 from taktik.core.ai.dm_rules import AiDmRules, check_ai_dm_text
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.diagnostics.action_block import look_for_action_block
@@ -44,13 +45,11 @@ from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy impor
 )
 
 
-#: `reach_and_send` outcomes other than the recipient policy's skip reasons.
+#: `reach_and_send` outcomes other than the recipient policy's skip reasons. A profile the search
+#: did not open is said with the contract's codes: `PROFILE_NOT_FOUND` (the answered search lists no
+#: row of this handle) and `PROFILE_SEARCH_SLOW` (still loading when its wait ended: nothing is known
+#: of the account, and the recipient is left for another run, nothing recorded).
 SENT = "sent"
-#: The answered search lists no row of this handle: the account is not found.
-NOT_FOUND = "not_found"
-#: The search was still loading when its wait ended: nothing is known of the account, and the
-#: recipient is left for another run (nothing recorded, as for every recipient not written to).
-SEARCH_SLOW = "search_slow"
 #: The search opened no profile of this handle for another reason: not reached, the row not
 #: tapped, another profile opened.
 NOT_OPENED = "not_opened"
@@ -214,9 +213,9 @@ class ColdDMWorkflow(
             self.private_profiles += 1
         elif outcome == SKIP_VERIFIED:
             self.verified_profiles += 1
-        elif outcome == NOT_FOUND:
+        elif outcome == PROFILE_NOT_FOUND:
             self.dms_not_found += 1
-        elif outcome == SEARCH_SLOW:
+        elif outcome == PROFILE_SEARCH_SLOW:
             self.dms_search_slow += 1
         elif outcome == SENT:
             apply_cold_dm_send_result(
@@ -242,7 +241,7 @@ class ColdDMWorkflow(
         `compose` is called only once the conversation is open (an AI message costs a call).
         `rules`: the composed text was written by an AI and is held to them before it is typed.
         Returns `outcome` (`SENT`, a `recipient_policy.SKIP_*` reason, or one of the
-        `NOT_FOUND`, `SEARCH_SLOW`, `NOT_OPENED`, `NOT_ON_PROFILE`, `NO_CONVERSATION`, `NO_MESSAGE`
+        `PROFILE_NOT_FOUND`, `PROFILE_SEARCH_SLOW`, `NOT_OPENED`, `NOT_ON_PROFILE`, `NO_CONVERSATION`, `NO_MESSAGE`
         failures, or `TEXT_REFUSED` with its `refusal` and the refused `message`), with `message`
         and `send_result` once sent. Counting and recording are the caller's.
         """
@@ -275,10 +274,10 @@ class ColdDMWorkflow(
         failure = self.recipient_navigation_failure
         if failure is not None and failure.account_not_found:
             logger.warning(f"Recipient {recipient} not found: the search lists no such account")
-            return NOT_FOUND
+            return PROFILE_NOT_FOUND
         if failure is not None and failure.search_slow:
             logger.warning(f"The search for {recipient} did not load in time (network): left for another run")
-            return SEARCH_SLOW
+            return PROFILE_SEARCH_SLOW
         reason = failure.reason.value if failure is not None else "unknown"
         logger.warning(f"The profile search opened no profile of {recipient} ({reason})")
         return NOT_OPENED

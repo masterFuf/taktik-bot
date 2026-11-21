@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
+from taktik.core.contract.shared import PROFILE_NAVIGATION_FAILED, PROFILE_NOT_FOUND, PROFILE_SEARCH_SLOW
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 
 
@@ -51,8 +52,9 @@ class ProfileNavigationFailureReason(str, Enum):
     #: The results were answered and list no row of the handle (and its deep link, when tried,
     #: showed no profile): the account is not found.
     NOT_LISTED = "not_listed"
-    #: The results were still loading when the wait ended: nothing is known of the account.
-    SEARCH_SLOW = "search_slow"
+    #: The results were still loading when the wait ended: nothing is known of the account (the
+    #: contract's own word for it).
+    SEARCH_SLOW = PROFILE_SEARCH_SLOW
     RESULTS_UNRECOGNIZED = "results_unrecognized"
     ROW_NOT_TAPPED = "row_not_tapped"
     #: The row of the handle was tapped twice and the screen stayed the results list.
@@ -83,19 +85,13 @@ class ProfileNavigationFailure:
 
     @property
     def unopened_code(self) -> str:
-        """The code a profile not opened is told to the app with (its table of skip reasons):
-        `not_found`, `search_slow`, else `navigation_failed`."""
+        """The code a profile not opened is told to the app with, one of the contract's
+        (`ProfileNotOpenedCode`): `not_found`, `search_slow`, else `navigation_failed`."""
         if self.account_not_found:
-            return UNOPENED_NOT_FOUND
+            return PROFILE_NOT_FOUND
         if self.search_slow:
-            return UNOPENED_SEARCH_SLOW
-        return UNOPENED_NAVIGATION_FAILED
-
-
-#: The codes of a profile not opened, as the app's table of skip reasons reads them.
-UNOPENED_NOT_FOUND = "not_found"
-UNOPENED_SEARCH_SLOW = "search_slow"
-UNOPENED_NAVIGATION_FAILED = "navigation_failed"
+            return PROFILE_SEARCH_SLOW
+        return PROFILE_NAVIGATION_FAILED
 
 
 def settle_profile_navigation_failure(
@@ -117,9 +113,6 @@ __all__ = [
     "ProfileNavigationFailure",
     "ProfileNavigationFailureReason",
     "SearchResultsState",
-    "UNOPENED_NAVIGATION_FAILED",
-    "UNOPENED_NOT_FOUND",
-    "UNOPENED_SEARCH_SLOW",
     "read_search_results",
     "settle_profile_navigation_failure",
 ]

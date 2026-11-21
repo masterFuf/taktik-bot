@@ -66,6 +66,7 @@ from taktik.core.contract.shared import (  # noqa: E402
     ERROR_EVENT,
     LOG_EVENT,
     NETWORK_RESET_COMPLETE_EVENT,
+    PROFILE_NOT_OPENED_CODE,
     SESSION_START_EVENT,
     STATUS_EVENT,
     STEP_METRIC_EVENT,
@@ -102,8 +103,9 @@ HEADER = """/**
  * diagnostic tools the app runs beside them; the catalogues of why a run ends, one union each; the codes
  * of a bridge's `error` line (`BridgeErrorCode`) and the key of each one's sentence in the app
  * (`BRIDGE_ERROR_PHRASE_KEYS`), the same for the codes of an Instagram account switch
- * (`INSTAGRAM_SWITCH_ACCOUNT_ERROR_PHRASE_KEYS`), and the codes of a refusal the run meant
- * (`BRIDGE_REFUSAL_CODES`).
+ * (`INSTAGRAM_SWITCH_ACCOUNT_ERROR_PHRASE_KEYS`), the codes of a refusal the run meant
+ * (`BRIDGE_REFUSAL_CODES`), and the codes of a profile a run could not open (`ProfileNotOpenedCode`,
+ * `PROFILE_NOT_OPENED_CODES`).
  * Rendered by `core/scripts/audits/workflow_contract.py`; `npm run workflow:contract` fails when this
  * file and the bot disagree.
  */
@@ -230,6 +232,22 @@ def render_refusal_codes() -> List[str]:
     out = ["/** The codes of a refusal the run meant (no network, the app not on the phone): no crash report. */",
            f"export const BRIDGE_REFUSAL_CODES: readonly {BRIDGE_ERROR_CODE.name}[] = ["]
     out += [f"  {literal(code)}," for code in BRIDGE_REFUSAL_CODES]
+    out.append("]")
+    return out
+
+
+#: The closed sets the app reads as values while it runs, each under its name: the union of its codes
+#: is rendered with the catalogues, the list here.
+VALUE_LISTS: Tuple[Tuple[str, OneOf, str], ...] = (
+    ("PROFILE_NOT_OPENED_CODES", PROFILE_NOT_OPENED_CODE, "contract/shared.py"),
+)
+
+
+def render_value_list(name: str, catalogue: OneOf, source: str) -> List[str]:
+    """`<name>`: the codes of `catalogue`, in its order."""
+    out = [f"/** The codes of `{catalogue.name}`, as values: `{source}`. */",
+           f"export const {name}: readonly {catalogue.name}[] = ["]
+    out += [f"  {literal(code)}," for code in catalogue.values]
     out.append("]")
     return out
 
@@ -595,7 +613,8 @@ def render(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS,
         exported += ["SettingCondition", "SettingBounds", "SettingType", "SettingDeclaration", "SettingsDeclaration",
                      "BotSettings", "WorkflowBotSettings"]
     shapes: Dict[str, Shape] = {}
-    catalogues: Dict[str, OneOf] = {catalogue.name: catalogue for catalogue in (*CATALOGUES, BRIDGE_ERROR_CODE)}
+    catalogues: Dict[str, OneOf] = {catalogue.name: catalogue
+                                    for catalogue in (*CATALOGUES, BRIDGE_ERROR_CODE, PROFILE_NOT_OPENED_CODE)}
     settings: set = set()
     filled: set = set()
     every_field = [
@@ -623,6 +642,9 @@ def render(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS,
         exported.append(name)
     lines += render_refusal_codes() + [""]
     exported.append("BRIDGE_REFUSAL_CODES")
+    for name, catalogue, source in VALUE_LISTS:
+        lines += render_value_list(name, catalogue, source) + [""]
+        exported.append(name)
     for shape in shapes.values():
         lines += render_shape(shape, shape.name in filled)
         if shape.name in settings:
@@ -747,7 +769,8 @@ def as_data(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS,
         }
         for tool in tools
     }
-    catalogues = {catalogue.name: list(catalogue.values) for catalogue in (*CATALOGUES, BRIDGE_ERROR_CODE)}
+    catalogues = {catalogue.name: list(catalogue.values)
+                  for catalogue in (*CATALOGUES, BRIDGE_ERROR_CODE, PROFILE_NOT_OPENED_CODE)}
     return {"workflows": workflows, "tools": tool_data, "catalogues": catalogues,
             "errorPhrases": dict(BRIDGE_ERROR_PHRASES), "exports": exported}
 

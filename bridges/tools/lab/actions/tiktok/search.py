@@ -7,6 +7,7 @@ from loguru import logger
 from bridges.tools.lab.actions.tiktok import action
 from bridges.tools.lab.action_test.action_bundle import bundle_device_id
 from bridges.tools.lab.action_test.not_applicable import not_applicable
+from taktik.core.contract.shared import PROFILE_NOT_FOUND
 
 
 @action("tt.search.open")
@@ -57,7 +58,7 @@ def open_user_profile(a, p):
         return {"success": True, "message": f"@{username} profile open=True"}
     reason = a.search.last_profile_navigation_failure
     return {"success": False, "message": f"@{username} profile not opened: {reason}",
-            "details": {"reason": reason, "accountNotFound": reason == "not_found"}}
+            "details": {"reason": reason, "accountNotFound": reason == PROFILE_NOT_FOUND}}
 
 
 @action("tt.profile.click_message")

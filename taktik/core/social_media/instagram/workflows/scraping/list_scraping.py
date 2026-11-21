@@ -10,12 +10,8 @@ from typing import Callable, Dict, Any, List, Optional
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 
-from taktik.core.social_media.instagram.actions.atomic.navigation.search_results import (
-    UNOPENED_NAVIGATION_FAILED,
-    UNOPENED_NOT_FOUND,
-    UNOPENED_SEARCH_SLOW,
-    ProfileNavigationFailure,
-)
+from taktik.core.contract.shared import PROFILE_NAVIGATION_FAILED, PROFILE_NOT_FOUND, PROFILE_SEARCH_SLOW
+from taktik.core.social_media.instagram.actions.atomic.navigation.search_results import ProfileNavigationFailure
 from taktik.core.social_media.instagram.actions.base.ipc import IPCEmitter
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.shared.device.network_probe import measure_network_baseline
@@ -46,7 +42,7 @@ UNREACHABLE_REASON = 'profile_unreachable'
 
 # The reasons that mark the profile unreachable: the one above, and an account the answered
 # search lists nowhere (`not_found`, the code the app's table says « Compte introuvable »).
-MARKED_UNREACHABLE_REASONS = (UNREACHABLE_REASON, UNOPENED_NOT_FOUND)
+MARKED_UNREACHABLE_REASONS = (UNREACHABLE_REASON, PROFILE_NOT_FOUND)
 
 # A profile we could not open on a phone that has no proven network: it says nothing about the
 # account. Without network Instagram opens a profile blank, with no handle, and writes
@@ -68,7 +64,7 @@ def say_source_not_opened(nav_actions: Any, logger: Any, target: str) -> str:
     an account that does not exist and a search that had no time to load are not the same news.
     Returns the code."""
     failure = getattr(nav_actions, 'last_profile_navigation_failure', None)
-    code = failure.unopened_code if isinstance(failure, ProfileNavigationFailure) else UNOPENED_NAVIGATION_FAILED
+    code = failure.unopened_code if isinstance(failure, ProfileNavigationFailure) else PROFILE_NAVIGATION_FAILED
     logger.warning(f"Failed to navigate to @{target} ({code})")
     IPCEmitter.emit_profile_skipped(target, code)
     return code
@@ -279,10 +275,10 @@ class ScrapingListMixin(DeepQualifyMixin):
         failure = getattr(navigation, 'last_profile_navigation_failure', None)
         if isinstance(failure, ProfileNavigationFailure):
             if failure.account_not_found:
-                return UNOPENED_NOT_FOUND
+                return PROFILE_NOT_FOUND
             if failure.search_slow:
                 self.logger.warning("The search did not load in time (network): the profile is not marked unreachable")
-                return UNOPENED_SEARCH_SLOW
+                return PROFILE_SEARCH_SLOW
         return UNREACHABLE_REASON if self._phone_network_proven() else NOT_OPENED_OFFLINE_REASON
 
     def _phone_network_proven(self) -> bool:
@@ -394,7 +390,7 @@ class ScrapingListMixin(DeepQualifyMixin):
                 )
             except Exception as e:
                 self.logger.warning(f"Failed to qualify @{username}: {e}")
-                IPCEmitter.emit_profile_skipped(username, 'navigation_failed')
+                IPCEmitter.emit_profile_skipped(username, PROFILE_NAVIGATION_FAILED)
                 continue
 
             if filter_reason:

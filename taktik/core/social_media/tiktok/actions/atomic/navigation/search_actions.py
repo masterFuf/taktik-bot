@@ -10,6 +10,7 @@ from typing import Optional
 
 from loguru import logger
 
+from taktik.core.contract.shared import PROFILE_NAVIGATION_FAILED, PROFILE_NOT_FOUND
 from taktik.core.social_media.tiktok.actions.base.base_action import BaseAction
 from taktik.core.social_media.tiktok.services.navigation.reset import (
     is_home_tab_selected,
@@ -19,11 +20,9 @@ from taktik.core.social_media.tiktok.services.navigation.reset import (
 from taktik.core.social_media.tiktok.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.search import SEARCH_SELECTORS
 
-#: Why `navigate_to_user_profile` opened no profile: the codes of a profile not opened, the ones
-#: Instagram tells the app with. TikTok cannot tell a slow search apart yet (no capture of its
-#: results while they load), so it has no `search_slow`.
-UNOPENED_NOT_FOUND = "not_found"
-UNOPENED_NAVIGATION_FAILED = "navigation_failed"
+# Why `navigate_to_user_profile` opened no profile: the contract's codes of a profile not opened, the
+# ones Instagram tells the app with. TikTok cannot tell a slow search apart yet (no capture of its
+# results while they load), so it never says `search_slow`.
 
 
 class SearchActions(BaseAction):
@@ -224,7 +223,7 @@ class SearchActions(BaseAction):
         the account: `navigation_failed`.
         """
         self.logger.info(f"👤 Navigating to @{username}'s profile")
-        self.last_profile_navigation_failure = UNOPENED_NAVIGATION_FAILED
+        self.last_profile_navigation_failure = PROFILE_NAVIGATION_FAILED
 
         try:
             # The bottom bar has to EXIST before a tab can be tapped. A new-followers page, a
@@ -271,7 +270,7 @@ class SearchActions(BaseAction):
                 return False
 
             if users_tab_opened and self._element_exists(self.search_selectors.user_result_username, timeout=0.5):
-                self.last_profile_navigation_failure = UNOPENED_NOT_FOUND
+                self.last_profile_navigation_failure = PROFILE_NOT_FOUND
                 self.logger.warning(f"❌ @{username} is not among the accounts the search lists")
             else:
                 self.logger.warning(f"❌ No account row on the search results for @{username}")

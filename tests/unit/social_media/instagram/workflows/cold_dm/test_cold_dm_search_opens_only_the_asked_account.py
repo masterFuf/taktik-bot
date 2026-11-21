@@ -39,10 +39,10 @@ from taktik.core.social_media.instagram.actions.atomic.navigation.deep_link_navi
 from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.instagram.workflows.cold_dm.navigation import NOT_ON_PROFILE
+from taktik.core.contract.shared import PROFILE_NOT_FOUND as NOT_FOUND
+from taktik.core.contract.shared import PROFILE_SEARCH_SLOW as SEARCH_SLOW
 from taktik.core.social_media.instagram.workflows.cold_dm.workflow import (
-    NOT_FOUND,
     NOT_OPENED,
-    SEARCH_SLOW,
     ColdDMWorkflow,
 )
 from unit.social_media.instagram.actions.atomic.navigation.search_screens_phone import (

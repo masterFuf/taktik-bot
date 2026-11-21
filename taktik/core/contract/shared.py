@@ -13,6 +13,22 @@ from .stop_reasons import TIKTOK_COMPLETION_REASON
 #: counters, the bench's): a profile that passed the filters counts, acted on or not.
 PROFILES_VISITED = "Profiles that passed the filters, acted on or not."
 
+# The codes of a profile a run could not open, said once for both platforms: Instagram's
+# `profile_skipped` reason and its cold DM's outcome, TikTok's `skip_<code>` action. Each platform keeps
+# its own type of navigation failure and says it with one of them.
+#: The answered search lists the account nowhere: the account is not found.
+PROFILE_NOT_FOUND = "not_found"
+#: The search was still loading when its wait ended (network): nothing is known of the account.
+PROFILE_SEARCH_SLOW = "search_slow"
+#: No profile of the handle opened for another reason (not reached, row not tapped, another profile).
+PROFILE_NAVIGATION_FAILED = "navigation_failed"
+PROFILE_NOT_OPENED_CODE = OneOf(
+    (PROFILE_NOT_FOUND, PROFILE_SEARCH_SLOW, PROFILE_NAVIGATION_FAILED),
+    name="ProfileNotOpenedCode",
+    doc="Why a run could not open a profile: the answered search lists it nowhere, the search did not load "
+        "in time, or another reason.",
+)
+
 #: `enforce_pre_session_ip_rotation` (`bridges/common/network.py`), before the session.
 NETWORK_RESET = Shape(
     name="BridgeNetworkReset",
