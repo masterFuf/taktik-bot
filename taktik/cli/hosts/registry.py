@@ -186,7 +186,8 @@ def build_registry(
         "tiktok_account_app": cli_tiktok_account_app(phone) if phone is not None else None,
         "tiktok_welcome_qualifier": cli_tiktok_welcome_qualifier,
         "tiktok_outreach_message_generator": cli_tiktok_outreach_message_generator,
-        # The Instagram automation, scraping and publication runs get the phone the way their bridges do.
+        # The Instagram automation, scraping, publication and task (the story relay) runs get the phone
+        # the way their bridges do.
         "instagram_connect": instagram_host.run_phone if instagram_host else None,
         # The account flows restart Instagram (or keep its screen) the way the account bridge does.
         "instagram_account_app": instagram_host.account_app if instagram_host else None,
@@ -202,8 +203,6 @@ def build_registry(
         "instagram_notifications_runtime": instagram_host.notifications_runtime if instagram_host else None,
         # The Taktik Agent session starts the way its bridge starts it.
         "instagram_agent_runtime": instagram_host.agent_runtime if instagram_host else None,
-        # A task (the story relay) starts from a clean restart of its Instagram, as its bridge does.
-        "instagram_task_connect": instagram_host.task_device if instagram_host else None,
         "instagram_agent_ai_service_factory": cli_instagram_agent_ai_service_factory,
     }
 

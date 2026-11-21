@@ -236,8 +236,10 @@ def story_add_to_my_story(a, p):
 def story_relay_from_source(a, p):
     """Run the FULL production relay task against a source account.
 
-    Same entry point the Agent registry resolves for `instagram.task.story_relay` — no
-    Lab-only path. Params: source_username (required), account_id, max_stories.
+    The pass the launcher of `instagram.task.story_relay` runs (`relay_source_stories`), no
+    Lab-only path, on the session's phone: the session matched the selectors to it (version,
+    language), as the launcher does before the pass. Params: source_username (required),
+    account_id, max_stories.
     """
     from taktik.core.social_media.instagram.workflows.tasks.story_relay import (
         DEFAULT_MAX_STORIES,

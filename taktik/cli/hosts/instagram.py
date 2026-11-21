@@ -22,7 +22,6 @@ from loguru import logger
 from taktik.cli.hosts.ai_key import ai_block_with_key
 from taktik.core.ai.openrouter_policy import PROVIDER_OPENROUTER
 from taktik.cli.hosts.phone import CliPhone
-from taktik.core.social_media.instagram.workflows.common.startup import InstagramStartError
 
 
 def _log(level: str, message: str) -> None:
@@ -74,13 +73,6 @@ class CliInstagramHost:
     def account_app(self, package_name: Optional[str]):
         """The app lifecycle an account flow restarts, or keeps on its current screen."""
         return self._app_for(package_name)
-
-    def task_device(self, package_name: Optional[str]):
-        """The phone after the clean restart of the task's Instagram (a clone when it names one), as
-        the task bridge restarts it: a one-shot starts from the feed."""
-        if not self.start(package_name):
-            raise InstagramStartError("Instagram did not start cleanly; the task was not started")
-        return getattr(self.phone.connect(), "device", None)
 
     def cold_dm_runtime(self, package_name: Optional[str]):
         """The device a cold DM run drives, prepared by the Instagram device base the cold DM bridge

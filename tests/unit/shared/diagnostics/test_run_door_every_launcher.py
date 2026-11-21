@@ -153,7 +153,7 @@ def test_the_task_bridge_says_the_refusal(locked, lines, monkeypatch):
     import bridges.instagram.tasks.bridge as bridge
 
     monkeypatch.setattr(bridge.TaskBridge, "_prepare_runtime_session", lambda self: object())
-    monkeypatch.setattr(bridge.TaskBridge, "_restart_instagram", _never)
+    monkeypatch.setattr(bridge.TaskBridge, "_run_phone", _never)
 
     code = bridge.TaskBridge({
         "deviceId": SERIAL, "taskId": "story_relay", "params": {"source_username": "source"},

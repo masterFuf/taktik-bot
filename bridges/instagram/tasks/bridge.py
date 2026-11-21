@@ -9,7 +9,7 @@ Config contract (JSON file passed as argv[1]):
     deviceId     device serial (required)
     taskId       short task name ("story_relay") or full id ("instagram.task.story_relay")
     params       dict handed to the task handler as its payload, `packageName` (a clone) included:
-                 the task's launcher reads it and asks this bridge to restart that Instagram
+                 the task's launcher reads it and asks this bridge for the phone on that Instagram
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from bridges.common.run_setup import connect_run_device
 from bridges.common.signal_handler import setup_signal_handlers
 from bridges.instagram.common.ipc import _ipc, send_error, send_message, send_status
 from taktik.core.shared.diagnostics.run_halt import RunRefused
-from taktik.core.social_media.instagram.workflows.common.startup import InstagramStartError
+from taktik.core.social_media.instagram.workflows.common.startup import InstagramRunPhone
 
 TASK_ID_PREFIX = "instagram.task."
 
@@ -60,33 +60,43 @@ class TaskBridge:
             send_error("taskId is required (e.g. 'story_relay')")
             return 1
 
-        device = self._prepare_runtime_session()
-        if device is None:
+        if self._prepare_runtime_session() is None:
             return 1
 
-        return self._run_task(device)
+        return self._run_task()
 
     def _prepare_runtime_session(self):
         """DB, then device connection — same order as every bridge; the task's launcher asks for
-        the clean restart of its Instagram (`_restart_instagram`)."""
+        the phone on its Instagram (`_run_phone`)."""
         self._connection = connect_run_device(self.device_id)
         return self._connection.device if self._connection is not None else None
 
-    def _restart_instagram(self, device, package_name: str | None):
-        """Clean restart, always: a task starts from a known screen (the feed), never from wherever
-        a previous run left the app — e.g. a fullscreen story viewer. On the launcher's package."""
+    def _run_phone(self, package_name: str | None) -> InstagramRunPhone:
+        """The phone the launcher asks for, on the Instagram it read (a clone; None: the installed
+        one): its clean restart, always (a task starts from a known screen, the feed, never from
+        wherever a previous run left the app, e.g. a fullscreen story viewer), and its installed
+        version, for the selectors."""
+        connection = self._connection
+        if connection is None:
+            raise RuntimeError("The task asked for the phone before the bridge connected it")
         app_service = AppService(
-            self._connection,
+            connection,
             platform="instagram",
             package_override=package_name,
         )
-        send_status("initializing", "Restarting Instagram...")
-        if not app_service.restart():
-            # The launcher stops the pass with its reason; going on would relay from any screen.
-            raise InstagramStartError("Instagram did not start cleanly; the task was not started")
-        return device
 
-    def _run_task(self, device) -> int:
+        def restart() -> bool:
+            # False: the launcher stops the pass with its reason; going on would relay from any screen.
+            send_status("initializing", "Restarting Instagram...")
+            return app_service.restart()
+
+        return InstagramRunPhone(
+            device_manager=connection.device_manager,
+            start=restart,
+            installed_version=app_service.get_installed_version,
+        )
+
+    def _run_task(self) -> int:
         from taktik.core.kernel.contracts import WorkflowInvocation
         from taktik.core.kernel.registry import WorkflowRegistry
         from taktik.core.social_media.instagram.workflows.tasks import (
@@ -97,7 +107,7 @@ class TaskBridge:
         register_instagram_task_handlers(
             registry,
             device_id=self.device_id,
-            instagram_task_connect=lambda package_name: self._restart_instagram(device, package_name),
+            instagram_connect=self._run_phone,
         )
 
         if not registry.contains(self.task_id):

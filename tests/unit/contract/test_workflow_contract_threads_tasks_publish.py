@@ -153,10 +153,15 @@ def test_the_task_bridge_follows_its_contract(monkeypatch, lines, fail):
     import bridges.instagram.tasks.bridge as bridge
     from taktik.core.social_media.instagram.workflows.tasks import agent_handler
 
+    from taktik.core.social_media.instagram.workflows.common import runtime_setup
+    from taktik.core.social_media.instagram.workflows.common.startup import InstagramRunPhone
+
     restarted = []
     monkeypatch.setattr(bridge.TaskBridge, "_prepare_runtime_session", lambda self: object())
-    monkeypatch.setattr(bridge.TaskBridge, "_restart_instagram",
-                        lambda self, device, package_name: restarted.append(package_name) or device)
+    monkeypatch.setattr(bridge.TaskBridge, "_run_phone",
+                        lambda self, package_name: InstagramRunPhone(
+                            device_manager=None, start=lambda: restarted.append(package_name) or True))
+    monkeypatch.setattr(runtime_setup, "detect_and_optimize", lambda device: "en")
     monkeypatch.setitem(agent_handler.run_instagram_story_relay.__kwdefaults__, "relay", _relay(fail))
     data = app_file(INSTAGRAM_STORY_RELAY, packageName="com.instagram.android")
     log: set = set()

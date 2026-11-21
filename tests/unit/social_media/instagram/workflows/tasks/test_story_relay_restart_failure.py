@@ -8,11 +8,12 @@ the reason the shared Instagram startup uses for the same fact.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any, Dict, List
 
 import pytest
 
-from taktik.core.social_media.instagram.workflows.common.startup import InstagramStartError
+from taktik.core.social_media.instagram.workflows.common.startup import InstagramRunPhone
 from taktik.core.social_media.instagram.workflows.tasks import agent_handler
 from taktik.core.social_media.instagram.workflows.tasks.story_relay import INSTAGRAM_LAUNCH_FAILED
 
@@ -23,7 +24,7 @@ def _relay_never_called(**_kwargs):
 
 def test_the_launcher_stops_the_pass_when_instagram_does_not_start():
     def connect(_package_name):
-        raise InstagramStartError("Instagram did not start cleanly; the task was not started")
+        return InstagramRunPhone(device_manager=None, start=lambda: False)
 
     report = agent_handler.run_instagram_story_relay(
         {"source_username": "@source_account"}, device_id="SERIAL", connect=connect, relay=_relay_never_called,
@@ -54,8 +55,12 @@ def test_the_task_bridge_reports_a_failed_restart(monkeypatch, lines):
         def restart(self) -> bool:
             return False
 
+        def get_installed_version(self):
+            return None
+
     monkeypatch.setattr(bridge, "AppService", _AppThatDoesNotStart)
-    monkeypatch.setattr(bridge.TaskBridge, "_prepare_runtime_session", lambda self: object())
+    monkeypatch.setattr(bridge, "connect_run_device",
+                        lambda _device_id: SimpleNamespace(device=object(), device_manager=None))
     monkeypatch.setitem(agent_handler.run_instagram_story_relay.__kwdefaults__, "relay", _relay_never_called)
 
     code = bridge.TaskBridge({

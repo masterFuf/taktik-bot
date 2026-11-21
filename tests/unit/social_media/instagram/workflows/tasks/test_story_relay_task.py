@@ -94,7 +94,6 @@ def wired(monkeypatch):
 
     def install(relay):
         monkeypatch.setattr(story_relay, "StoryRelayBusiness", lambda *a, **k: relay)
-        monkeypatch.setattr(story_relay, "detect_and_optimize", lambda device: "fr")
         monkeypatch.setattr(
             story_relay.ContentRelayService, "already_handled",
             staticmethod(lambda **kw: kw["media_signature"] in handled),
@@ -151,20 +150,28 @@ def test_a_sponsored_story_is_skipped_without_being_touched(wired):
 
 def test_the_language_is_detected_before_any_localized_selector(monkeypatch):
     """"Add to my story" has no resource-id — only its wording reaches it. Reading a
-    localized selector before detection matches nothing, silently."""
+    localized selector before detection matches nothing, silently. The launcher reads the
+    language with the version and the clone (`prepare_instagram_selectors`), before the pass."""
+    from types import SimpleNamespace
+
+    from taktik.core.social_media.instagram.workflows.common import runtime_setup
+    from taktik.core.social_media.instagram.workflows.common.startup import InstagramRunPhone
+    from taktik.core.social_media.instagram.workflows.tasks.agent_handler import run_instagram_story_relay
+
     order = []
-    monkeypatch.setattr(story_relay, "detect_and_optimize",
-                        lambda device: order.append("detect"))
+    monkeypatch.setattr(runtime_setup, "detect_and_optimize", lambda device: order.append("detect") or "fr")
 
-    class _Tracking(_Relay):
-        def open_source_story(self, username):
-            order.append("open")
-            return {"opened": False, "reason": "no_story"}
+    def relay(**_kwargs):
+        order.append("relay")
+        return {"success": True}
 
-    monkeypatch.setattr(story_relay, "StoryRelayBusiness", lambda *a, **k: _Tracking([], []))
-    relay_source_stories(device=object(), source_username="cindy.dermo")
+    run_instagram_story_relay(
+        {"source_username": "source_account"}, device_id="SERIAL",
+        connect=lambda _package_name: InstagramRunPhone(device_manager=SimpleNamespace(device=object())),
+        relay=relay,
+    )
 
-    assert order == ["detect", "open"]
+    assert order == ["detect", "relay"]
 
 
 def test_the_viewer_is_left_even_when_the_pass_blows_up(monkeypatch):
@@ -176,7 +183,6 @@ def test_the_viewer_is_left_even_when_the_pass_blows_up(monkeypatch):
 
     relay.open_source_story = _explode
     monkeypatch.setattr(story_relay, "StoryRelayBusiness", lambda *a, **k: relay)
-    monkeypatch.setattr(story_relay, "detect_and_optimize", lambda device: "fr")
 
     report = relay_source_stories(device=object(), source_username="cindy.dermo")
 

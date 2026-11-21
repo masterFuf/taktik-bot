@@ -6,17 +6,17 @@ thing wrapped in a loop over targets — which is why forcing the relay into one
 building a run engine for five gestures or grafting it onto a crawl it has nothing to do
 with.
 
-Owns two things the screen sequence must not: the language setup, and the journal.
+Owns one thing the screen sequence must not: the journal. Instagram never hands out a story id,
+so the dedup key is the author plus the posted-time label the viewer shows. Two passes twenty
+minutes apart read one story as one signature; tomorrow's reads as a new one. Without it the
+relay re-shares the same story on every tick, which every follower sees immediately.
 
-Language first, always. The relay reaches for "add to my story", whose only anchor is its
-wording — the cell has the generic resource-id `button` and is labelled by content-desc. A
-localized selector read before `detect_and_optimize` matches nothing, silently, which is the
-failure mode the project rule about language detection exists to prevent.
-
-The journal second. Instagram never hands out a story id, so the dedup key is the author plus
-the posted-time label the viewer shows. Two passes twenty minutes apart read one story as one
-signature; tomorrow's reads as a new one. Without it the relay re-shares the same story on
-every tick, which every follower sees immediately.
+The selectors are matched to the phone before the pass, by whoever runs it: the launcher
+(`agent_handler.run_instagram_story_relay`, through `prepare_instagram_selectors`: the installed
+version, a clone's ids, the app language), the Lab session for its action. The relay reaches for
+"add to my story", whose only anchor is its wording (the cell has the generic resource-id
+`button` and is labelled by content-desc): read before the language is known, that selector
+matches nothing, silently.
 """
 
 from __future__ import annotations
@@ -32,7 +32,6 @@ from taktik.core.social_media.instagram.services.story_relay import (
     StoryRelayBusiness,
 )
 from taktik.core.social_media.instagram.ui.detectors.action_block import detector_of
-from taktik.core.social_media.instagram.ui.language import detect_and_optimize
 
 log = logger.bind(module="instagram-story-relay")
 
@@ -83,7 +82,8 @@ def relay_source_stories(
     session_manager: Any = None,
     automation: Any = None,
 ) -> Dict[str, Any]:
-    """Run one relay pass. Never raises: a relay must not be able to end a device session."""
+    """Run one relay pass, on selectors already matched to the phone (see the module docstring).
+    Never raises: a relay must not be able to end a device session."""
     report = new_relay_report(source_username)
 
     if not source_username:
@@ -93,9 +93,6 @@ def relay_source_stories(
     relay = StoryRelayBusiness(device, session_manager, automation=automation)
 
     try:
-        # Before ANY localized selector — see module docstring.
-        detect_and_optimize(device)
-
         opened = relay.open_source_story(source_username)
         if not opened.get("opened"):
             report["reason"] = opened.get("reason") or "story_not_opened"
