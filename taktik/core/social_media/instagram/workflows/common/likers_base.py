@@ -18,9 +18,8 @@ from taktik.core.database.instagram_workflow_state import InstagramWorkflowState
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.social_media.instagram.workflows.common.session import stop_reasons
-from taktik.core.social_media.instagram.actions.base.ipc import IPCEmitter
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import likers_list_end_detector
-from taktik.core.social_media.instagram.workflows.common.revisit_policy import RevisitPolicy
+from taktik.core.social_media.instagram.workflows.common.revisit_policy import RevisitPolicy, say_already_known
 from taktik.core.social_media.instagram.workflows.common.relationship_filter import relationship_skip_reason, wants_relationship_skip
 from taktik.core.social_media.instagram.workflows.common.list_sources import InteractionListSource, make_likers_source
 from taktik.core.shared.config import resolve_filter_criteria
@@ -188,12 +187,7 @@ class LikersWorkflowBase(BaseBusinessAction):
                         self.logger.info(f"🚫 @{username} already filtered")
                         stats['already_filtered'] += 1
                     _ledger(username, "already_known", skip_reason or "db_skip", streak=known_usernames_streak)
-                    skip_detail = InstagramWorkflowStateService.get_skip_detail(
-                        username, account_id, skip_reason
-                    )
-                    IPCEmitter.emit_profile_skipped(
-                        username, reason=skip_reason or "already_in_db", detail=skip_detail
-                    )
+                    say_already_known(username, account_id, skip_reason)
 
                     if (
                         max_consecutive_known_usernames is not None

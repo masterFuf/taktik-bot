@@ -239,7 +239,8 @@ def isolate(monkeypatch):
     monkeypatch.setattr(main_loop, "FollowersTracker", _Tracker)
     monkeypatch.setattr(main_loop, "ScrollEndDetector", _ScrollDetector)
     monkeypatch.setattr(main_loop.IPCEmitter, "emit_action", staticmethod(lambda *a, **k: None))
-    monkeypatch.setattr(profile_processing.IPCEmitter, "emit_profile_skipped",
+    # The one emitter class, whoever imports it (the skip of a known profile: `say_already_known`).
+    monkeypatch.setattr(main_loop.IPCEmitter, "emit_profile_skipped",
                         staticmethod(lambda *a, **k: None))
     monkeypatch.setattr(main_loop, "emit_step", lambda *a, **k: None)
     monkeypatch.setattr(profile_processing, "emit_step", lambda *a, **k: None)

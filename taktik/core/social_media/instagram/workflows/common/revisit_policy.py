@@ -25,6 +25,9 @@ already engaged this post" — not a profile revisit delay. It is not governed h
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
+from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
+from taktik.core.social_media.instagram.actions.base.ipc.emitter import IPCEmitter
+
 
 DEFAULT_REINTERACTION_DAYS = 60
 DEFAULT_REFILTER_DAYS = 90
@@ -80,8 +83,20 @@ class RevisitPolicy:
         return self.refilter_days if self.refilter_days > 0 else None
 
 
+def say_already_known(username: str, account_id: Optional[int], skip_reason: Optional[str]) -> None:
+    """Tell the app a profile this account already handled was left before any navigation:
+    `profile_skipped` with the reason the base gave (`already_processed`, `already_filtered`) and its
+    detail (days since the interaction, the filter's reason), what the « already known » tile of the
+    panel and the Agent's card read. Every loop that skips a known profile says it here."""
+    # A skip the base gave no reason for is « already in the base », which has no detail to read.
+    reason = skip_reason or "already_in_db"
+    detail = InstagramWorkflowStateService.get_skip_detail(username, account_id, reason)
+    IPCEmitter.emit_profile_skipped(username, reason=reason, detail=detail)
+
+
 __all__ = [
     "RevisitPolicy",
+    "say_already_known",
     "DEFAULT_REINTERACTION_DAYS",
     "DEFAULT_REFILTER_DAYS",
 ]

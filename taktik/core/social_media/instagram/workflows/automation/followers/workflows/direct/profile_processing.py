@@ -7,7 +7,7 @@ from taktik.core.shared.config import resolve_filter_criteria
 from taktik.core.social_media.instagram.workflows.common.relationship_filter import relationship_skip_reason, wants_relationship_skip
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.shared.telemetry import emit_step
-from taktik.core.social_media.instagram.actions.base.ipc import IPCEmitter
+from taktik.core.social_media.instagram.workflows.common.revisit_policy import say_already_known
 
 
 class DirectProfileProcessingMixin:
@@ -69,12 +69,7 @@ class DirectProfileProcessingMixin:
         # SkippedProfileCard. Without it the operator sees in-profile filters but never WHY
         # a profile was skipped before the click. `reason` is the machine token (the front
         # localizes it); `detail` carries the original filter reason / days since interaction.
-        skip_detail = InstagramWorkflowStateService.get_skip_detail(
-            username, account_id, skip_reason
-        )
-        IPCEmitter.emit_profile_skipped(
-            username, reason=skip_reason or "already_in_db", detail=skip_detail
-        )
+        say_already_known(username, account_id, skip_reason)
         return True, known_usernames_streak
 
     #: Was the profile just VISITED a private one? Read by the main loop to keep its

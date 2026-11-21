@@ -27,7 +27,7 @@ from taktik.core.social_media.instagram.actions.atomic.navigation.search_results
 from taktik.core.social_media.instagram.actions.base.ipc.emitter import IPCEmitter
 from taktik.core.social_media.instagram.workflows.common.session import stop_reasons
 from taktik.core.social_media.instagram.workflows.common.interaction_config import build_interaction_config
-from taktik.core.social_media.instagram.workflows.common.revisit_policy import RevisitPolicy
+from taktik.core.social_media.instagram.workflows.common.revisit_policy import RevisitPolicy, say_already_known
 
 
 def unopened_profile_reason(failure: Optional[ProfileNavigationFailure]) -> str:
@@ -140,6 +140,8 @@ class ProfileListWorkflowMixin:
                         emit_step("profile_list_decision", action="already_known", target=username,
                                   reason=skip_reason or "db_skip", encounter_order=idx + 1,
                                   source_type="SELECTION")
+                        # The panel's « already known » tile and the Agent's card, as the other loops say it.
+                        say_already_known(username, account_id, skip_reason)
                         continue
 
                 self._maybe_take_break()
