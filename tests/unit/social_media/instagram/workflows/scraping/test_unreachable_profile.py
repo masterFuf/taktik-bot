@@ -79,7 +79,7 @@ def _capture(profile_result, *, navigate, config=None):
 class TestUnreachableProfile:
     def test_a_profile_we_navigated_to_and_never_reached(self):
         reason, _data, _wf = _capture(None, navigate=True)
-        assert reason == 'profile unreachable (deleted, renamed or banned)'
+        assert reason == 'profile_unreachable'
 
     def test_the_reason_does_not_blame_the_screen(self):
         reason, _data, _wf = _capture(None, navigate=True)

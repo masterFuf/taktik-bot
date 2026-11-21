@@ -40,8 +40,9 @@ ENRICHED_PROFILE_FIELDS = SCRAPED_PROFILE_FIELDS + ('linked_accounts', 'profile_
 
 
 # The one skip reason that describes the ACCOUNT rather than a choice made about it: the profile
-# could not be opened at all. Named once so the workflow and the marker cannot drift apart.
-UNREACHABLE_REASON = 'profile unreachable (deleted, renamed or banned)'
+# could not be opened at all (deleted, renamed or banned). Named once so the workflow and the marker
+# cannot drift apart. Each reason below is a code of the app's table of skip reasons, never words.
+UNREACHABLE_REASON = 'profile_unreachable'
 
 # The reasons that mark the profile unreachable: the one above, and an account the answered
 # search lists nowhere (`not_found`, the code the app's table says « Compte introuvable »).
@@ -50,7 +51,7 @@ MARKED_UNREACHABLE_REASONS = (UNREACHABLE_REASON, UNOPENED_NOT_FOUND)
 # A profile we could not open on a phone that has no proven network: it says nothing about the
 # account. Without network Instagram opens a profile blank, with no handle, and writes
 # « Utilisateur(ice) introuvable » on it, the words it shows for an account that does not exist.
-NOT_OPENED_OFFLINE_REASON = 'profile not opened, and the phone has no proven network (not marked unreachable)'
+NOT_OPENED_OFFLINE_REASON = 'profile_not_opened_offline'
 
 # The profile page gave nothing to read: the screen had not loaded. A code of the app's table of
 # skip reasons, never a sentence in English.
@@ -58,7 +59,7 @@ PROFILE_READ_EMPTY_REASON = 'profile_read_empty'
 
 # The profile on screen is not the one the row named: the tap landed on another row. Its numbers
 # belong to that other account and are neither filtered nor saved under this name.
-OTHER_PROFILE_REASON = 'another profile on screen (tap landed on another row)'
+OTHER_PROFILE_REASON = 'other_profile_on_screen'
 
 
 def say_source_not_opened(nav_actions: Any, logger: Any, target: str) -> str:
