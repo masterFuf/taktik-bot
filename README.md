@@ -201,7 +201,8 @@ labels. The command line itself speaks English and French (`--lang en|fr`).
 
 ### Tested on
 
-What TAKTIK is tested on, as of 2026-09-28: real runs and the Lab's test bench, on these four phones.
+What TAKTIK is tested on: real runs and the Lab's test bench, on these phones (the first four as of
+2026-09-28, the Oukitel C57 S on 2026-10-25).
 
 | Phone | Android | Instagram | TikTok |
 |---|---|---|---|
@@ -209,13 +210,14 @@ What TAKTIK is tested on, as of 2026-09-28: real runs and the Lab's test bench, 
 | Pixel 3a | 12 | 410.0.0.53.71, in English | 43.1.4, in French |
 | Pixel 4a | 13 | 410.0.0.53.71, in French | not tested |
 | Pixel 6a | 16 | 447.0.0.55.81, in French | 47.0.3, in French |
+| Oukitel C57 S | 14 | 410.0.0.53.71, in English | 43.1.4 (package `com.ss.android.ugc.trill`), in English |
 
 The computer is a Windows PC.
 
 Everything else is **not tested**: other phones and brands, other Android versions, emulators, the
 versions marked "Adjusted, not validated" in [COMPATIBILITY.md](COMPATIBILITY.md) (the bot carries selector
 adjustments for them, but none of these phones runs them), Instagram 447 in English, TikTok
-in English, macOS and Linux. Not tested promises nothing, either way.
+47.0.3 in English, macOS and Linux. Not tested promises nothing, either way.
 
 ### Development tests
 

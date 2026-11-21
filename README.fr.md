@@ -201,8 +201,8 @@ avec. La ligne de commande elle-même parle anglais et français (`--lang en|fr`
 
 ### Testé sur
 
-Ce sur quoi TAKTIK est testé au 2026-09-28 : des runs réels et le banc de test du Lab, sur ces quatre
-téléphones.
+Ce sur quoi TAKTIK est testé : des runs réels et le banc de test du Lab, sur ces téléphones (les quatre
+premiers au 2026-09-28, l'Oukitel C57 S le 2026-10-25).
 
 | Téléphone | Android | Instagram | TikTok |
 |---|---|---|---|
@@ -210,13 +210,14 @@ téléphones.
 | Pixel 3a | 12 | 410.0.0.53.71, en anglais | 43.1.4, en français |
 | Pixel 4a | 13 | 410.0.0.53.71, en français | non testé |
 | Pixel 6a | 16 | 447.0.0.55.81, en français | 47.0.3, en français |
+| Oukitel C57 S | 14 | 410.0.0.53.71, en anglais | 43.1.4 (paquet `com.ss.android.ugc.trill`), en anglais |
 
 L'ordinateur est un PC sous Windows.
 
 Tout le reste est **non testé** : les autres téléphones et marques, les autres versions d'Android, les
 émulateurs, les versions marquées « Under validation » dans [COMPATIBILITY.md](COMPATIBILITY.md) (le
 bot porte des ajustements de sélecteurs pour certaines, mais aucun de ces téléphones ne les fait
-tourner), Instagram 447 en anglais, TikTok en anglais, macOS et Linux. Non testé ne promet rien, dans
+tourner), Instagram 447 en anglais, TikTok 47.0.3 en anglais, macOS et Linux. Non testé ne promet rien, dans
 un sens comme dans l'autre.
 
 ### Tests de développement
