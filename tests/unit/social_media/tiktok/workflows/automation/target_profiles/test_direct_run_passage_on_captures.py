@@ -127,3 +127,44 @@ def test_another_profile_is_still_refused():
     actions = _search_actions(_Phone(PROFILE_VERIFIED))
 
     assert actions._landed_on_profile_of("tiktok_fan", settle_timeout=1) is False
+
+
+def _navigation_on(monkeypatch, screen):
+    """`navigate_to_user_profile` up to the Users tab, on one screen that stays: the search opened
+    and typed (their gestures are not what is read here), each tap landing when its target is on it."""
+    from taktik.core.social_media.tiktok.actions.atomic.navigation import search_actions as module
+
+    phone = _Phone(screen)
+    actions = _search_actions(phone)
+    actions.navigation_selectors = module.NAVIGATION_SELECTORS
+    monkeypatch.setattr(module, "return_to_tiktok_shell", lambda *_a, **_k: True)
+    actions.open_search = lambda: True
+    actions.search_and_submit = lambda _query: True
+    actions._human_like_delay = lambda _kind: None
+    actions._find_and_click = lambda selectors, timeout=0: any(phone.xpath(s).exists for s in selectors)
+    return actions
+
+
+def test_the_absent_handle_is_said_not_found_on_the_answered_users_tab(monkeypatch):
+    """The Users tab lists accounts, none of them this handle: the account is not found."""
+    actions = _navigation_on(monkeypatch, USERS_ABSENT)
+
+    assert actions.navigate_to_user_profile("user_3") is False
+    assert actions.last_profile_navigation_failure == "not_found"
+
+
+def test_a_search_that_shows_no_account_row_says_nothing_of_the_account(monkeypatch):
+    """No Users tab, no account row (here the feed): a list still loading looks the same, so the
+    account is not said absent."""
+    actions = _navigation_on(monkeypatch, HOME)
+
+    assert actions.navigate_to_user_profile("user_3") is False
+    assert actions.last_profile_navigation_failure == "navigation_failed"
+
+
+def test_an_opened_profile_leaves_no_failure(monkeypatch):
+    actions = _navigation_on(monkeypatch, USERS_VERIFIED)
+    actions._landed_on_profile_of = lambda _username, **_k: True
+
+    assert actions.navigate_to_user_profile("tiktok") is True
+    assert actions.last_profile_navigation_failure is None

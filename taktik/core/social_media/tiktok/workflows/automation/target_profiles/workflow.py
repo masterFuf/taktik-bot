@@ -22,6 +22,7 @@ import time
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+from taktik.core.social_media.tiktok.actions.atomic.navigation.search_actions import UNOPENED_NOT_FOUND
 from taktik.core.social_media.tiktok.services.followers.stop_policy import normalize_username
 from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_home
 
@@ -114,7 +115,7 @@ class TargetProfilesWorkflow(FollowersWorkflow):
                 # and skipped: it says nothing about the profiles that come after it.
                 if not self._open_profile(username):
                     self.stats.errors += 1
-                    self._send_action('skip_not_found', username)
+                    self._send_action(self._unopened_action(), username)
                     self._recover_to_home()
                     continue
 
@@ -243,6 +244,12 @@ class TargetProfilesWorkflow(FollowersWorkflow):
         except Exception as e:
             self.logger.warning(f"Error opening @{username}: {e}")
             return False
+
+    def _unopened_action(self) -> str:
+        """The action a profile not opened is told to the app with: `skip_not_found` only when the
+        search established the account is not listed, else `skip_navigation_failed`."""
+        failure = getattr(self.navigation, "last_profile_navigation_failure", None)
+        return "skip_not_found" if failure == UNOPENED_NOT_FOUND else "skip_navigation_failed"
 
     def _recover_to_home(self) -> None:
         """Back to a neutral screen before searching the next handle."""

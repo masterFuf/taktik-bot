@@ -6,6 +6,8 @@ search hashtag.
 
 """
 
+from typing import Optional
+
 from loguru import logger
 
 from taktik.core.social_media.tiktok.actions.base.base_action import BaseAction
@@ -17,9 +19,18 @@ from taktik.core.social_media.tiktok.services.navigation.reset import (
 from taktik.core.social_media.tiktok.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.search import SEARCH_SELECTORS
 
+#: Why `navigate_to_user_profile` opened no profile: the codes of a profile not opened, the ones
+#: Instagram tells the app with. TikTok cannot tell a slow search apart yet (no capture of its
+#: results while they load), so it has no `search_slow`.
+UNOPENED_NOT_FOUND = "not_found"
+UNOPENED_NAVIGATION_FAILED = "navigation_failed"
+
 
 class SearchActions(BaseAction):
     """Low-level search and search-result navigation actions for TikTok."""
+
+    #: Why the last `navigate_to_user_profile` opened no profile; None after a profile it opened.
+    last_profile_navigation_failure: Optional[str] = None
 
     def __init__(self, device):
         super().__init__(device)
@@ -205,9 +216,16 @@ class SearchActions(BaseAction):
             return False
 
     def navigate_to_user_profile(self, username: str) -> bool:
-        """Navigate to specific user's profile via search."""
+        """Navigate to specific user's profile via search.
+
+        Why a False: `last_profile_navigation_failure`. `not_found` only when the Users tab opened
+        and lists accounts, none of them this handle; anything else (no search, no Users tab, no
+        account row, which may be a list still loading, another profile opened) says nothing of
+        the account: `navigation_failed`.
+        """
         self.logger.info(f"👤 Navigating to @{username}'s profile")
-        
+        self.last_profile_navigation_failure = UNOPENED_NAVIGATION_FAILED
+
         try:
             # The bottom bar has to EXIST before a tab can be tapped. A new-followers page, a
             # follow list, a search result, a visited profile: all full-screen pages with no bar,
@@ -235,10 +253,11 @@ class SearchActions(BaseAction):
             self._human_like_delay('navigation')
             
             # Click on Users tab to filter results
+            users_tab_opened = False
             if self._element_exists(self.search_selectors.users_tab, timeout=3):
-                self._find_and_click(self.search_selectors.users_tab, timeout=3)
+                users_tab_opened = bool(self._find_and_click(self.search_selectors.users_tab, timeout=3))
                 self._human_like_delay('click')
-            
+
             # The row of the user actually asked for. The Users tab also lists fan accounts
             # carrying that handle as their DISPLAY name, so "the first row" is not the same
             # thing as "the right person".
@@ -246,9 +265,16 @@ class SearchActions(BaseAction):
 
             if self._find_and_click(first_result_selectors, timeout=5):
                 self._human_like_delay('navigation')
-                return self._landed_on_profile_of(username)
+                if self._landed_on_profile_of(username):
+                    self.last_profile_navigation_failure = None
+                    return True
+                return False
 
-            self.logger.warning(f"❌ Failed to find @{username} in search results")
+            if users_tab_opened and self._element_exists(self.search_selectors.user_result_username, timeout=0.5):
+                self.last_profile_navigation_failure = UNOPENED_NOT_FOUND
+                self.logger.warning(f"❌ @{username} is not among the accounts the search lists")
+            else:
+                self.logger.warning(f"❌ No account row on the search results for @{username}")
             return False
 
         except Exception as e:

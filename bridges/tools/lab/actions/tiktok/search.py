@@ -46,12 +46,18 @@ def open_videos(a, p):
 @action("tt.search.open_user_profile")
 def open_user_profile(a, p):
     """Search + open a user's profile (production navigate_to_user_profile) — the entry of
-    cold-DM/follow by username. Param: username (required)."""
+    cold-DM/follow by username. Param: username (required). A failure says why
+    (`last_profile_navigation_failure`): `not_found` when the Users tab lists accounts, none of
+    them this handle, else `navigation_failed`."""
     username = (p.get("username") or "").strip()
     if not username:
         return {"success": False, "message": "username param is required"}
     ok = a.search.navigate_to_user_profile(username)
-    return {"success": bool(ok), "message": f"@{username} profile open={ok}"}
+    if ok:
+        return {"success": True, "message": f"@{username} profile open=True"}
+    reason = a.search.last_profile_navigation_failure
+    return {"success": False, "message": f"@{username} profile not opened: {reason}",
+            "details": {"reason": reason, "accountNotFound": reason == "not_found"}}
 
 
 @action("tt.profile.click_message")

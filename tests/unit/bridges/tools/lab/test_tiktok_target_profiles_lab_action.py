@@ -74,3 +74,17 @@ def test_nothing_is_touched_without_an_account_or_a_list(built, params):
 
     assert built == []
     assert result["success"] is False
+
+
+def test_the_open_profile_action_says_why_a_profile_was_not_opened():
+    """`tt.search.open_user_profile`, the search each profile of the list goes through: its failure
+    carries the reason the run tells the app, `not_found` only when the search established it."""
+    from bridges.tools.lab.actions.tiktok.search import open_user_profile
+
+    search = SimpleNamespace(navigate_to_user_profile=lambda _username: False,
+                             last_profile_navigation_failure="not_found")
+
+    result = open_user_profile(SimpleNamespace(search=search), {"username": "user_3"})
+
+    assert result["success"] is False
+    assert result["details"] == {"reason": "not_found", "accountNotFound": True}
