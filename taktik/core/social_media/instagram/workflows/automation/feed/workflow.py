@@ -132,11 +132,15 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
             profile_data = self.profile_business.get_complete_profile_info(
                 username, navigate_if_needed=False,
             )
+            # A visit, acted on or not (`PROFILES_VISITED` of the contract): the author visit applies
+            # no filter, so every profile reached counts, in the session's counters and the run's
+            # figures, as the likers walk counts its rows.
+            self.stats_manager.increment('profiles_visited')
+            stats['profiles_visited'] = stats.get('profiles_visited', 0) + 1
             result = self._perform_interactions_on_profile(username, config, profile_data=profile_data)
             if result.get('actually_interacted'):
-                # Visited, and interacted with once: the author whose post was just liked is
-                # already counted (`_count_interacted_account`), the visit does not count them again.
-                self.stats_manager.increment('profiles_visited')
+                # Interacted with once: the author whose post was just liked is already counted
+                # (`_count_interacted_account`), the visit does not count them again.
                 self._count_interacted_account(username, stats)
 
             stats['likes_made'] += result.get('likes', 0)

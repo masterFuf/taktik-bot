@@ -124,3 +124,29 @@ def test_an_author_visit_that_did_nothing_is_not_an_interaction():
 
     # Nothing liked, nothing done on the visits: no count moved, the summary says it.
     assert feed.stats_manager.get_summary()["profiles_interacted"] == 0
+
+
+def test_an_author_visit_that_did_nothing_is_still_a_visit():
+    """`profiles_visited` is what the contract says (`contract/shared.py`, « passed the filters, acted
+    on or not »): the Feed counted an author's visit only when it acted there. A visit applies no filter
+    of its own, so every author reached counts, live and in the run's figures, as the likers walk
+    counts its rows (decision of Kevin, 2026-11-21)."""
+    snapshots = []
+
+    feed = _feed(snapshots, author_interacts=False)
+    stats = feed.interact_with_feed({**_RUN, "like_percentage": 0, "interact_with_post_author": True})
+
+    assert snapshots[-1]["profiles_visited"] == 2
+    assert stats["profiles_visited"] == 2
+    assert snapshots[-1]["profiles_interacted"] == 0
+
+
+def test_an_author_whose_profile_did_not_open_is_no_visit():
+    snapshots = []
+
+    feed = _feed(snapshots, author_interacts=False)
+    feed.nav_actions.navigate_to_profile = lambda username: False
+    stats = feed.interact_with_feed({**_RUN, "like_percentage": 0, "interact_with_post_author": True})
+
+    assert snapshots == [] or snapshots[-1]["profiles_visited"] == 0
+    assert stats["profiles_visited"] == 0
