@@ -288,7 +288,7 @@ def notifications_bridge(monkeypatch, tmp_path):
                         ("resolve_account_id", 7), ("record_welcome_dm", None), ("welcome_dm_skip_reason", None)):
         monkeypatch.setattr(commands, name, lambda *args, _value=value, **kwargs: _value)
     monkeypatch.setattr(commands, "record_scan_notifications",
-                        lambda account, items: [index % 2 == 0 for index, _ in enumerate(items)])
+                        lambda account, items, *, read_started_at: [index % 2 == 0 for index, _ in enumerate(items)])
     monkeypatch.setattr(commands, "batch_identity_hash",
                         lambda account, identity: f"hash-{identity['text']}" if identity else None)
     monkeypatch.setattr(commands, "suggestion_session", session)

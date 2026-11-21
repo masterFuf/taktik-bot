@@ -6,10 +6,14 @@ idempotence (never re-treat a notification) and an audit trail of what the opera
 or later the autopilot — actually did. The budget-consuming counterpart of an action
 (FOLLOW / COMMENT / COMMENT_LIKE) is written separately into ``interactions`` via the
 canonical ``record_individual_actions`` facade; this table never replaces that.
+
+A scan leaves one row too (`SCAN_ACTION`): when it began reading the feed, the horizon of the
+next scan of the account.
 """
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Optional, Set
 
 from taktik.core.database.repositories._base.base_repository import BaseRepository
@@ -17,6 +21,11 @@ from taktik.core.database.local.schemas.notifications import (
     create_notifications_tables,
     create_notifications_indexes,
 )
+
+#: The action of the row a scan leaves once its notifications are recorded.
+SCAN_ACTION = "scan"
+#: How SQLite's datetime('now') writes a moment, the form of `created_at`: UTC, to the second.
+SQLITE_UTC_TEXT = "%Y-%m-%d %H:%M:%S"
 
 
 class NotificationActionRepository(BaseRepository):
@@ -91,5 +100,31 @@ class NotificationActionRepository(BaseRepository):
         )
         return {row["content_hash"] for row in rows}
 
+    def record_scan(self, *, platform: str, account_id: int, read_started_at: datetime) -> None:
+        """Record that a scan read the account's feed from ``read_started_at`` on.
 
-__all__ = ["NotificationActionRepository"]
+        Dated by the start of the reading, not by this write: a notification that comes in while
+        the scan reads lands above what it has read, and must still be unread at the next scan.
+        Kept here, not in `notifications.last_seen_at`: the Turso sync follows that column, and a
+        back-dated value would fall behind its cursors and never reach the other PCs."""
+        self.ensure_table()
+        self.execute(
+            "INSERT INTO notification_actions (platform, account_id, action, source, success, created_at) "
+            "VALUES (?, ?, ?, ?, 1, ?)",
+            (platform, account_id, SCAN_ACTION, SCAN_ACTION,
+             read_started_at.astimezone(timezone.utc).strftime(SQLITE_UTC_TEXT)),
+        )
+
+    def latest_scan_at(self, platform: str, account_id: int) -> Optional[datetime]:
+        """When the account's last recorded scan began reading its feed (UTC), or None."""
+        row = self.query_one(
+            "SELECT MAX(created_at) AS read_started_at FROM notification_actions "
+            "WHERE platform = ? AND account_id = ? AND action = ?",
+            (platform, account_id, SCAN_ACTION),
+        )
+        if row is None or not row["read_started_at"]:
+            return None
+        return datetime.strptime(row["read_started_at"], SQLITE_UTC_TEXT).replace(tzinfo=timezone.utc)
+
+
+__all__ = ["SCAN_ACTION", "SQLITE_UTC_TEXT", "NotificationActionRepository"]

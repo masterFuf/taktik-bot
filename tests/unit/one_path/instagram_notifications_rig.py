@@ -209,9 +209,12 @@ class InstagramNotificationsRig:
 
         self.monkeypatch.setattr(commands, "witness_for", witness_for)
         self.monkeypatch.setattr(commands, "build_unread_rule", recorder("build_unread_rule", "rule"))
-        self.monkeypatch.setattr(commands, "record_scan_notifications",
-                                 recorder("record_scan_notifications",
-                                          lambda account, items: [index == 0 for index, _ in enumerate(items)]))
+        def record_scan_notifications(account, items, *, read_started_at):
+            # When the scan began follows the clock: the sequence keeps what is recorded.
+            rig.record("db", "record_scan_notifications", account, items)
+            return [index == 0 for index, _ in enumerate(items)]
+
+        self.monkeypatch.setattr(commands, "record_scan_notifications", record_scan_notifications)
         self.monkeypatch.setattr(commands, "record_notification_action", recorder("record_notification_action"))
         self.monkeypatch.setattr(commands, "count_actions_today", recorder("count_actions_today", 1))
         self.monkeypatch.setattr(commands, "load_actioned_hashes",

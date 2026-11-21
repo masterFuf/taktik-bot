@@ -40,6 +40,7 @@ from taktik.core.social_media.instagram.workflows.notifications.persistence impo
 from taktik.core.social_media.instagram.workflows.notifications.profile_pipeline import (
     build_notifications_profile_pipeline,
 )
+from taktik.core.social_media.instagram.workflows.notifications.unread_rule import utc_now
 from taktik.core.social_media.instagram.workflows.notifications.welcome_dm import (
     OFF_SCREEN_ACTIONS,
     WELCOME_DM_ACTION,
@@ -265,6 +266,9 @@ def cmd_scan(host: NotificationsHost, account_username: str = None,
     workflow = _build_workflow(host, runtime)
     # What was not read yet: the rows newer than this account's last scan (7 days on a first one),
     # the recorded identities settling the rows whose age straddles it.
+    # The scan is dated from now, before it reaches the feed: what its screens show came in before
+    # they were read, so the next scan, reading from this moment, misses nothing that came after.
+    read_started_at = utc_now()
     result = workflow.scan(unread_rule=build_unread_rule(account_username))
     items = result.get("items", [])
 
@@ -272,7 +276,7 @@ def cmd_scan(host: NotificationsHost, account_username: str = None,
     # skip already-processed notifications. The activity screen has no account header, so
     # the owning account is passed in by the front (resolved via getLatestDeviceAccounts).
     try:
-        flags = record_scan_notifications(account_username, items)
+        flags = record_scan_notifications(account_username, items, read_started_at=read_started_at)
         for item, is_new in zip(items, flags):
             item["is_new"] = is_new
         # Narrate the dedup outcome in the Taktik Agent panel (only when persistence

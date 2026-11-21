@@ -13,7 +13,7 @@ attribution is deferred to a later step (this module only dedups + flags is_new)
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
@@ -22,7 +22,11 @@ from taktik.core.database import configure_db_service, get_db_service
 from taktik.core.database.messaging import DmConversationService, SentDMService, who_has_written
 from taktik.core.database.notifications import NotificationService
 from taktik.core.database.repositories.notifications import NotificationRepository
-from taktik.core.social_media.instagram.workflows.notifications.unread_rule import UnreadRule
+from taktik.core.social_media.instagram.workflows.notifications.unread_rule import (
+    Clock,
+    UnreadRule,
+    utc_now,
+)
 
 _PLATFORM = "instagram"
 
@@ -56,9 +60,13 @@ def resolve_account_id(username: str) -> Optional[int]:
 def record_scan_notifications(
     account_username: Optional[str],
     items: List[Dict[str, Any]],
+    *,
+    read_started_at: datetime,
 ) -> List[bool]:
     """Persist scanned notifications for the logged-in account; return ``is_new`` per item.
 
+    Then the scan itself, dated ``read_started_at`` (when it began reading, UTC): the next scan
+    reads what came in after that moment (`build_unread_rule`).
     Best-effort: a missing account / DB returns all-False and never raises into the scan.
     NEVER logs the notification body.
     """
@@ -68,12 +76,14 @@ def record_scan_notifications(
     if account_id is None:
         return [False] * len(items)
     try:
-        return NotificationService.record_notifications(
+        flags = NotificationService.record_notifications(
             platform=_PLATFORM, account_id=account_id, items=items,
         )
     except Exception as exc:
         logger.warning(f"[NOTIF] Failed to persist notifications: {exc}")
         return [False] * len(items)
+    NotificationService.record_scan(_PLATFORM, account_id, read_started_at)
+    return flags
 
 
 # Which interaction each verb writes (canonical facade -> interactions + daily_stats,
@@ -163,11 +173,12 @@ def batch_identity_hash(account_username: Optional[str], identity: Optional[Dict
     return NotificationService.identity_hash(_PLATFORM, account_id, identity)
 
 
-def build_unread_rule(account_username: Optional[str], now: Optional[datetime] = None) -> UnreadRule:
+def build_unread_rule(account_username: Optional[str], clock: Clock = utc_now) -> UnreadRule:
     """How this account's scan tells an unread row (`UnreadRule`), from what is recorded.
 
-    The horizon is the last scan (the most recent `last_seen_at` of the account's notifications)
-    and the identities already recorded settle the rows whose age straddles it, preloaded once.
+    The horizon is the moment the last scan began reading (`NotificationService.last_scan_at`),
+    measured when each row is judged (``clock``); the identities already recorded settle the rows
+    whose age straddles it, preloaded once.
     Nothing recorded, or no account: a first scan, `FIRST_SCAN_HORIZON_DAYS` back. A record that
     cannot be read is said, and the scan reads as a first scan rather than stop on a guess.
     """
@@ -191,7 +202,7 @@ def build_unread_rule(account_username: Optional[str], now: Optional[datetime] =
         )
         return chash in known
 
-    return UnreadRule.since_last_scan(last_scan_at, now or datetime.now(timezone.utc), is_known)
+    return UnreadRule.since_last_scan(last_scan_at, is_known, clock=clock)
 
 
 # ---------------------------------------------------------------------------

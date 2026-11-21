@@ -51,7 +51,7 @@ def _everything_known(_row):
 
 
 def _since(hours, is_known=_everything_known):
-    return UnreadRule.since_last_scan(NOW - timedelta(hours=hours), NOW, is_known)
+    return UnreadRule.since_last_scan(NOW - timedelta(hours=hours), is_known, clock=lambda: NOW)
 
 
 class _Scan(module.NotificationsEngagementWorkflow):

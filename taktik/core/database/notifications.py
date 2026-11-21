@@ -20,6 +20,7 @@ from taktik.core.database.repositories.notifications import (
     NotificationActionRepository,
     NotificationRepository,
 )
+from taktik.core.database.repositories.notifications.notification_action_repository import SQLITE_UTC_TEXT
 
 
 class NotificationService:
@@ -68,21 +69,42 @@ class NotificationService:
 
     @staticmethod
     def last_scan_at(platform: str, account_id: int) -> Optional[datetime]:
-        """When the account's last scan read its feed (UTC), None when none did.
+        """When the account's last scan began reading its feed (UTC), None when none did.
 
+        A scan of an engine older than `record_scan` left no row of its own: its time is then the
+        last write of a notification (`last_seen_at`), as it was measured then.
         Raises when the record cannot be read: the scan must say it reads blind, not take a
         failure for a first scan."""
         conn = NotificationService._open()
         if conn is None:
             return None
         try:
-            last_seen = NotificationRepository(conn).latest_seen_at(platform, account_id)
+            started = NotificationActionRepository(conn).latest_scan_at(platform, account_id)
+            last_seen = None if started else NotificationRepository(conn).latest_seen_at(platform, account_id)
         finally:
             conn.close()
+        if started is not None:
+            return started
         if last_seen is None:
             return None
-        # SQLite's datetime('now'): "YYYY-MM-DD HH:MM:SS", in UTC.
-        return datetime.strptime(last_seen, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        return datetime.strptime(last_seen, SQLITE_UTC_TEXT).replace(tzinfo=timezone.utc)
+
+    @staticmethod
+    def record_scan(platform: str, account_id: int, read_started_at: datetime) -> None:
+        """Record when a scan began reading the account's feed, once its notifications are
+        recorded: the next scan reads what came in after it. A write that fails is said, and the
+        next scan reads from the scan before, a longer way back."""
+        conn = NotificationService._open()
+        if conn is None:
+            return
+        try:
+            NotificationActionRepository(conn).record_scan(
+                platform=platform, account_id=account_id, read_started_at=read_started_at,
+            )
+        except Exception as exc:
+            logger.warning(f"Could not record the scan of account {account_id} [{platform}]: {exc}")
+        finally:
+            conn.close()
 
     @staticmethod
     def record_notifications(
