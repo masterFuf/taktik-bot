@@ -141,7 +141,7 @@
   "taktik/core/social_media/instagram/actions/account/session/session_manager.py": 2,
   "taktik/core/social_media/instagram/actions/account/switch/__init__.py": 1,
   "taktik/core/social_media/instagram/actions/atomic/detection/list_detection.py": 6,
-  "taktik/core/social_media/instagram/actions/atomic/detection/profile_extraction.py": 22,
+  "taktik/core/social_media/instagram/actions/atomic/detection/profile_extraction.py": 21,
   "taktik/core/social_media/instagram/actions/atomic/detection/screen_detection.py": 35,
   "taktik/core/social_media/instagram/actions/atomic/interaction/post_interaction.py": 12,
   "taktik/core/social_media/instagram/actions/atomic/interaction/profile_interaction.py": 21,

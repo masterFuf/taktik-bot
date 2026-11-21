@@ -10,6 +10,7 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PRO
 from taktik.core.shared.device.snapshot import SnapshotUnavailable
 from taktik.core.shared.text import handle_from_screen_text
 from taktik.core.shared.vision import locate_text_on_screen
+from taktik.core.shared.vision.capture import crop_jpeg_data_url
 
 _BOUNDS_RE = re.compile(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
 
@@ -446,11 +447,8 @@ class ProfileExtractionMixin(BaseAction):
         xml_content: Optional[str] = None,
     ) -> Optional[str]:
         """Find the first matching avatar ImageView, crop it from a screenshot and
-        return it as a JPEG base64 data URL. `scale` upsamples the crop (Lanczos)."""
-        import base64
-        import io
-        from PIL import Image
-
+        return it as a JPEG base64 data URL (`crop_jpeg_data_url`, the crop of every profile
+        picture). `scale` upsamples the crop (Lanczos)."""
         try:
             photo = self._profile_photo(xml_content or None)
             if photo is None:
@@ -485,28 +483,11 @@ class ProfileExtractionMixin(BaseAction):
             if screenshot is None:
                 return None
 
-            padding = 2
-            crop_box = (
-                max(0, bounds['left'] - padding),
-                max(0, bounds['top'] - padding),
-                min(screenshot.size[0], bounds['right'] + padding),
-                min(screenshot.size[1], bounds['bottom'] + padding)
-            )
-            cropped = screenshot.crop(crop_box).convert('RGB')
-
-            if scale and scale > 1:
-                cropped = cropped.resize(
-                    (cropped.size[0] * scale, cropped.size[1] * scale),
-                    resample=Image.LANCZOS,
-                )
-
-            # Convert to JPEG base64
-            buffer = io.BytesIO()
-            cropped.save(buffer, format='JPEG', quality=85)
-            b64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-
-            self.logger.debug(f"📸 Avatar extracted ({cropped.size[0]}x{cropped.size[1]}, {len(b64) // 1024}KB)")
-            return f"data:image/jpeg;base64,{b64}"
+            picture = crop_jpeg_data_url(
+                screenshot, (bounds['left'], bounds['top'], bounds['right'], bounds['bottom']), scale=scale)
+            if picture:
+                self.logger.debug(f"📸 Avatar extracted ({len(picture) // 1024}KB)")
+            return picture
 
         except Exception as e:
             self.logger.debug(f"Failed to extract avatar: {e}")
