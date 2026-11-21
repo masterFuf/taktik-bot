@@ -51,6 +51,7 @@ def _bridge(media, monkeypatch):
     class Connection:
         def __init__(self, device_id):
             self.device = object()
+            self.device_manager = None
 
         def connect(self):
             return True
@@ -119,7 +120,8 @@ def test_the_lab_bench_rehearses_through_the_launcher(monkeypatch):
     sent = []
     ipc = SimpleNamespace(send=lambda *args, **kwargs: sent.append((args, kwargs)))
 
-    assert publish.run_instagram_publish(SimpleNamespace(device_id=DEVICE_ID), object(), ipc, "upload_carousel")
+    session = SimpleNamespace(device_id=DEVICE_ID, device_manager=SimpleNamespace(device=object()))
+    assert publish.run_instagram_publish(session, session.device_manager.device, ipc, "upload_carousel")
 
     (run,) = _Recorded.runs
     assert run["post_type"] == "carousel" and run["stop_before_share"] is True and len(run["media_paths"]) == 2

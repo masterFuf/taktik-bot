@@ -5,8 +5,11 @@ registered as `instagram.content.publish` (the CLI's `taktik workflows run`) cal
 `taktik publish` commands and the Lab's publish bench call: read the request (`payload.py`),
 refuse what cannot be published before the phone is touched, then run `InstagramPostWorkflow`,
 the only publishing engine. What differs between hosts is injected:
-- `connect() -> device`: the phone, connected by the host (the bridge's connection, the device the
-  CLI or the Lab already holds), called once the request is accepted;
+- `connect(package_name) -> InstagramRunPhone`: the phone, on the Instagram the request names (a
+  clone; None: the installed one), connected by the host once the request is accepted, as the
+  automation and the scraping ask for it. Its `installed_version` is the version of that Instagram,
+  which the workflow's start step matches the selectors to; its `start` is never called: the
+  publication opens Instagram itself, once its media is pushed;
 - `log(level, message)`, `status(status, message)`: where the workflow's lines go (the bridge's
   stdout, the terminal, the Lab's report; the log otherwise).
 """
@@ -21,6 +24,7 @@ from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.handler_params import merge_invocation_payload
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.shared.diagnostics.run_door import open_run_door
+from taktik.core.social_media.instagram.workflows.common.startup import InstagramConnect
 from taktik.core.social_media.instagram.workflows.publish.payload import (
     publish_request_from_payload,
     published_kind,
@@ -28,8 +32,6 @@ from taktik.core.social_media.instagram.workflows.publish.payload import (
 
 INSTAGRAM_CONTENT_PUBLISH_WORKFLOW_ID = "instagram.content.publish"
 
-#: `connect() -> device`: the connected phone the publication runs on.
-Connect = Callable[[], Any]
 LogCallback = Callable[[str, str], None]
 StatusCallback = Callable[[str, str], None]
 InstagramPostWorkflowFactory = Callable[..., Any]
@@ -50,7 +52,7 @@ def run_instagram_publish(
     payload: Mapping[str, Any],
     *,
     device_id: str,
-    connect: Connect,
+    connect: InstagramConnect,
     log: Optional[LogCallback] = None,
     status: Optional[StatusCallback] = None,
     workflow_factory: Optional[InstagramPostWorkflowFactory] = None,
@@ -60,11 +62,11 @@ def run_instagram_publish(
     `error_type`, `confirmed`). A locked phone or a phone without network raises `RunRefused` once
     connected, before the app opens."""
     request = publish_request_from_payload(payload)
-    device = connect()
+    phone = connect(request.package_name)
     # A locked phone or a phone without network does not start its run, from any host (`RunRefused`).
     open_run_door(device_id)
     workflow = (workflow_factory or _default_workflow_factory())(
-        device,
+        getattr(phone.device_manager, "device", None),
         device_id,
         log=log or _log_to_logger,
         status=status,
@@ -72,6 +74,7 @@ def run_instagram_publish(
         post_type=published_kind(request),
         story_via_feed=request.story_via_feed,
         account_username=request.bot_username,
+        installed_version=phone.installed_version,
     )
     return workflow.execute(
         caption=request.caption,
@@ -81,21 +84,32 @@ def run_instagram_publish(
     )
 
 
-def build_instagram_publish_handler(*, device, device_id: str) -> WorkflowHandler:
-    """Build the publish handler: the same launcher as the desktop bridge, on the host's device."""
+def build_instagram_publish_handler(
+    *,
+    device_id: str,
+    instagram_connect: Optional[InstagramConnect] = None,
+) -> WorkflowHandler:
+    """Build the publish handler: the same launcher as the desktop bridge, on the phone the host connects."""
 
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
+        if instagram_connect is None:
+            raise RuntimeError("An Instagram publication needs a host that connects the phone")
         merged = merge_invocation_payload(invocation, payload)
-        return run_instagram_publish(merged, device_id=device_id, connect=lambda: device)
+        return run_instagram_publish(merged, device_id=device_id, connect=instagram_connect)
 
     return handler
 
 
-def register_instagram_publish_handlers(registry: WorkflowRegistry, *, device, device_id: str) -> WorkflowRegistry:
+def register_instagram_publish_handlers(
+    registry: WorkflowRegistry,
+    *,
+    device_id: str,
+    instagram_connect: Optional[InstagramConnect] = None,
+) -> WorkflowRegistry:
     """Register the Instagram publish handler into an injected Agent registry."""
     registry.register(
         INSTAGRAM_CONTENT_PUBLISH_WORKFLOW_ID,
-        build_instagram_publish_handler(device=device, device_id=device_id),
+        build_instagram_publish_handler(device_id=device_id, instagram_connect=instagram_connect),
     )
     return registry
 

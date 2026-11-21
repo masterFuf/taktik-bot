@@ -12,8 +12,8 @@ a device connection of its own.
 
 Every Instagram launcher shares two more names from here: `InstagramStartError`, what it raises when
 the start failed and the run must not begin, and `_log_to_logger`, the log of a host that brings no
-log callback of its own (the CLI). The automation and the scraping launchers share a third:
-`InstagramRunPhone`, what the host's `connect` hands them once they have read their payload.
+log callback of its own (the CLI). The automation, the scraping and the publication launchers share a
+third: `InstagramRunPhone`, what the host's `connect` hands them once they have read their payload.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ class InstagramStartError(RuntimeError):
 
 @dataclass
 class InstagramRunPhone:
-    """What a host hands an automation or a scraping run when its launcher asks for the phone.
+    """What a host hands an automation, a scraping or a publication when its launcher asks for the phone.
 
     The launcher reads and validates its payload first, then calls the host's
     `connect(package_name)`: everything that touches the phone (the connection, the desktop's IP
@@ -40,9 +40,12 @@ class InstagramRunPhone:
 
     device_manager     the connected phone the workflow drives
     start              the clean restart before the run, False when Instagram did not start; None:
-                       the host restarted it already (the desktop restarts it before a scraping run)
-    installed_version  the installed Instagram version, for the selector overrides; None: the host
-                       applied them already (the Lab session)
+                       the host restarted it already (the desktop restarts it before a scraping run).
+                       The publication never calls it: it opens Instagram itself, once its media is
+                       pushed
+    installed_version  the installed version of the Instagram `connect` was asked for (a clone's own
+                       version), for the selector overrides; None: the host applied them already (the
+                       Lab session)
     """
 
     device_manager: Any

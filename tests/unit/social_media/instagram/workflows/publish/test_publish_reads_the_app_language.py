@@ -35,6 +35,7 @@ class StageWorkflow(InstagramPostWorkflow):
         self.package_name = "com.instagram.android"
         self.post_type = post_type
         self.story_via_feed = False
+        self._installed_version = None
         self._a = {"nav": _WayHome(steps)}
         self.steps = steps
 

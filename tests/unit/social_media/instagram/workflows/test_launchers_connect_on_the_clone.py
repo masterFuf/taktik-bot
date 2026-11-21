@@ -11,7 +11,8 @@ the alias for it; it reads through the same helper since decision D3 of 2026-09-
 for the phone through `connect` too since 2026-10-18 (it was handed a phone its host had connected).
 The scraping asked the same way but read `packageName` by hand (`payload.get("packageName") or None`:
 no `package_name`, no trimming), a second reading of the same field; it reads through the same helper
-since 2026-10-26, so one payload names one package for every launcher.
+since 2026-10-26, so one payload names one package for every launcher. The publication read it with its
+request but asked its host for a bare device; it asks for the phone on that package since 2026-11-21.
 
 The hosts read it a second time: the automation bridge built its app on its own `packageName` and
 ignored the package its `connect` was handed, the persona bridge read it by hand. The structural test
@@ -82,6 +83,12 @@ def _scraping(payload, connect):
     return run_instagram_scraping({"type": "usernames", "usernames": ["ana"], **payload}, connect=connect)
 
 
+def _publish(payload, connect):
+    from taktik.core.social_media.instagram.workflows.publish.agent_handler import run_instagram_publish
+
+    return run_instagram_publish({"mediaPaths": [__file__], **payload}, device_id="SERIAL", connect=connect)
+
+
 LAUNCHERS = {
     "automation": (_automation, {}),
     "dm_read": (_dm, {"command": "read"}),
@@ -91,6 +98,7 @@ LAUNCHERS = {
     "cold_dm": (_cold_dm, {}),
     "story_relay": (_story_relay, {}),
     "scraping": (_scraping, {}),
+    "publish": (_publish, {}),
 }
 
 
@@ -134,6 +142,7 @@ REFUSED = {
     "notifications": (_notifications, {"command": "reply"}),
     "cold_dm": (_cold_dm, {"recipients": []}),
     "story_relay": (_story_relay, {"source_username": ""}),
+    "publish": (_publish, {"mediaPaths": []}),
 }
 
 

@@ -40,6 +40,7 @@ def test_reel_and_story_are_never_reinterpreted(post_type):
 
 
 def test_the_launcher_publishes_the_derived_kind():
+    from taktik.core.social_media.instagram.workflows.common.startup import InstagramRunPhone
     from taktik.core.social_media.instagram.workflows.publish.agent_handler import run_instagram_publish
 
     built = {}
@@ -52,6 +53,6 @@ def test_the_launcher_publishes_the_derived_kind():
             return {"success": True}
 
     run_instagram_publish({"postType": "post", "mediaPaths": ["a.png", "b.png"]}, device_id="d",
-                          connect=lambda: object(), workflow_factory=Post)
+                          connect=lambda _package_name: InstagramRunPhone(device_manager=None), workflow_factory=Post)
 
     assert built["post_type"] == "carousel"

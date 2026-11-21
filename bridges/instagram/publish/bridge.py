@@ -1,16 +1,19 @@
 """Instagram publish bridge runtime class.
 
 The one Instagram publisher of the desktop app: post, reel, carousel and story all go through
-this bridge. It connects the device when the launcher asks for it and translates the result into
-JSON events; the request is read, refused or run by the launcher the CLI and the Lab call too,
-`run_instagram_publish` (`instagram.content.publish`). The config file carries `deviceId`,
-`mediaPaths` (or `localPath`), `caption`, `hashtags`, `postType`, `packageName` and `botUsername`.
+this bridge. It connects the device when the launcher asks for it, on the Instagram the launcher
+read (`InstagramRunPhone`, as the automation and the scraping bridges hand it), and translates the
+result into JSON events; the request is read, refused or run by the launcher the CLI and the Lab
+call too, `run_instagram_publish` (`instagram.content.publish`). The config file carries
+`deviceId`, `mediaPaths` (or `localPath`), `caption`, `hashtags`, `postType`, `packageName` and
+`botUsername`.
 """
 
 from __future__ import annotations
 
 import signal
 
+from taktik.core.shared.device.app_manager import AppService
 from taktik.core.shared.device.connection import ConnectionService
 from taktik.core.shared.diagnostics.run_halt import RunRefused
 from bridges.common.network import send_run_refusal
@@ -39,12 +42,19 @@ class InstagramPublishBridge:
         self._stop_requested = True
         send_status("stopping", "Received shutdown signal")
 
-    def _connected_device(self):
+    def _connected_phone(self, package_name):
+        """The phone the launcher asks for once it has read the request, with the installed version
+        of the Instagram it publishes on (a clone; None: the installed one), for the selectors."""
+        from taktik.core.social_media.instagram.workflows.common.startup import InstagramRunPhone
+
         send_status("connecting", f"Connecting to device {self.device_id}...")
-        self._connection = ConnectionService(self.device_id)
-        if not self._connection.connect():
+        connection = ConnectionService(self.device_id)
+        self._connection = connection
+        if not connection.connect():
             raise DeviceConnectionFailed("Failed to connect to device")
-        return self._connection.device
+        app = AppService(connection, platform="instagram", package_override=package_name)
+        return InstagramRunPhone(device_manager=connection.device_manager,
+                                 installed_version=app.get_installed_version)
 
     def run(self) -> int:
         from taktik.core.social_media.instagram.workflows.publish.agent_handler import run_instagram_publish
@@ -58,7 +68,7 @@ class InstagramPublishBridge:
             result = run_instagram_publish(
                 self.config,
                 device_id=self.device_id,
-                connect=self._connected_device,
+                connect=self._connected_phone,
                 log=send_log,
                 status=send_status,
             )

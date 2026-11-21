@@ -43,7 +43,6 @@ class CliInstagramHost:
     def __init__(self, phone: CliPhone):
         self.phone = phone
         self.device_id = phone.device_id
-        self.app = None
 
     def _app_for(self, package_name: Optional[str]):
         from taktik.core.shared.device.app_manager import AppService
@@ -57,18 +56,19 @@ class CliInstagramHost:
         """The clean restart before the run, on the run's package (a clone when it names one)."""
         from taktik.core.social_media.instagram.workflows.common.startup import start_instagram_session
 
-        self.app = self._app_for(package_name)
-        return start_instagram_session(self.app)
+        return start_instagram_session(self._app_for(package_name))
 
     def run_phone(self, package_name: Optional[str]):
-        """The phone an automation or a scraping run drives (`InstagramRunPhone`), connected now, with
-        the clean restart on the run's package and the installed version for the selector overrides."""
+        """The phone an automation, a scraping or a publication drives (`InstagramRunPhone`), connected
+        now, with the clean restart on the run's package and that package's installed version for the
+        selector overrides, read whether the run restarts Instagram or not (a publication opens it
+        itself)."""
         from taktik.core.social_media.instagram.workflows.common.startup import InstagramRunPhone
 
         return InstagramRunPhone(
             device_manager=self.phone.connect(),
             start=lambda: self.start(package_name),
-            installed_version=self.installed_version,
+            installed_version=lambda: self._app_for(package_name).get_installed_version(),
         )
 
     def account_app(self, package_name: Optional[str]):
@@ -81,11 +81,6 @@ class CliInstagramHost:
         if not self.start(package_name):
             raise InstagramStartError("Instagram did not start cleanly; the task was not started")
         return getattr(self.phone.connect(), "device", None)
-
-    def installed_version(self) -> Optional[str]:
-        """The installed Instagram version, for the selector overrides."""
-        app = self.app or self._app_for(None)
-        return app.get_installed_version()
 
     def cold_dm_runtime(self, package_name: Optional[str]):
         """The device a cold DM run drives, prepared by the Instagram device base the cold DM bridge

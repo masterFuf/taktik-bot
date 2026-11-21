@@ -50,6 +50,7 @@ def run_instagram_publish(conn, device, ipc, workflow_type):
 
     post_type, media_count = mapping
 
+    from taktik.core.social_media.instagram.workflows.common.startup import InstagramRunPhone
     from taktik.core.social_media.instagram.workflows.publish.agent_handler import run_instagram_publish
 
     def _log(level, message):
@@ -60,10 +61,12 @@ def run_instagram_publish(conn, device, ipc, workflow_type):
 
     media = [make_rehearsal_image() for _ in range(media_count)]
     try:
+        # The session's phone, as the automation and the scraping benches hand it: the session matched
+        # the selectors to the installed version already, the run still reads the app language.
         result = run_instagram_publish(
             {"postType": post_type, "mediaPaths": media, "stopBeforeShare": True},
             device_id=conn.device_id,
-            connect=lambda: device,
+            connect=lambda _package_name: InstagramRunPhone(device_manager=conn.device_manager),
             log=_log,
             status=_status,
         )

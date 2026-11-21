@@ -55,10 +55,12 @@ def _media(tmp_path) -> str:
 
 
 def _instagram_publish(tmp_path):
+    from taktik.core.social_media.instagram.workflows.common.startup import InstagramRunPhone
     from taktik.core.social_media.instagram.workflows.publish.agent_handler import run_instagram_publish
 
     return run_instagram_publish({"mediaPaths": [_media(tmp_path)]}, device_id=SERIAL,
-                                 connect=lambda: object(), workflow_factory=_never)
+                                 connect=lambda _package_name: InstagramRunPhone(device_manager=None),
+                                 workflow_factory=_never)
 
 
 def _instagram_account(tmp_path):
@@ -111,6 +113,7 @@ def _refusal(lines) -> List[Dict[str, Any]]:
 class _Connection:
     def __init__(self, *_args, **_kwargs):
         self.device = object()
+        self.device_manager = None
 
     def connect(self):
         return True

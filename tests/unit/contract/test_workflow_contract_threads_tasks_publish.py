@@ -289,7 +289,7 @@ def test_the_tiktok_publish_bridge_follows_its_contract(monkeypatch, lines, tmp_
 def _instagram_workflow(fail: bool):
     class Post:
         def __init__(self, device, device_id, *, log=None, status=None, package_name=None,
-                     post_type="post", story_via_feed=False, account_username=None):
+                     post_type="post", story_via_feed=False, account_username=None, installed_version=None):
             self.log, self.status = log, status
 
         def execute(self, caption="", hashtags=None, media_paths=None, stop_before_share=False):
@@ -311,6 +311,7 @@ def test_the_instagram_publish_bridge_follows_its_contract(monkeypatch, lines, f
     class Connection:
         def __init__(self, device_id):
             self.device = object()
+            self.device_manager = None
 
         def connect(self):
             return True

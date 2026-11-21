@@ -20,6 +20,7 @@ import pytest
 
 from taktik.core.clone import get_active_package, set_active_package
 from taktik.core.social_media.instagram.workflows.common import runtime_setup
+from taktik.core.social_media.instagram.workflows.common.startup import InstagramRunPhone
 from taktik.core.social_media.instagram.workflows.publish.agent_handler import run_instagram_publish
 from taktik.core.social_media.instagram.workflows.publish.post_workflow import InstagramPostWorkflow
 
@@ -76,7 +77,7 @@ def _publish(calls: list, **payload):
         {"deviceId": "emulator-5554", "postType": "post", "mediaPaths": [__file__], "caption": "hello",
          **payload},
         device_id="emulator-5554",
-        connect=lambda: object(),
+        connect=lambda _package_name: InstagramRunPhone(device_manager=None),
         workflow_factory=_screenless(calls),
     )
 

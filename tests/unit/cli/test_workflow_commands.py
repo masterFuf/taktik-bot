@@ -132,17 +132,20 @@ def test_building_the_registry_never_connects_the_phone():
 
 
 def test_the_registry_names_the_workflows_that_take_the_connected_device():
-    """The account flows, the publications, Gmail and YouTube take the device itself; the Instagram
-    runs take a `connect`, which their launcher calls once it has read its payload."""
+    """The account flows, the TikTok and YouTube publications and Gmail take the device itself; the
+    Instagram runs, its publication included, take a `connect`, which their launcher calls once it has
+    read its payload."""
     from unit.cli_phone import recording_device_manager
 
     build = build_registry(device_manager=recording_device_manager([], "dev-1")(), device_id="dev-1")
 
-    assert {"instagram.account.login", "instagram.content.publish", "gmail.account.scan_accounts",
+    assert {"instagram.account.login", "gmail.account.scan_accounts",
             "youtube.publish.upload_post"} <= build.built_without_device
     take_connect = {workflow_id for workflow_id in build.workflow_ids
-                    if workflow_id.startswith(("instagram.automation.", "instagram.scraping.", "instagram.engagement."))}
-    assert take_connect and not take_connect & build.built_without_device
+                    if workflow_id.startswith(("instagram.automation.", "instagram.scraping.", "instagram.engagement.",
+                                               "instagram.content."))}
+    assert "instagram.content.publish" in take_connect
+    assert not take_connect & build.built_without_device
 
 
 def test_a_workflow_whose_launcher_takes_the_device_runs_on_the_phone_connected_first(monkeypatch):

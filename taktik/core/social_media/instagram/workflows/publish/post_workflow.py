@@ -7,8 +7,8 @@ The flow reproduces, step by step, the sequence validated through the diagnostic
 (selector-only, with NO hardcoded coordinate):
 
   1. push the file and index it in the media store
-  2. launch the app, clone-aware, match the selectors to it (its package, the app language), and
-     come back to the feed
+  2. launch the app, clone-aware, match the selectors to it (its installed version, its package, the
+     app language), and come back to the feed
   3. open the creation screen; when it opens the camera (story), answer Android's camera and
      microphone prompts "Only this time", never a lasting grant
   4. close the draft modal when present, optional
@@ -80,6 +80,8 @@ class InstagramPostWorkflow:
     log          : callback (level, message), emitted to the debug console
     status       : callback (status, message) -> mise a jour d'etat
     package_name : package Instagram (clone) cible ; defaut = package actif
+    installed_version : the installed version of that Instagram, read when the selectors are matched
+                   to it (`InstagramRunPhone.installed_version`); None: the host matched them already
     """
 
     def __init__(
@@ -93,8 +95,10 @@ class InstagramPostWorkflow:
         post_type: str = "post",
         story_via_feed: bool = False,
         account_username: Optional[str] = None,
+        installed_version: Optional[Callable[[], Optional[str]]] = None,
     ):
         self.device = device
+        self._installed_version = installed_version
         # The operated account: a refused publication is filed in its health history.
         self.account_username = (account_username or "").strip().lstrip("@") or None
         self.device_id = device_id
@@ -234,14 +238,16 @@ class InstagramPostWorkflow:
 
     def _match_selectors_to_the_app(self) -> None:
         """The start step the automation and the scraping take after their restart: the launched
-        Instagram made the active package, then the selectors matched to its package (a clone) and
-        to the app language. Before the first selector: the way home looks for the tab bar by its ids
-        and reopens Instagram by the active package; Create, Next and Share are localized."""
+        Instagram made the active package, then the selectors matched to its installed version, to
+        its package (a clone) and to the app language. Before the first selector: the way home looks
+        for the tab bar by its ids and reopens Instagram by the active package; Create, Next and
+        Share are localized."""
         from taktik.core.social_media.instagram.workflows.common import runtime_setup
 
         runtime_setup.activate_instagram_package(self.package_name)
         runtime_setup.prepare_instagram_selectors(
-            device=self.device, package_name=self.package_name, log=self._log)
+            device=self.device, package_name=self.package_name,
+            installed_version_provider=self._installed_version, log=self._log)
 
     def _open_creation_and_gallery(self) -> Optional[dict]:
         """Open creation, dismiss the draft modal, select the destination tab for the
