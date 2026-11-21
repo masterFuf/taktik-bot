@@ -167,6 +167,28 @@ def test_the_read_cap_stops_the_scan_and_says_so(monkeypatch):
     assert result["count"] == 12
 
 
+class _ScanWithoutHeaders(_Scan):
+    """The same screens, their time-section headers not read (an id the phone no longer shows)."""
+
+    def _dump_screen(self):
+        rows, _headers = super()._dump_screen()
+        return rows, []
+
+
+def test_the_read_cap_bounds_the_reading_when_the_sections_are_not_read(monkeypatch):
+    """Without the section headers, « two screens with nothing unread » never counts, and a row
+    beyond the horizon is not kept: a cap on the rows kept bounded nothing, and the scan read on to
+    the end of the feed. Last scan an hour ago, so the 4-5 day and 4 week rows are beyond it: the
+    cap counts every row read, the 12th is on the second screen."""
+    monkeypatch.setattr(module, "SCAN_READ_CAP", 12)
+    wf = _ScanWithoutHeaders([TOP, ROWS, OLDER])
+
+    result = wf.scan(unread_rule=_since(hours=1))
+
+    assert result["scan_stop_reason"] == "read_cap"
+    assert wf.scrolls == 1  # the 4 week screen is never reached
+
+
 def test_show_more_is_tapped_when_it_is_the_only_way_on():
     wf = _Scan([TOP_447, TOP_447], loaded_by_show_more=[DAYS_447])
 

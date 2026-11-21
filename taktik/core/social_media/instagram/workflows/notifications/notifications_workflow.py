@@ -584,6 +584,10 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
                 key = row["text"].lower()
                 if key in seen:
                     continue
+                # The cap bounds every row read, beyond the horizon too: when the section headers
+                # are not read, the stop on rows already read never counts, and only it is left.
+                if len(seen) >= SCAN_READ_CAP:
+                    break
                 seen.add(key)
                 new_count += 1
                 verdict = rule.verdict(row)
@@ -599,9 +603,7 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
                         row["text"] = real[:200]
                         row["label"] = clean_label(real)
                 items.append(row)
-                if len(items) >= SCAN_READ_CAP:
-                    break
-            if len(items) >= SCAN_READ_CAP:
+            if len(seen) >= SCAN_READ_CAP:
                 stop_reason = "read_cap"
                 self.logger.warning(f"scan: read cap of {SCAN_READ_CAP} rows reached, rows may be left")
                 break
