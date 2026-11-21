@@ -7,9 +7,12 @@ listed, and the exit code is 1.
 
     python scripts/lab/replay_selector_corpus.py                 # working tree against HEAD
     python scripts/lab/replay_selector_corpus.py --base origin/main
+    python scripts/lab/replay_selector_corpus.py --corpus <checkout that holds debug_ui/>
 
-The corpus is `debug_ui/` (local only, never versioned: dumps are personal data). A field no dump
-matches in either state says nothing: its screen is absent from the corpus.
+The corpus is `debug_ui/` (local only, never versioned: dumps are personal data), under this
+repository by default. A worktree holds none: `--corpus` names the checkout that holds it, read in
+place, with no link nor copy. A field no dump matches in either state says nothing: its screen is
+absent from the corpus.
 """
 
 from __future__ import annotations
@@ -126,19 +129,30 @@ def _match_chunk(args):
     return hits
 
 
-def main() -> int:
+def parse_args(argv=None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--base", default="HEAD", help="revision to compare the working tree with")
+    parser.add_argument("--corpus", default=ROOT,
+                        help="the checkout that holds debug_ui/ (default: this repository)")
     parser.add_argument("--dump-fields", help=argparse.SUPPRESS)
-    args = parser.parse_args()
+    return parser.parse_args(argv)
+
+
+def baseline_dumps(corpus: str) -> list:
+    """The baseline dumps of the corpus that `corpus` holds, where the Lab writes them."""
+    return sorted(glob.glob(os.path.join(corpus, "debug_ui", "cartography", "*", "instagram", BASELINE,
+                                         "**", "*.xml"), recursive=True))
+
+
+def main(argv=None) -> int:
+    args = parse_args(argv)
     if args.dump_fields:
         dump_fields(args.dump_fields)
         return 0
 
-    dumps = sorted(glob.glob(os.path.join(ROOT, "debug_ui", "cartography", "*", "instagram", BASELINE,
-                                          "**", "*.xml"), recursive=True))
+    dumps = baseline_dumps(args.corpus)
     if not dumps:
-        print(f"No {BASELINE} dump under debug_ui/: nothing to replay.")
+        print(f"No {BASELINE} dump under {os.path.join(args.corpus, 'debug_ui')}: nothing to replay.")
         return 0
 
     with tempfile.TemporaryDirectory() as workdir:
@@ -170,7 +184,7 @@ def main() -> int:
     for field, before, after, examples in losses:
         print(f"LOSS {field}: {before} -> {after}")
         for path in examples:
-            print(f"    {os.path.relpath(path, ROOT)}")
+            print(f"    {os.path.relpath(path, args.corpus)}")
     return 1
 
 
