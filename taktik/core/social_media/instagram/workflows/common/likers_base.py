@@ -257,6 +257,12 @@ class LikersWorkflowBase(BaseBusinessAction):
                     account_id=account_id, session_id=session_id
                 )
 
+                if result.was_stopped:
+                    # The run was asked to stop on this profile: no error, and no way back to the
+                    # list (a stop makes no gesture). `should_continue` of the caller names it.
+                    _ledger(username, "stopped", None)
+                    return
+
                 if result.was_error:
                     stats['errors'] += 1
                     _ledger(username, "error", "processing_error")

@@ -163,7 +163,7 @@
   "taktik/core/social_media/instagram/actions/base/base_business/liker_extraction.py": 1,
   "taktik/core/social_media/instagram/actions/base/base_business/modal_recovery.py": 6,
   "taktik/core/social_media/instagram/actions/base/base_business/popup_handling.py": 13,
-  "taktik/core/social_media/instagram/actions/base/base_business/profile_processing.py": 26,
+  "taktik/core/social_media/instagram/actions/base/base_business/profile_processing.py": 25,
   "taktik/core/social_media/instagram/actions/base/base_business/stats_recording.py": 13,
   "taktik/core/social_media/instagram/actions/base/behavior/human_behavior.py": 1,
   "taktik/core/social_media/instagram/actions/base/device/facade.py": 1,

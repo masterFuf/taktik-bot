@@ -114,6 +114,8 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
             # an unknown screen for minutes (real runs: ~7 min of empty scrolls, non-human bursts)
             # until the global 100-scroll cap finally tripped.
             navigation_lost = False
+            # True when the stop caught a profile: the run ends there, with no gesture after it.
+            stopped = False
             # Consecutive scans with NO visible followers. A handful is normal (loading, end of
             # list being handled), but a long streak means the list is gone (e.g. the
             # "Suggestions" screen) — stop instead of scrolling into the void.
@@ -330,7 +332,15 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                         target_username, target_followers_count, total_usernames_seen,
                         max_interactions, tracker
                     )
-                    
+
+                    halt = run_halt.arret_demande()
+                    if halt:
+                        # The stop caught this profile: the screen is left as it is (no back, no
+                        # scroll), and the run ends on the latch's motive.
+                        session_stop_reason = session_stop_reason or stop_reasons.for_halt(halt)
+                        stopped = True
+                        break
+
                     if interaction_ok is None:
                         # Critical error — could not recover to list. Flag it so the OUTER loop
                         # ends too (this break only exits the for-loop).
@@ -445,6 +455,10 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
 
                 if navigation_lost:
                     self.logger.error("🛑 Navigation lost — ending run (no blind scrolling on an unknown screen)")
+                    break
+
+                if stopped:
+                    self.logger.warning("🛑 Run stop requested: the screen is left as it is")
                     break
 
                 # === PRIVATE ZONE ESCAPE ===

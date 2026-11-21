@@ -120,3 +120,21 @@ def test_without_a_halt_the_same_run_stays_completed(capsys):
     assert len(run.panel_errors) == 1, run.panel_errors
     assert stop['reason_code'] == 'completed'
     assert stop['status'] == 'COMPLETED'
+
+
+def test_the_profile_after_the_stop_is_never_searched(capsys):
+    """The stop caught the first profile (STOPPED): the loop ends there, the next profile's search
+    would be a gesture after the stop (Kevin's decision of 2026-11-16: a stop makes no gesture)."""
+    searched = []
+
+    def navigation_that_loses_the_network(username):
+        searched.append(username)
+        run_halt.demander_arret(run_halt.NETWORK_LOST, 'test')
+        return False
+
+    run = _ProfileListRun(navigation_that_loses_the_network)
+    stats = run.interact_with_profile_list(['nasa', 'esa'])
+
+    assert searched == ['nasa']
+    assert stats['visited'] == 0 and stats['errors'] == 0
+    assert _session_stop(capsys)['reason_code'] == 'network_lost'

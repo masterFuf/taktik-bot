@@ -35,6 +35,9 @@ class ProfileProcessingResult:
     ERROR_NO_DATA = 'error_no_data'
     ERROR_INTERACTION = 'error_interaction'
     ERROR_EXCEPTION = 'error_exception'
+    # The run was asked to stop (`run_halt`) while on this profile: not an error of the run, the
+    # latch's motive says why. The caller makes no gesture after it and ends its loop.
+    STOPPED = 'stopped'
     
     def __init__(self, status: str, username: str):
         self.status = status
@@ -69,6 +72,10 @@ class ProfileProcessingResult:
         return self.status in (
             self.ERROR_NO_DATA, self.ERROR_INTERACTION, self.ERROR_EXCEPTION
         )
+
+    @property
+    def was_stopped(self) -> bool:
+        return self.status == self.STOPPED
     
     @property
     def likes(self) -> int:
@@ -237,17 +244,20 @@ class ProfileProcessingMixin:
             # === 5. Perform interactions ===
             # The run's lock BEFORE the engine: the AI hooks wrapped around it pay for a capture
             # and a classification first. A blocked run neither pays nor loses the profile,
-            # which is not marked processed and stays for a later run.
+            # which is not marked processed and stays for a later run (STOPPED, set below).
             if run_halt.arret_demande():
-                result.status = ProfileProcessingResult.ERROR_INTERACTION
-                result.error_message = "run stop requested"
                 return result
             interaction = self._perform_interactions_on_profile(
                 username, config, profile_data=profile_data
             )
             result.interaction_result = interaction
-            
-            if interaction and interaction.get('actually_interacted', False):
+            acted = bool(interaction and interaction.get('actually_interacted', False))
+
+            # The engine leaves on the lock too: with nothing done, the profile is not lost either.
+            if not acted and run_halt.arret_demande():
+                return result
+
+            if acted:
                 result.status = ProfileProcessingResult.SUCCESS
                 self.logger.success(f"✅ Successful interaction with @{username}")
             elif interaction and interaction.get('technical_failure'):
@@ -281,8 +291,14 @@ class ProfileProcessingMixin:
             self.logger.error(f"Error processing @{username}: {e}")
             return result
         finally:
+            # A run asked to stop ends its profile STOPPED, whatever the profile came to (what was
+            # done on it is recorded already): no error of the run, and the caller leaves the
+            # screen as it is. Settled here, on every way out, before the heartbeat says it.
+            if run_halt.arret_demande():
+                result.status = ProfileProcessingResult.STOPPED
+                result.error_message = None
             # One done-heartbeat per profile, carrying the elapsed time + the outcome
-            # (interacted / filtered_private / filtered_criteria / skipped / error), so
+            # (interacted / filtered_private / filtered_criteria / skipped / error / stopped), so
             # the silent per-profile time is attributed in the cadence and run log.
             if analysis_started:
                 emit_step(

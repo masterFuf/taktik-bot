@@ -160,7 +160,12 @@ class DirectProfileProcessingMixin:
         )
         
         # --- Handle result with followers-specific extras ---
-        
+
+        if result.was_stopped:
+            # The run was asked to stop on this profile: no error, and no way back to the list
+            # (a stop makes no gesture). The loop reads the latch and ends.
+            return False
+
         if result.was_error:
             stats['errors'] += 1
             if not self._ensure_on_followers_list(target_username, force_back=True):

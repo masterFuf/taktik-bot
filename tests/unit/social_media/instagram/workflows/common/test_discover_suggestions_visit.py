@@ -234,3 +234,23 @@ def test_the_recorded_provenance_names_the_surface():
     database: that is what will allow comparing the two sources later."""
     assert _DiscoverSuggestionSurface.SOURCE_TYPE == "SUGGESTIONS"
     assert _DiscoverSuggestionSurface.SOURCE_NAME == "discover_people"
+
+
+def test_a_suggestion_the_stop_caught_is_left_as_it_is():
+    """The stop seen on a suggested profile: no error, no way back, no other suggestion; the pass
+    ends on the latch's own code (Kevin's decision of 2026-11-16: a stop makes no gesture)."""
+    from taktik.core.shared.diagnostics import run_halt
+
+    class _StoppedSurface(_Surface):
+        def process(self, username):
+            run_halt.demander_arret(run_halt.NETWORK_LOST, "test")
+            return ProfileProcessingResult(ProfileProcessingResult.STOPPED, username)
+
+    surface = _StoppedSurface([_row("Inconnu"), _row("Autre")], username="inconnu")
+
+    result = visit_suggestions(surface, max_profiles=2, delay_range=NO_DELAY)
+
+    assert surface.left == 0
+    assert surface.opened == ["Inconnu"]
+    assert result["errors"] == 0
+    assert result["stop_reason"] == "network_lost"

@@ -465,7 +465,7 @@ def qualify_suggestion_profile(a, p):
             logger.warning(msg)
             return {"success": False, "message": msg}
         outcome = pipeline.process(username)
-        return {"success": not outcome.was_error,
+        return {"success": not (outcome.was_error or outcome.was_stopped),
                 "message": (f"notifications.qualify_suggestion_profile: @{username} -> "
                             f"{outcome.status} ({outcome.follows} follow) "
                             f"[session {session_id or 'aucune'}]"),

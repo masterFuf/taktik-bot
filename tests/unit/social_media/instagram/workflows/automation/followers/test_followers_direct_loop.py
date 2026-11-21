@@ -1048,3 +1048,30 @@ def test_a_blocked_account_is_never_relaunched():
         "the app was relaunched while Instagram was rate-limiting the account"
     )
     assert _finalised_code(runner) == 'action_blocked'
+
+
+def test_a_stop_caught_on_a_profile_ends_the_run_without_a_gesture():
+    """A stop seen on a profile (a lost network, a block) ends the run where it is: no way back to
+    the list, no scroll, no other row (Kevin's decision of 2026-11-16: a stop makes no gesture)."""
+    from taktik.core.shared.diagnostics import run_halt
+
+    backs = []
+
+    class _StoppedOnAlice(Runner):
+        def _process_single_follower_direct(self, username, *a, **k):
+            self.processed_calls.append(username)
+            run_halt.demander_arret(run_halt.NETWORK_LOST, "test")
+            return False
+
+        def _ensure_on_followers_list(self, target, force_back=False):
+            backs.append(force_back)
+            return True
+
+    runner = _StoppedOnAlice(pages=[["alice", "bob"], ["carol"]])
+    stats = runner.interact_with_followers_direct("target", max_interactions=5)
+
+    assert runner.processed_calls == ["alice"]
+    assert backs == [], "went back to the list after the stop"
+    assert runner.detection_actions.scrolls == 0
+    assert stats['stop_reason'].code == 'network_lost'
+    assert stats['errors'] == 0

@@ -656,7 +656,7 @@ def test_a_blocked_run_neither_pays_for_nor_loses_the_next_profile(monkeypatch):
 
     assert interactions == []
     assert marked == []
-    assert result.status == ProfileProcessingResult.ERROR_INTERACTION
+    assert result.status == ProfileProcessingResult.STOPPED
 
 
 def test_no_suggestion_is_visited_after_a_block():

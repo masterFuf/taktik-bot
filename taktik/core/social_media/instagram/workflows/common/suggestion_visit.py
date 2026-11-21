@@ -197,6 +197,12 @@ def visit_suggestions(surface: SuggestionSurface, *, max_profiles: int = 5,
             continue
 
         outcome = surface.process(username)
+        if outcome.was_stopped:
+            # The run was asked to stop on this profile: no error, the screen left as it is (a
+            # stop makes no gesture), the latch's own code as the pass's motive.
+            result["stop_reason"] = (run_halt.arret_demande() or {}).get("code") or "action_blocked"
+            result["profiles"].append({"label": label, "username": username, "status": outcome.status})
+            break
         result["processed"] += 1
         result["follows"] += outcome.follows
         if outcome.was_filtered:

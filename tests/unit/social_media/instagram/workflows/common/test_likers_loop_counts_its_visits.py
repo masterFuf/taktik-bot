@@ -94,3 +94,37 @@ def test_after_a_profile_acted_on_its_gestures_are_neither_counted_nor_recorded_
     assert stats["likes_made"] == 1, "the run's figures take the profile's like"
     assert session["likes"] == 0, "the session's like counter moves at the gesture, not here"
     assert recorded == []
+
+
+def test_a_profile_the_stop_caught_is_no_error_and_the_sheet_is_left_as_it_is():
+    """The stop seen on a profile (`STOPPED`): no error of the run, and no gesture after it, not
+    even the way back to the sheet (Kevin's decision of 2026-11-16: a stop makes no gesture)."""
+    from taktik.core.shared.diagnostics import run_halt
+
+    class _Phone(LikersSheetPhone):
+        def __init__(self, *a, **k):
+            super().__init__(*a, **k)
+            self.presses = []
+
+        def press(self, *a, **k):
+            self.presses.append(a)
+            return True
+
+    phone = _Phone(capture(TWO_LIKERS), moves=False)
+    host = LikersWorkflowBase(DeviceFacade(CloneAwareDeviceProxy(phone, PKG)))
+    host._human_like_delay = lambda *_a, **_kw: None
+    host.detection_actions.wait_for_profile_screen = lambda timeout=0: True
+    gestures_at_the_stop = []
+
+    def visit(username, *_a, **_kw):
+        run_halt.demander_arret(run_halt.NETWORK_LOST, "test")
+        gestures_at_the_stop.append((len(phone.taps), len(phone.presses), len(phone.drags)))
+        return ProfileProcessingResult(ProfileProcessingResult.STOPPED, username)
+
+    host._process_profile_on_screen = visit
+    stats = create_workflow_stats("feed")
+    host._interact_with_likers_list(stats, {}, max_interactions=5, source_type="FEED", source_name="feed")
+
+    assert len(gestures_at_the_stop) == 1, "a second row was opened after the stop"
+    assert (len(phone.taps), len(phone.presses), len(phone.drags)) == gestures_at_the_stop[0]
+    assert stats["errors"] == 0
