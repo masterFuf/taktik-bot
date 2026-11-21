@@ -64,6 +64,15 @@ def test_videos_counted_on_the_grid_are_a_visible_minimum():
     assert visible_videos_count(_DumpPhone("tt4703_fr_profile_followed.xml")) == 9
 
 
+def test_the_handle_of_a_verified_account_is_read_without_its_badge():
+    """The profile of a verified account (`tt4703_fr_direct_profile_verified_badge.xml`): its handle
+    node ends with the badge's placeholder. Read with no handle known beforehand, as the Lab's
+    `tt.profile.get_enriched` without its `username`, the handle comes from the screen."""
+    data = extract_profile_from_screen(_DumpPhone("tt4703_fr_direct_profile_verified_badge.xml"))
+
+    assert data["username"] == "tiktok"
+
+
 def test_no_grid_on_screen_is_an_unknown_videos_count_not_zero():
     from taktik.core.social_media.tiktok.workflows.automation.followers.profile_data import visible_videos_count
 

@@ -61,3 +61,9 @@ def test_a_sentence_or_a_name_is_refused_not_cleaned(text):
 def test_a_tiktok_nickname_is_not_its_handle():
     assert handle_from_screen_text("‍إستي ✰", "tiktok") is None
     assert handle_from_screen_text("@.lina.b", "tiktok") == ".lina.b"
+
+
+def test_the_badge_of_a_verified_account_is_not_part_of_its_handle():
+    """TikTok draws the badge as an inline image after the handle: the node reads « @handle » then
+    U+FFFC, the placeholder of that image (TikTok 47.0.3, `tt4703_fr_direct_profile_verified_badge.xml`)."""
+    assert handle_from_screen_text("@lina.b￼", "tiktok") == "lina.b"

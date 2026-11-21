@@ -3,25 +3,12 @@
 from __future__ import annotations
 
 import time
-import unicodedata
 from typing import Any
 
+from taktik.core.shared.text import strip_handle_marks
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 UNKNOWN_USERNAME = "unknown"
-#: The placeholder an inline image leaves in a text: the badge of a verified account, after its handle.
-OBJECT_REPLACEMENT = "\ufffc"
-
-
-def clean_profile_username(value: Any) -> str:
-    """Return a profile username without the leading at-sign, its badge or its bidi marks."""
-    text = "".join(
-        char for char in str(value or "")
-        if char != OBJECT_REPLACEMENT and unicodedata.category(char) != "Cf"
-    ).strip()
-    if not text:
-        return ""
-    return text.lstrip("@").strip()
 
 
 def username_from_content_description(description: Any) -> str:
@@ -30,7 +17,7 @@ def username_from_content_description(description: Any) -> str:
     if "@" not in text:
         return ""
     candidate = text.split("@", 1)[1].strip().split()[0]
-    return clean_profile_username(candidate).strip(".,;:")
+    return strip_handle_marks(candidate).strip(".,;:")
 
 
 def get_current_profile_username(device: Any, selectors=PROFILE_SELECTORS) -> str:
@@ -39,7 +26,7 @@ def get_current_profile_username(device: Any, selectors=PROFILE_SELECTORS) -> st
         username_elem = device.xpath(selector)
         if username_elem.exists:
             text = _get_element_text(username_elem)
-            username = clean_profile_username(text)
+            username = strip_handle_marks(text)
             if username:
                 return username
 
@@ -99,5 +86,5 @@ def read_open_profile_handle(device: Any, *, label: str = "", timeout: float = 6
     handle = get_current_profile_username(device)
     if not handle or handle == UNKNOWN_USERNAME:
         return ""
-    return clean_profile_username(handle)
+    return handle
 

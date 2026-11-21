@@ -496,14 +496,28 @@ def is_platform_handle(value: Optional[str], platform: str = "instagram") -> boo
     return low <= len(value) <= high
 
 
+#: The placeholder an inline image leaves in a text node: the badge of a verified TikTok account,
+#: drawn after its handle (TikTok 47.0.3).
+OBJECT_REPLACEMENT = "￼"
+
+
+def strip_handle_marks(text: Optional[str]) -> str:
+    """A username node's text without what a screen puts around a handle: surrounding spaces, the
+    "@" prefix, invisible format characters (direction marks, joiners) and the placeholder of an
+    inline image (a verified badge). The one rule every reader of a handle on screen applies;
+    nothing is checked here, `handle_from_screen_text` checks."""
+    value = "".join(
+        char for char in str(text or "")
+        if char != OBJECT_REPLACEMENT and unicodedata.category(char) != "Cf"
+    ).strip()
+    return value[1:] if value.startswith("@") else value
+
+
 def handle_from_screen_text(text: Optional[str], platform: str = "instagram") -> Optional[str]:
     """The handle a username node shows, or None when the node shows anything else.
 
-    Removes only what a screen puts around a handle: surrounding spaces, the "@" prefix and
-    invisible format characters (direction marks, joiners). A sentence, a display name or a button
-    label is refused, never cleaned into a handle.
+    Removes only what a screen puts around a handle (`strip_handle_marks`). A sentence, a display
+    name or a button label is refused, never cleaned into a handle.
     """
-    value = "".join(char for char in (text or "") if unicodedata.category(char) != "Cf").strip()
-    if value.startswith("@"):
-        value = value[1:]
+    value = strip_handle_marks(text)
     return value if is_platform_handle(value, platform) else None

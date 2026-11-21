@@ -1,6 +1,6 @@
+from taktik.core.shared.text import handle_from_screen_text, strip_handle_marks
 from taktik.core.social_media.tiktok.services.profile.username import (
     UNKNOWN_USERNAME,
-    clean_profile_username,
     get_current_profile_username,
     username_from_content_description,
 )
@@ -44,8 +44,16 @@ class _FakeDevice:
         return _FakeXPathResult(element)
 
 
-def test_clean_profile_username_strips_at_sign():
-    assert clean_profile_username(" @Creator ") == "Creator"
+def test_the_handle_rule_strips_the_at_sign():
+    assert strip_handle_marks(" @Creator ") == "Creator"
+
+
+def test_the_profile_reader_and_the_extractor_read_a_verified_handle_alike():
+    """Both readers of the profile's handle node apply the one rule: the badge goes for both."""
+    selector = PROFILE_SELECTORS.username[0]
+    device = _FakeDevice({selector: _FakeElement(exists=True, text="@Creator￼")})
+
+    assert get_current_profile_username(device) == handle_from_screen_text("@Creator￼", "tiktok") == "Creator"
 
 
 def test_username_from_content_description_extracts_first_mention():

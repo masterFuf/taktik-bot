@@ -272,9 +272,9 @@ class SearchActions(BaseAction):
         beat after the grid and refusing there would turn a slow screen into a failed target.
         Same two steps as the Instagram navigation.
         """
+        from taktik.core.shared.text import strip_handle_marks
         from taktik.core.social_media.tiktok.services.profile.username import (
             UNKNOWN_USERNAME,
-            clean_profile_username,
             get_current_profile_username,
         )
         from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import (
@@ -289,7 +289,7 @@ class SearchActions(BaseAction):
             )
             return False
 
-        expected = clean_profile_username(username).lower()
+        expected = strip_handle_marks(username).lower()
         landed = get_current_profile_username(self.device)
 
         if landed == UNKNOWN_USERNAME or not landed:
@@ -298,7 +298,7 @@ class SearchActions(BaseAction):
             )
             return True
 
-        if clean_profile_username(landed).lower() != expected:
+        if strip_handle_marks(landed).lower() != expected:
             self.logger.error(
                 f"❌ Opened @{landed} while looking for @{username} — wrong profile, not interacting"
             )
