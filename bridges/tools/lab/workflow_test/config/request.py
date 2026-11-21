@@ -29,6 +29,9 @@ class WorkflowTestRequest:
     # config builder, which owns their whitelist — so a setting added to a workflow page
     # reaches the bench without a single change in this bridge.
     options: dict | None = None
+    # The account on the phone, filled by the app as for a scraping run (`accountUsername`, a host
+    # key): the scraping neither harvests nor visits it. None: the bench was not told.
+    account_username: str | None = None
 
 
 def load_workflow_test_request(ipc, config: dict) -> WorkflowTestRequest:
@@ -70,6 +73,7 @@ def load_workflow_test_request(ipc, config: dict) -> WorkflowTestRequest:
         max_consecutive_known=config.get("maxConsecutiveKnownUsernames"),
         behavior_policy=config.get("behaviorPolicy") or None,
         options=config.get("options") or None,
+        account_username=config.get("accountUsername") or None,
     )
 
 

@@ -24,12 +24,14 @@ def dispatch_workflow(
     max_consecutive_known: int | None = None,
     behavior_policy: dict | None = None,
     options: dict | None = None,
+    account_username: str | None = None,
 ) -> WorkflowDispatchResult:
     """Dispatch a workflow family while preserving compat diagnostic IPC events.
 
     ``behavior_policy`` and ``options`` travel down to the config builder. Both were parsed
     from the request and then dropped here, so a bench run carried neither the pacing profile
-    nor any page-level workflow setting.
+    nor any page-level workflow setting. ``account_username``, the account on the phone, goes to
+    the Instagram scraping.
     """
     result = WorkflowDispatchResult()
 
@@ -46,6 +48,7 @@ def dispatch_workflow(
                 max_consecutive_known=max_consecutive_known,
                 behavior_policy=behavior_policy,
                 options=options,
+                account_username=account_username,
                 conn=conn,
                 device=device,
                 tracer=tracer,

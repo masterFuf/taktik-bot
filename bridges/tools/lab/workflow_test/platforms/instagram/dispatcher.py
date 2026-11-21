@@ -37,6 +37,7 @@ def dispatch_instagram_workflow(
     max_consecutive_known: int | None = None,
     behavior_policy: dict | None = None,
     options: dict | None = None,
+    account_username: str | None = None,
 ) -> WorkflowDispatchResult:
     """Dispatch an Instagram workflow family while preserving compat IPC events."""
     result = WorkflowDispatchResult()
@@ -63,7 +64,8 @@ def dispatch_instagram_workflow(
 
     if workflow_type in INSTAGRAM_SCRAPING_WF:
         tracer.begin_step(f"scraping:{workflow_type}")
-        result.success = run_instagram_scraping(conn, device, ipc, workflow_type, target, limits, delays)
+        result.success = run_instagram_scraping(conn, device, ipc, workflow_type, target, limits, delays,
+                                                account_username=account_username)
         tracer.end_step(success=result.success)
         return result
 

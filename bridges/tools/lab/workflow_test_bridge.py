@@ -66,6 +66,7 @@ def run_workflow_test(ipc: IPC, config: dict) -> None:
     max_consecutive_known = request.max_consecutive_known
     behavior_policy = request.behavior_policy
     options = request.options
+    account_username = request.account_username
 
     setup_log_sink(ipc)
     setup_action_hooks(ipc)
@@ -94,6 +95,7 @@ def run_workflow_test(ipc: IPC, config: dict) -> None:
         max_consecutive_known=max_consecutive_known,
         behavior_policy=behavior_policy,
         options=options,
+        account_username=account_username,
         conn=session.connection,
         device=session.device,
         tracer=session.tracer,

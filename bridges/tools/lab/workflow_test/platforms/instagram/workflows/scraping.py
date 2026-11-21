@@ -30,10 +30,12 @@ _SCRAPING_TYPES = {
 }
 
 
-def _bridge_config(scraping_type: str, target, limits: dict, delays) -> dict:
+def _bridge_config(scraping_type: str, target, limits: dict, delays,
+                   account_username: str | None = None) -> dict:
     """Build the camelCase payload the scraping reading (`scraping_config_from_payload`) expects.
 
-    Persistence and AI are forced off: this is a capability probe, not a run.
+    Persistence and AI are forced off: this is a capability probe, not a run. The account on the
+    phone (`accountUsername`) is put in as the app puts it in a scraping run's file.
     """
     limits = limits or {}
     config = {
@@ -64,10 +66,13 @@ def _bridge_config(scraping_type: str, target, limits: dict, delays) -> dict:
 
     if delays:
         config["delays"] = delays
+    if account_username:
+        config["accountUsername"] = account_username
     return config
 
 
-def run_instagram_scraping(conn, device, ipc, workflow_type, target, limits, delays):
+def run_instagram_scraping(conn, device, ipc, workflow_type, target, limits, delays,
+                           account_username: str | None = None):
     scraping_type = _SCRAPING_TYPES.get(workflow_type)
     if not scraping_type:
         return not_wired(
@@ -89,7 +94,7 @@ def run_instagram_scraping(conn, device, ipc, workflow_type, target, limits, del
     from bridges.instagram.scraping.workflow import run_scraping_workflow
     from taktik.core.social_media.instagram.workflows.common.startup import InstagramRunPhone
 
-    bridge_config = _bridge_config(scraping_type, target, limits, delays)
+    bridge_config = _bridge_config(scraping_type, target, limits, delays, account_username)
 
     ipc.send(
         "workflow_step",
