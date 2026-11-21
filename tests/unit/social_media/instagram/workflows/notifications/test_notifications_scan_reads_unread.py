@@ -113,6 +113,7 @@ def test_the_scan_stops_on_what_was_already_read():
     result = wf.scan(unread_rule=_since(hours=1))
 
     assert result["scan_stop_reason"] == "already_read"
+    assert result["scan_stop_reason_params"] == {}
     assert wf.scrolls == 2  # the older screen is never reached
 
 
@@ -139,6 +140,7 @@ def test_the_first_scan_stops_at_the_end_of_the_six_days():
     result = wf.scan()
 
     assert result["scan_stop_reason"] == "first_scan_horizon"
+    assert result["scan_stop_reason_params"] == {"days": 7}
     assert wf.scrolls == 4
     assert result["items"] and not any(item["time"].endswith("sem") for item in result["items"])
     assert any(item["time"] == "6 j" for item in result["items"])
@@ -165,6 +167,8 @@ def test_the_read_cap_stops_the_scan_and_says_so(monkeypatch):
 
     assert result["scan_stop_reason"] == "read_cap"
     assert result["count"] == 12
+    # The app's sentence says the cap the engine used: sent with the reason, never copied into the app.
+    assert result["scan_stop_reason_params"] == {"rows": 12}
 
 
 class _ScanWithoutHeaders(_Scan):

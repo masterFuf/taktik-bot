@@ -181,6 +181,9 @@ RESULT_EVENT = Event("result", doc="The command's result, or why it could not ru
     Field("suggestions", SUGGESTIONS, "The visit of the suggested accounts (`scan`).", optional=True),
     Field("scan_stop_reason", INSTAGRAM_NOTIFICATIONS_SCAN_STOP_REASON, "Where the reading of the feed stopped "
           "(`scan`).", optional=True),
+    Field("scan_stop_reason_params", MapOf("int"), "The numbers of its sentence, with `scan_stop_reason`: "
+          "`rows` for `read_cap` (`SCAN_READ_CAP`), `days` for `first_scan_horizon` (`FIRST_SCAN_HORIZON_DAYS`); "
+          "empty for the others.", optional=True),
     Field("accepted", ListOf("string"), "Requests accepted (`accept_all`).", optional=True),
     Field("username", "string", "The account of the row (a row verb, `reply`).", optional=True),
     Field("action", "string", "The verb (`accept`, `ignore`, `reply`).", optional=True),

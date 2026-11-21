@@ -83,7 +83,8 @@
      "stop_reason": "disabled",
      "ai_qualification": false
     },
-    "scan_stop_reason": "already_read"
+    "scan_stop_reason": "already_read",
+    "scan_stop_reason_params": {}
    }
   ]
  },
@@ -171,7 +172,8 @@
      "stop_reason": "disabled",
      "ai_qualification": false
     },
-    "scan_stop_reason": "already_read"
+    "scan_stop_reason": "already_read",
+    "scan_stop_reason_params": {}
    }
   ]
  },
@@ -279,7 +281,8 @@
      "ai_qualification": true,
      "session_id": "session-1"
     },
-    "scan_stop_reason": "already_read"
+    "scan_stop_reason": "already_read",
+    "scan_stop_reason_params": {}
    }
   ]
  },

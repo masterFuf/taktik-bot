@@ -325,7 +325,9 @@ def cmd_scan(host: NotificationsHost, account_username: str = None,
         "has_grouped_requests": result.get("has_grouped_requests", False),
         "message": result.get("message", ""),
         "suggestions": suggestions,
-        **({"scan_stop_reason": result["scan_stop_reason"]} if result.get("scan_stop_reason") else {}),
+        **({"scan_stop_reason": result["scan_stop_reason"],
+            "scan_stop_reason_params": result.get("scan_stop_reason_params") or {}}
+           if result.get("scan_stop_reason") else {}),
     }
 
 

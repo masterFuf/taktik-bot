@@ -63,7 +63,7 @@ _EMOJI_TEXT_TYPES = {"comment_mention", "post_comment", "comment_reply", "commen
 from taktik.core.social_media.instagram.workflows.notifications.row_layout import parse_bounds
 from taktik.core.social_media.instagram.workflows.notifications.suggestions_flow import NotificationSuggestionsMixin
 from taktik.core.social_media.instagram.workflows.notifications.unread_rule import BEYOND, UNREAD, UnreadRule
-from taktik.core.contract.instagram_notifications import SCAN_READ_CAP
+from taktik.core.contract.instagram_notifications import FIRST_SCAN_HORIZON_DAYS, SCAN_READ_CAP
 from taktik.core.shared.device.wait import find_element
 from taktik.core.shared.behavior.tap import (
     tap_element_human,
@@ -72,6 +72,16 @@ from taktik.core.shared.behavior.tap import (
 )
 
 StepNotifier = Callable[..., None]
+
+
+def scan_stop_reason_params(reason: str) -> Dict[str, int]:
+    """The numbers the app's sentence of a scan's stop ``reason`` says, sent with it (the
+    `reason_params` of a run's stop): the bounds stay declared once, here in the engine."""
+    if reason == "read_cap":
+        return {"rows": SCAN_READ_CAP}
+    if reason == "first_scan_horizon":
+        return {"days": FIRST_SCAN_HORIZON_DAYS}
+    return {}
 
 
 class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
@@ -638,7 +648,8 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
         self._notify("scan", "done", msg)
         return {"success": True, "count": len(items), "by_type": by_type, "items": items,
                 "requests": requests, "has_grouped_requests": has_grouped,
-                "scan_stop_reason": stop_reason, "message": msg}
+                "scan_stop_reason": stop_reason,
+                "scan_stop_reason_params": scan_stop_reason_params(stop_reason), "message": msg}
 
     # ------------------------------------------------------------------
     # Follow requests — sub-screen, row-scoped
