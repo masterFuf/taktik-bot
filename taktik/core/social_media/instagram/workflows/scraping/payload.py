@@ -103,6 +103,10 @@ def scraping_config_from_payload(config: Mapping[str, Any]) -> dict:
         )
 
     scraping_config['response_language'] = config.get('appLanguage', config.get('response_language', 'en'))
+    # The account on the phone, the notifications' field: the scraping never harvests nor visits it.
+    account_username = config.get('accountUsername')
+    if account_username:
+        scraping_config['account_username'] = account_username
 
     # The source settings follow the type the payload names; a payload that names none gets the
     # default type and no source settings, as the bridge always did.

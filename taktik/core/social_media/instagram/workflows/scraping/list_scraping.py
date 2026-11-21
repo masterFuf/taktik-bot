@@ -13,6 +13,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskPr
 from taktik.core.contract.shared import PROFILE_NAVIGATION_FAILED, PROFILE_NOT_FOUND, PROFILE_SEARCH_SLOW
 from taktik.core.social_media.instagram.actions.atomic.navigation.search_results import ProfileNavigationFailure
 from taktik.core.social_media.instagram.actions.base.ipc import IPCEmitter
+from taktik.core.shared.actions.utils import ActionUtils
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.shared.device.network_probe import measure_network_baseline
 from taktik.core.shared.vision import capture_non_blank
@@ -323,6 +324,12 @@ class ScrapingListMixin(DeepQualifyMixin):
         except Exception as exc:
             self.logger.debug(f"Could not clear unreachable mark for @{username}: {exc}")
 
+    def _is_run_account(self, username: Optional[str]) -> bool:
+        """Is `username` the account the run acts as (`account_username`, filled by the host)? Its row
+        and its name are no profile to harvest. The comparison of the Feed and the Hashtag; a run that
+        does not know its account passes nobody."""
+        return ActionUtils.same_username(username, self.config.get('account_username'))
+
     def _scrape_usernames(self, usernames: List[str], source_name: str = 'usernames') -> List[Dict[str, Any]]:
         """Qualify an explicit list of profiles: go to each one, read it, move on.
 
@@ -350,6 +357,9 @@ class ScrapingListMixin(DeepQualifyMixin):
         seen = set()
         for raw in usernames or []:
             name = str(raw or '').strip().lstrip('@').lower()
+            if self._is_run_account(name):
+                self.logger.info(f"⏭️ Skipping own account @{name}")
+                continue
             if name and name not in seen:
                 seen.add(name)
                 targets.append(name)
@@ -665,6 +675,10 @@ class ScrapingListMixin(DeepQualifyMixin):
                     
                     seen_usernames.add(username)
                     new_visible_count += 1  # counts even if dedup-skipped
+
+                    if self._is_run_account(username):
+                        self.logger.info(f"⏭️ Skipping own account @{username}")
+                        continue
 
                     # Skip profiles already scraped within the rescrape window — direct DB check
                     # Also track whether the profile pre-existed (used for ai_rescrape_mode below)

@@ -97,6 +97,8 @@ _SETTINGS = (
           when={"deepQualify": True}, bounds=Bounds(minimum=10, maximum=500)),
     Field("appLanguage", "string", "The language the AI answers in.", default="en",
           aliases=("response_language",), attr="response_language"),
+    Field("accountUsername", "string", "The account on the phone: its row and its name are neither harvested nor "
+          "visited; without it every profile is; filled by the host.", attr="account_username", by=HOST),
     Field("ai", AI, "AI qualification."),
     Field("aiRescrapeMode", OneOf(("full", "stats_only")), "A known profile scraped again: everything, or "
           "its counters only (AI runs).", default="full", aliases=("ai_rescrape_mode",), attr="ai_rescrape_mode",
