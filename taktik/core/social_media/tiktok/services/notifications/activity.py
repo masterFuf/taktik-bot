@@ -1,6 +1,6 @@
 """Read one row of TikTok's Activity page.
 
-The row is a whole sentence, not a set of fields: `Kuluna et Kendal.vd_2 a aimé ta vidéo. 11 juin`.
+The row is a whole sentence, not a set of fields: `Demona et Demo.vd_2 a aimé ta vidéo. 11 juin`.
 Everything a workflow needs is inside that sentence, and everything TikTok does to render it
 politely is in the way. Measured on 66 real rows across both languages on 2026-08-30:
 
@@ -9,7 +9,7 @@ politely is in the way. Measured on 66 real rows across both languages on 2026-0
   would, since names contain commas, `et`, and emoji.
 - The DATE is letter-spaced with WORD JOINERS: `1\\u20605\\u2060 \\u2060j\\u2060u\\u2060i\\u2060n`
   renders as `15 juin`. Read raw, every date is a different string.
-- Emoji are eaten by the dump as everywhere else, so `tristan.cld34..` and `vic............` are
+- Emoji are eaten by the dump as everywhere else, so `tristan.demo34..` and `vic............` are
   names, not corrupt data.
 - A row can name several people, and then count the rest: `X, Y et 45 autres`.
 

@@ -332,7 +332,7 @@ class ScrapingWorkflow:
           <n> utilisateurs`. Readable, so it survives a version bump; the obfuscated `sq1`
           container the surface used to name had already stopped resolving entirely.
         - The name in that description is a DISPLAY NAME. The first #fitness cell read
-          `I AM MAGIC ✨` and belongs to @peerajmalraza314. Every handle here is therefore read
+          `I AM MAGIC ✨` and belongs to @demouser314. Every handle here is therefore read
           off the profile that opens, never taken from the grid -- the same rule the comment
           sheet and the new-followers page both forced.
 
@@ -618,7 +618,7 @@ class ScrapingWorkflow:
         a post exposes is its COMMENTERS, and that is what this collects.
 
         The post is reopened from its link by deep link, which was measured to land on the post
-        itself: `https://vm.tiktok.com/ZN8FaXgeY/` reopened charli d'amelio's video, caption and
+        itself: `https://vm.tiktok.com/ZN8FaXgeY/` reopened demo d'étoile's video, caption and
         all. The handles come from `read_commenter_handles`, which opens each row because a
         comment row carries a display name and no username anywhere.
         """

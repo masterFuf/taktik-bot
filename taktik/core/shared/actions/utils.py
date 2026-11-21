@@ -38,7 +38,7 @@ def normalise_number_spaces(text: str) -> str:
 #:
 #: `Md` is the French billion, and its absence cost the value silently: TikTok in French writes
 #: `12,3 Md` where English writes `12.3B`. Nothing matched, the plain-number path then failed on
-#: the letters, and the function returned 0 — measured on @charlidamelio, saved to the database
+#: the letters, and the function returned 0 — measured on @demodetoile, saved to the database
 #: with zero likes while the screen said 12.3 billion. Every French profile above a billion read
 #: zero, on both platforms, since this parser is the shared one.
 _COUNT_MULTIPLIERS = (

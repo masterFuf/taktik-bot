@@ -11,7 +11,7 @@ a run from spending twenty minutes on a sound nobody uses.
 The cost is the same three-step road every list on this app forces. A sound-page cell carries
 `content-desc="Vidéo"` and names nobody, so a handle means: open the cell, read the author off the
 video, open the author, read the handle. Measured end to end -- the cell behind `мішонк бро`
-belongs to @mniuwuu, which no search for that name would ever have found.
+belongs to @demosound, which no search for that name would ever have found.
 
 Reaching a sound BY NAME is possible, but not by reading the list. The search Sounds tab renders
 nine rows and NOT ONE carries a title -- the row's text is empty in the accessibility tree, which

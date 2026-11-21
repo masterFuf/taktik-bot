@@ -48,7 +48,7 @@ class TikTokProfileRepositoryMixin:
                 kwargs.get('biography'),
                 # `website` was in neither the INSERT nor the UPDATE, so the column held 17 599
                 # Instagram rows and ZERO TikTok ones — while the extractor read the link off the
-                # screen every single time and handed it over. Measured on @charlidamelio.
+                # screen every single time and handed it over. Measured on @demodetoile.
                 kwargs.get('website'),
             )
         )

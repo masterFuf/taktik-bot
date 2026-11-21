@@ -40,7 +40,7 @@ class CleanCaption:
         """Whether there is enough real prose to ground a comment on.
 
         Hashtags, mentions and URLs are not prose: a caption reading
-        "#Ornevy #LivrePhoto #Souvenirs #EntrepreneuriatFéminin" says nothing a comment can
+        "#Demovy #LivrePhoto #Souvenirs #EntrepreneuriatFéminin" says nothing a comment can
         honestly react to (seen in a real run — only the vision analysis of the image saved
         that one). Dots are dropped too: they are what the XML dump leaves of an emoji.
         """

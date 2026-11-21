@@ -199,10 +199,10 @@ class CommentActions(BaseAction):
         `:id/el6` the date, `:id/ejy` the reply link. Eight real rows from one post gave seven
         display names no search would ever resolve:
 
-            'secretdrxx'   -> @secretdrxx        (the only one that would have worked by luck)
-            'Lau'          -> @laurie_bouchardd
-            '.'            -> @polo12079         (an emoji-only name, eaten by the dump)
-            'Benjamin ..'  -> @benjzmzn
+            'demosecret'   -> @demosecret        (the only one that would have worked by luck)
+            'Lau'          -> @laurie_demo
+            '.'            -> @demo12079         (an emoji-only name, eaten by the dump)
+            'Benjamin ..'  -> @benjdemo
 
         A scrape that files people under those names produces rows no later workflow can match --
         the same failure the welcome pass hit on the new-followers page, which renders display

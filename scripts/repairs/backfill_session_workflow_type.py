@@ -1,6 +1,6 @@
 """Lift the workflow of each past session out of its config blob and into its own column.
 
-A session records WHAT it targeted — `Auto_USER_villedeluxembourg`, target_type USER — but never
+A session records WHAT it targeted — `Auto_USER_villedemo`, target_type USER — but never
 WHICH workflow produced it. Measured on the real base: `workflow_type` is filled on 254 of 1 027
 rows, all of them TikTok. Every Instagram session has it NULL.
 

@@ -4,7 +4,7 @@ A scraping run kept qualifying profiles whose page had given NOTHING: the device
 frame, `get_complete_profile_info` handed back a dict of defaults, and the run carried on because
 that dict is truthy. The vision model then answered from the username alone — and answered
 confidently: average confidence 0.95 on those rows, HIGHER than the 0.92 of the profiles it could
-actually see. `bestwesternplusthionville` became Travel; `alexis_bdtt` became Lifestyle, female.
+actually see. `demohotelplusville` became Travel; `alexis_demo` became Lifestyle, female.
 
 310 rows are in that state: a niche (and a gender, an age group, a confidence) sitting on a
 `social_profiles` row with 0 followers, 0 following, 0 posts, no display name and no bio. 220 of

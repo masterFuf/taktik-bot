@@ -21,7 +21,7 @@ being relied on:
 
   - the join key is `(platform, username)`, the table's own UNIQUE constraint — NOT
     `profile_id`. 636 profile_ids carry two qualification rows for two unrelated usernames
-    (`cheerleader_jaslyn` and `brasserie_la_vallee` share one id), so a profile_id join both
+    (`demo_cheerleader` and `brasserie_demo` share one id), so a profile_id join both
     multiplies rows and serves one profile's niche for another's.
   - `has_ai = 1` alone does NOT mean "classified": 19 039 rows of 40 353 carry the flag with
     every AI column still NULL. The flag gates the join; whether a usable classification came

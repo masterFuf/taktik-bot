@@ -118,7 +118,7 @@ def tiktok_post_key(
     # Folded EXACTLY like the caption, and for the same reason. The first version kept the
     # author's punctuation, on the theory that a handle carries `.` and `_` that must not be
     # dropped. Measured on the FYP, that theory was wrong twice over: this surface renders a
-    # DISPLAY NAME, not a handle -- the Lab run returned `charli d'amelio`, spaces and curly
+    # DISPLAY NAME, not a handle -- the Lab run returned `demo d'étoile`, spaces and curly
     # apostrophe included -- and display names routinely carry emoji, which the dump turns into
     # two dots. Read intact once and mangled once, the same author gave two keys, which is the
     # exact failure the fingerprint exists to prevent.

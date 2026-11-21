@@ -341,7 +341,7 @@ def install_instagram_ai_hooks(
                         # the ORIGINAL author's caption, and keying it under whoever we happened
                         # to be visiting both stores a wrong author and misses the reuse when the
                         # same post is crossed from another profile (seen in the 2026-08-21 run:
-                        # a rockenbievre_o post filed under @taiman.band.et.festival).
+                        # a demo_rock_o post filed under @demo.band.et.festival).
                         cache_author = post_author or username
                         cached_post = InstagramPostAnalysis.load(cache_author, post_caption)
                         if cached_post:

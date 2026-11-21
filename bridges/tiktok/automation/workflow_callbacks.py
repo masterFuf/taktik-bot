@@ -5,7 +5,7 @@ four things: an action, a visited profile, the running stats, a pause. Two bridg
 four by hand, in two near-identical copies that differed only in how they shaped the stats
 payload -- and that is exactly how one of them ended up without the profile callback.
 
-The cost was silent and measured on a real run: Target Profiles captured @yam_7770's avatar
+The cost was silent and measured on a real run: Target Profiles captured @demo_7770's avatar
 (256x256, 14 Ko, logged as captured), handed it to `_send_profile`, which returns immediately when
 nothing is listening. The picture was paid for on the device and thrown away, and the profile card
 kept showing a letter in a coloured circle. The AI classification, wired separately, arrived fine

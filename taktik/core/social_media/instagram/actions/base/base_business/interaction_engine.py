@@ -40,7 +40,7 @@ def why_like_fell_short(
 
     Le message affichait « (not enough posts) » quelle que soit la cause -- et la plus frequente
     est l'inverse de ce qu'il affirmait : la grille n'a pas pu s'ouvrir, sur des profils qui en
-    ont des centaines (@silvia_gi_sen, 1004 publications, 06/09). L'etape d'echec remonte deja
+    ont des centaines (@demo_gi_sen, 1004 publications, 06/09). L'etape d'echec remonte deja
     jusqu'ici (`failure_stage`), elle n'etait simplement pas lue.
 
     Ordre volontaire : un echec technique explique tout le reste, y compris un compte de

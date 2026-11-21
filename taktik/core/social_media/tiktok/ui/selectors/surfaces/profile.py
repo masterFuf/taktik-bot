@@ -282,7 +282,7 @@ class ProfileSelectors:
         '//*[contains(@resource-id, ":id/qh5")]',
         '//*[contains(@resource-id, ":id/gxd")]',
         # A2. The two ids above are 43.1.4 only — on 46.6.3 the header is ss2/svt/fij and the
-        # whole indicator read 0 while standing on charlidamelio's profile, so "am I on a
+        # whole indicator read 0 while standing on demodetoile's profile, so "am I on a
         # profile" answered no on every profile of the newer version.
         #
         # The handle itself is the anchor: TikTok renders it as a Button whose text starts with
@@ -334,7 +334,7 @@ class ProfileSelectors:
     #
     # What the badge actually is: a small unlabelled ImageView rendered as the handle's
     # immediate sibling. Measured on eight profiles — it fires on the two verified accounts
-    # (@charlidamelio, @yomidenzel) and on none of the six others. The half that makes it an
+    # (@demodetoile, @demo_yomi) and on none of the six others. The half that makes it an
     # indicator: @demo.extraits carries the SAME icon id (`ss1`) for the "Compte non
     # recommandé" marker, one row lower and under a different parent, and this anchor refuses
     # it — an icon id alone would have called that account verified.

@@ -2,7 +2,7 @@
 
 Measured on device on 2026-08-30 on 46.6.3: firing an `android.intent.action.VIEW` at a collected
 short link lands on the post itself, not on the app's home. `https://vm.tiktok.com/ZN8FaXgeY/`
-reopened charli d'amelio's video with its caption `dc @Kittrell` intact.
+reopened demo d'étoile's video with its caption `dc @Demoduo` intact.
 
 That is what makes a stored `post_url` worth storing at all. The link is useless as an IDENTITY --
 TikTok mints a new shortcode on every copy, which is why `tiktok_post_key` exists -- but it

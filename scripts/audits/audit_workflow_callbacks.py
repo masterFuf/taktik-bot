@@ -5,7 +5,7 @@ report the same four things. Two of them wired those four themselves, in near-id
 and the copies drifted: Target Profiles never learned about the profile callback.
 
 The failure was silent by construction. `_send_profile` returns immediately when nobody is
-listening, so the workflow captured @yam_7770's avatar on the device, logged it as captured
+listening, so the workflow captured @demo_7770's avatar on the device, logged it as captured
 (256x256, 14 Ko) and dropped it. The card kept showing a letter. The AI classification, wired
 elsewhere, arrived fine -- so the run read as a success.
 

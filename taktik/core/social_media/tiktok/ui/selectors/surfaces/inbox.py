@@ -321,7 +321,7 @@ class InboxSelectors:
     @property
     def say_hello_line_prefixes(self) -> List[str]:
         """How a row's line that names someone to greet starts (`Say hi to `), in the active
-        language. The name follows: `Dis bonjour à Enzo Resell`."""
+        language. The name follows: `Dis bonjour à Enzo Demo`."""
         return L("inbox.say_hello_line_prefixes")
 
     @property

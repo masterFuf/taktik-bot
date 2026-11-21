@@ -191,7 +191,7 @@ class FollowersSelectors:
         '//android.widget.FrameLayout[contains(@resource-id, ":id/e52")][@clickable="true"]',
         # A2. `e52` is 43.1.4 only. On 46.6.3 it reads 0 on a profile full of videos, so the
         # workflow counted zero posts, emitted `no_posts` and left WITHOUT INTERACTING -- on
-        # every profile of that version. Measured on @zachking, 2026-08-29.
+        # every profile of that version. Measured on @demomagic, 2026-08-29.
         #
         # The thumbnail carries a readable id (`cover`) but is not itself clickable; the tap
         # target is its nearest clickable ancestor. 9 on both versions, 0 on the feed.

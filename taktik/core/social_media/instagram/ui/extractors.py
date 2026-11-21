@@ -801,9 +801,9 @@ def username_from_author_header(text: Optional[str]) -> Optional[str]:
     """The account behind a post, from the author line of its header; None if it names none.
 
     A post in COLLABORATION names several accounts on that line, in the app's language:
-    "abelstudios.au et mark.kobakian", "studioalldaylong and ab.buxton", "meta   and 2 others",
-    "lequartiergenial et 3 autres personnes" (Lab dumps, 2026-06 to 2026-09). The line
-    was taken whole: a like was filed under "@abelstudios.au et mark.kobakian", a profile that
+    "demostudio.au et paul.demo", "studiodemolong and ab.demo", "meta   and 2 others",
+    "demoquartier et 3 autres personnes" (Lab dumps, 2026-06 to 2026-09). The line
+    was taken whole: a like was filed under "@demostudio.au et paul.demo", a profile that
     does not exist; the Feed's cleaner even glued it into one plausible handle.
 
     A handle has no space, so the first word of the line is the first author whatever the
