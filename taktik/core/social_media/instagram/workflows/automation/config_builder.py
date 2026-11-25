@@ -7,6 +7,7 @@ from loguru import logger
 
 from taktik.core.contract.bounds import refuse_out_of_bounds
 from taktik.core.contract.instagram_automation import INSTAGRAM_AUTOMATION
+from taktik.core.shared.filtering.excluded_terms import excluded_terms_from_payload
 from taktik.core.social_media.instagram.workflows.common.distribution import normalize_distribution
 from taktik.core.social_media.instagram.workflows.common.session.warmup_budget import warmup_policy_from_payload
 
@@ -467,13 +468,15 @@ def build_instagram_automation_config(raw_config: Dict[str, Any]) -> Dict[str, A
             "max_followings": max_followings,
             "min_posts": min_posts,
             "privacy_relation": "public_and_private",
-            "blacklist_words": [],
             # Existing relationship: two independent axes, opt-in, so absent or false leaves the
             # behaviour unchanged. Read just after the profile extraction.
             "skip_follows_us": bool(filters.get("skipFollowsUs", False)),
             "skip_already_following": bool(filters.get("skipAlreadyFollowing", False)),
         },
         "session_settings": session_settings,
+        # The account's excluded terms: the run's session holds them (`SessionManager.excluded_terms`),
+        # read by the profile filter, the interaction engine and the like and comment of a post.
+        "excluded_terms": excluded_terms_from_payload(raw_config.get("excludedTerms")).as_config(),
         "actions": [
             _build_action_config(
                 raw_config=raw_config,

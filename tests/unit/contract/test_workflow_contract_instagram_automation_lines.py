@@ -359,10 +359,14 @@ def _emitter_lines(monkeypatch, capsys) -> List[Dict[str, Any]]:
     IPCEmitter.emit_current_post("an_author")
     IPCEmitter.emit_post_skipped(author="an_author", reason="already_processed", hashtag="yoga")
     IPCEmitter.emit_post_skipped(author="an_author")
+    IPCEmitter.emit_term_exclusion("excluded_term", "a_profile", "zorvak", "username")
+    IPCEmitter.emit_term_exclusion("post_excluded_term", "an_author", "brindille", "caption")
+    IPCEmitter.emit_term_exclusion("post_caption_unread", None)
     uncalled = entry_points - _SCRAPING_ONLY - {
         "emit_follow", "emit_like", "emit_story", "emit_profile_visit", "emit_profile_captured",
         "emit_profile_skipped", "emit_profile_classification", "emit_action", "emit_feed_decision",
         "emit_unfollow", "emit_unfollow_plan", "emit_stats", "emit_current_post", "emit_post_skipped",
+        "emit_term_exclusion",
     }
     assert not uncalled, f"IPCEmitter entry points this test does not hold: {sorted(uncalled)}"
 

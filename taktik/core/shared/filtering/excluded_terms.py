@@ -1,7 +1,7 @@
 """The terms an account keeps away from, on data alone (the « termes exclus » of its frame).
 
 The operator sets two lists in the account's frame, and the app sends them with the run
-(`excludedTerms`, declared in `taktik/core/contract/excluded_terms.py`):
+(`excludedTerms`, declared in `taktik/core/contract/shared.py`):
 
 - the profile terms: a term in a profile's handle, its name or its bio, and the profile gets no gesture
   (no like, follow, comment, story nor DM);
