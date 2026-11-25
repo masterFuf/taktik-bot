@@ -432,6 +432,44 @@ def fold_case_and_accents(text: Optional[str]) -> str:
     return "".join(char for char in folded if not unicodedata.combining(char))
 
 
+def term_starting_a_word(text: Optional[str], terms: Sequence[str]) -> Optional[str]:
+    """The first of `terms` found at the start of a word of `text`, as declared, or None.
+
+    The comparison of a TEXT with an account's terms (a DM written by an AI, a bio, a name, a
+    caption): case and accents aside (`fold_case_and_accents`), a term catches the words it starts
+    (« gratuit »: gratuits, gratuitement), never a word that holds it further in (« zorvak » is not
+    found in « superzorvak »). A word starts after anything that is not a letter, a digit or `_`:
+    a space, `@`, `#`, an apostrophe. A term with nothing left once folded is never found.
+    """
+    folded = fold_case_and_accents(text)
+    if not folded:
+        return None
+    for term in terms:
+        wanted = fold_case_and_accents(term).strip()
+        if wanted and re.search(r"(?<!\w)" + re.escape(wanted), folded):
+            return term
+    return None
+
+
+def term_in_handle(handle: Optional[str], terms: Sequence[str]) -> Optional[str]:
+    """The first of `terms` found anywhere in `handle`, as declared, or None.
+
+    A handle glues its words (`leazorvak`), so a term is looked for anywhere in it, both reduced to
+    their letters and digits, case and accents aside (`fold_for_match`): « Zorvák » is found in
+    `lea_zorvak.paris`, « zorvak brindille » in `zorvakbrindille`. A term with no letter nor digit
+    (« !!! », an emoji) is never found: a handle cannot hold it, and an empty term would be in every
+    handle.
+    """
+    folded = fold_for_match(handle)
+    if not folded:
+        return None
+    for term in terms:
+        wanted = fold_for_match(term)
+        if wanted and wanted in folded:
+            return term
+    return None
+
+
 #: What an app writes into a shown text to lay it out, and nobody types: the direction marks
 #: (LRM, RLM), embeddings and overrides, the isolates TikTok wraps every name in, the word joiner
 #: that letter-spaces its dates, and the byte-order mark.
