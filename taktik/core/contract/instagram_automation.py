@@ -29,7 +29,9 @@ from .shared import (
     SESSION_START_EVENT,
     STATUS_EVENT,
     STEP_METRIC_EVENT,
+    TERM_EXCLUSION_EVENT,
     device_field,
+    excluded_terms_field,
     instagram_package_field,
     network_reset_field,
 )
@@ -619,6 +621,7 @@ EVENTS = (
         Field("caption", "string", "Its caption, cut.", nullable=True),
         Field("hashtag", "string", "The hashtag.", nullable=True),
     )),
+    TERM_EXCLUSION_EVENT,
     Event("post_skipped", doc="A hashtag post left out.", fields=(
         Field("author", "string", "Its author."),
         Field("reason", "string", "Why."),
@@ -717,6 +720,8 @@ INSTAGRAM_AUTOMATION = WorkflowContract(
         Field("limits", LIMITS, "The run's budget."),
         Field("probabilities", PROBABILITIES, "Chances of each action."),
         Field("filters", FILTERS, "Profile filters."),
+        excluded_terms_field("The account's excluded terms; injected by the host from the frame of the account "
+                             "the phone runs. Absent: none."),
         Field("session", SESSION, "Duration and source exhaustion."),
         Field("comments", COMMENTS, "Written comments."),
         Field("feedStories", FEED_STORIES, "Stories of the feed.", when=_FEED),

@@ -6,7 +6,7 @@ from __future__ import annotations
 from .error_codes import BRIDGE_ERROR_CODE
 from typing import Any, Optional
 
-from .schema import HOST, OPERATOR, AiRequest, Event, Field, MapOf, OneOf, Shape
+from .schema import HOST, OPERATOR, AiRequest, Event, Field, ListOf, MapOf, OneOf, Shape
 from .stop_reasons import TIKTOK_COMPLETION_REASON
 
 #: `BaseStatsManager.profiles_visited`, said once for every line that carries it (the automation's
@@ -299,6 +299,75 @@ AI_EVENTS = (
 )
 
 
+# The terms an account keeps away from (« termes exclus » of its frame), declared once for the workflows
+# that act on profiles and posts. The operator sets two lists in the account's frame and the app sends them
+# with the run (`excludedTerms`): the profile terms leave out a profile whose handle, name or bio holds one,
+# with no gesture at all; the post terms leave out a post whose caption holds one, with neither like nor
+# comment, its author staying a target. The rule on data lives in
+# `taktik/core/shared/filtering/excluded_terms.py`; here, the payload block, the reasons a profile or a post
+# is left out, where a term was found, and the line that says each one.
+
+#: A profile left out: a profile term in its handle, its name or its bio. A post of it is left out too.
+EXCLUDED_TERM = "excluded_term"
+#: A post left out: a post term in its caption.
+POST_EXCLUDED_TERM = "post_excluded_term"
+#: A post left out: the account has post terms and its caption could not be read.
+POST_CAPTION_UNREAD = "post_caption_unread"
+
+EXCLUDED_TERM_REASON = OneOf(
+    (EXCLUDED_TERM, POST_EXCLUDED_TERM, POST_CAPTION_UNREAD),
+    name="ExcludedTermReason",
+    doc="Why a profile or a post is left out for the account's excluded terms.",
+)
+
+#: Where a term was found: the keys of the profile filter's vocabulary, and a post's caption.
+USERNAME = "username"
+FULL_NAME = "full_name"
+BIOGRAPHY = "biography"
+CAPTION = "caption"
+
+EXCLUDED_TERM_PLACE = OneOf(
+    (USERNAME, FULL_NAME, BIOGRAPHY, CAPTION),
+    name="ExcludedTermPlace",
+    doc="Where an excluded term was found: the handle, the name, the bio, a post's caption.",
+)
+
+EXCLUDED_TERMS = Shape(
+    name="ExcludedTerms",
+    doc="The account's excluded terms, from its frame. A term is compared case and accents aside: in a "
+        "handle anywhere (`prenomzorvak` holds zorvak), in a name, a bio or a caption at the start of a word "
+        "(zorvak catches zorvakshop, not superzorvak).",
+    fields=(
+        Field("profileTerms", ListOf("string"), "A profile whose handle, name or bio holds one gets no gesture "
+              "(no like, follow, comment, story nor DM), and its posts no like nor comment.", default=()),
+        Field("postTerms", ListOf("string"), "A post whose caption holds one gets no like nor comment; its "
+              "author stays a target. Given, every caption is read before a like or a comment, and a post "
+              "whose caption cannot be read is left out.", default=()),
+    ),
+)
+
+_READER = "taktik.core.shared.filtering.excluded_terms:excluded_terms_from_payload"
+
+
+def excluded_terms_field(doc: str, **kwargs) -> Field:
+    """The `excludedTerms` setting of a workflow, filled by the host from the account's frame."""
+    return Field("excludedTerms", EXCLUDED_TERMS, doc, by=HOST, via=_READER, **kwargs)
+
+
+TERM_EXCLUSION_EVENT = Event(
+    "term_exclusion",
+    doc="A profile or a post left out for the account's excluded terms: the reason, who, the term, where.",
+    fields=(
+        Field("reason", EXCLUDED_TERM_REASON, "Why."),
+        Field("username", "string", "The profile left out, or the post's author; null when it was not read.",
+              nullable=True),
+        Field("term", "string", "The term found, as the frame declares it; null for `post_caption_unread`.",
+              nullable=True),
+        Field("place", EXCLUDED_TERM_PLACE, "Where it was found; null for `post_caption_unread`.", nullable=True),
+    ),
+)
+
+
 __all__ = [
     "AI_COMMENT_DONE_EVENT",
     "AI_COMMENT_START_EVENT",
@@ -323,4 +392,16 @@ __all__ = [
     "ai_credential_fields",
     "device_field",
     "network_reset_field",
+    "BIOGRAPHY",
+    "CAPTION",
+    "EXCLUDED_TERM",
+    "EXCLUDED_TERMS",
+    "EXCLUDED_TERM_PLACE",
+    "EXCLUDED_TERM_REASON",
+    "FULL_NAME",
+    "POST_CAPTION_UNREAD",
+    "POST_EXCLUDED_TERM",
+    "TERM_EXCLUSION_EVENT",
+    "USERNAME",
+    "excluded_terms_field",
 ]

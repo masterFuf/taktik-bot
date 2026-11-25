@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 from bridges.common.bridge_base import _ipc
 
 
@@ -78,6 +80,12 @@ def send_feed_decision(author: str, action: str, reason: str = None,
     )
 
 
+def send_term_exclusion(reason: str, username: Optional[str] = None, term: Optional[str] = None,
+                        place: Optional[str] = None):
+    """A profile or a post left out for the account's excluded terms (`term_exclusion`)."""
+    _ipc.send("term_exclusion", reason=reason, username=username, term=term, place=place)
+
+
 __all__ = [
     "send_instagram_action",
     "send_instagram_profile_visit",
@@ -88,4 +96,5 @@ __all__ = [
     "send_story_event",
     "send_instagram_profile_classification",
     "send_feed_decision",
+    "send_term_exclusion",
 ]

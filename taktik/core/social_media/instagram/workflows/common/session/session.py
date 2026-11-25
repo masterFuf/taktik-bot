@@ -6,6 +6,7 @@ from loguru import logger
 from taktik.core.shared.behavior.policy import parse_behavior_policy
 from taktik.core.shared.behavior.profiles import resolve_pacing_profile
 from taktik.core.shared.behavior.session_state import BehaviorSessionState
+from taktik.core.shared.filtering.excluded_terms import ExcludedTerms
 
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.social_media.instagram.workflows.common.session import stop_reasons
@@ -77,6 +78,9 @@ class SessionManager:
         # counted against the account's day. The same counter as the Taktik Agent's; the workflow,
         # which holds the account, points it at the ledger (`warmup.count_against_account`).
         self.warmup = WarmupBudget(session_settings.get('warmup_policy'))
+        # The account's excluded terms (`excluded_terms` of the built config, none in standalone): what
+        # the profile filter, the interaction engine and the like and comment of a post read in a run.
+        self.excluded_terms = ExcludedTerms.from_config(self.config.get('excluded_terms'))
         # The last read of the day (`WarmupBudget.check`) and the follows and comments this session
         # had filed then: the plan of a profile reuses the read its loop just made (`_day_check`).
         self._last_check: Optional[WarmupCheck] = None
@@ -384,6 +388,7 @@ class SessionManager:
         # Same reason as the pacing profile: refresh the warmup caps on a config swap. The injected
         # usage provider is deliberately NOT touched here — it carries the resolved account_id.
         self.warmup.set_policy(session_settings.get('warmup_policy'))
+        self.excluded_terms = ExcludedTerms.from_config(self.config.get('excluded_terms'))
         # The last read was evaluated against the old caps: the next plan reads the day again.
         self._last_check = None
         duration_minutes = session_settings.get('session_duration_minutes', 60)

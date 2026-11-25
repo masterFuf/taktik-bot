@@ -22,6 +22,7 @@ from bridges.instagram.common.ipc_interaction_events import (
     send_instagram_profile_visit,
     send_like_event,
     send_story_event,
+    send_term_exclusion,
     send_unfollow_event,
     send_unfollow_plan,
 )
@@ -97,6 +98,7 @@ __all__ = [
     "send_like_event",
     "send_story_event",
     "send_feed_decision",
+    "send_term_exclusion",
     "send_profile_captured",
     "send_profile_skipped",
     "send_scraping_profile_visit",

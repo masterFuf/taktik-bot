@@ -278,6 +278,23 @@ class IPCEmitter:
             log.debug(f"IPC post_skipped event error: {exc}")
 
     @staticmethod
+    def emit_term_exclusion(
+        reason: str,
+        username: Optional[str],
+        term: Optional[str] = None,
+        place: Optional[str] = None,
+    ) -> None:
+        """Say a profile or a post left out for the account's excluded terms (`term_exclusion`)."""
+        bridge = _get_bridge()
+        if not bridge:
+            return
+        try:
+            if hasattr(bridge, "send_term_exclusion"):
+                bridge.send_term_exclusion(reason=reason, username=username, term=term, place=place)
+        except Exception as exc:
+            log.warning(f"IPC term_exclusion event error ({reason}, @{username}): {exc}")
+
+    @staticmethod
     def emit_scraping_profile_visit(username: str, profile_data: Optional[Dict[str, Any]] = None) -> None:
         """Emit a profile-visit event during scraping."""
         bridge = _get_bridge()
