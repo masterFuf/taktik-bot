@@ -40,7 +40,7 @@ from taktik.core.contract.ai_dm import (
     TOO_LONG,
     TOO_SHORT,
 )
-from taktik.core.shared.text import detect_text_language, fold_case_and_accents
+from taktik.core.shared.text import detect_text_language, term_starting_a_word
 
 _EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[a-z]{2,}", re.IGNORECASE)
 #: A link written in full, or a bare domain on a common ending (`maboutique.fr`, `bit.ly/x`). A word
@@ -152,7 +152,7 @@ def check_ai_dm_text(
         refusal = _contact_refusal(body)
         if refusal is not None:
             return refusal
-    term = _forbidden_term_in(body, rules.forbidden_terms)
+    term = term_starting_a_word(body, rules.forbidden_terms)
     if term is not None:
         return AiDmRefusal(FORBIDDEN_TERM, f"contains the forbidden term \"{term}\"", term=term)
     return _language_refusal(body, rules.base_language, received_text)
@@ -192,15 +192,6 @@ def _contact_refusal(body: str) -> Optional[AiDmRefusal]:
     for candidate in _PHONE_CANDIDATE.finditer(body):
         if sum(char.isdigit() for char in candidate.group(0)) >= _PHONE_MIN_DIGITS:
             return AiDmRefusal(PHONE, "contains a phone number")
-    return None
-
-
-def _forbidden_term_in(body: str, terms: Tuple[str, ...]) -> Optional[str]:
-    """The first term found at the start of a word of `body`, case and accents aside."""
-    folded = fold_case_and_accents(body)
-    for term in terms:
-        if re.search(r"(?<!\w)" + re.escape(fold_case_and_accents(term)), folded):
-            return term
     return None
 
 
