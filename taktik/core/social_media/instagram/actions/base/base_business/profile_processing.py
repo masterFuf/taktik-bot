@@ -9,6 +9,8 @@ This mixin only handles what happens WHILE on the profile screen.
 
 import time
 from typing import Optional, Dict, Any
+from taktik.core.contract.shared import EXCLUDED_TERM
+from taktik.core.social_media.instagram.actions.base.base_business.term_exclusion import profile_left_out_for_term
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.telemetry.sink import emit_step
@@ -180,7 +182,17 @@ class ProfileProcessingMixin:
                 return result
             
             result.profile_data = profile_data
-            
+
+            # === The account's excluded terms ===
+            # First of the checks, before any AI call or gesture: a profile term in the handle, the
+            # name or the bio leaves the profile out, filtered like a criterion (counted, recorded).
+            if profile_left_out_for_term(self, username, profile_data):
+                self._leave_filtered(
+                    result, ProfileProcessingResult.FILTERED_CRITERIA, [EXCLUDED_TERM], 'profiles_filtered',
+                    profile_data, source_type, source_name, account_id, session_id,
+                )
+                return result
+
             # === 3. Check private ===
             if profile_data.get('is_private', False):
                 result.status = ProfileProcessingResult.FILTERED_PRIVATE
@@ -204,20 +216,13 @@ class ProfileProcessingMixin:
             filter_criteria = resolve_filter_criteria(config)
             relationship_reason = self._relationship_skip_reason(username, profile_data, filter_criteria)
             if relationship_reason:
-                result.status = ProfileProcessingResult.FILTERED_RELATIONSHIP
-                result.filter_reasons = [relationship_reason]
                 self.logger.info(f"🤝 @{username} ignore — {relationship_reason}")
-                self.stats_manager.increment('relationship_skipped')
                 # The record is MANDATORY: without it the already-handled check would never see
                 # this profile and the bot would come back to it on every pass, indefinitely.
-                self._record_filtered_in_db(
-                    username, relationship_reason, source_type, source_name,
-                    account_id, session_id
+                self._leave_filtered(
+                    result, ProfileProcessingResult.FILTERED_RELATIONSHIP, [relationship_reason],
+                    'relationship_skipped', profile_data, source_type, source_name, account_id, session_id,
                 )
-                IPCEmitter.emit_action('filter', username, {
-                    'reasons': [relationship_reason],
-                    'followers_count': profile_data.get('followers_count', 0),
-                })
                 return result
 
             # === 4. Apply filters ===
@@ -227,18 +232,11 @@ class ProfileProcessingMixin:
             
             if not filter_result.get('suitable', False):
                 reasons = filter_result.get('reasons', [])
-                result.status = ProfileProcessingResult.FILTERED_CRITERIA
-                result.filter_reasons = reasons
                 self.logger.info(f"🚫 @{username} filtered: {', '.join(reasons)}")
-                self.stats_manager.increment('profiles_filtered')
-                self._record_filtered_in_db(
-                    username, ', '.join(reasons), source_type, source_name,
-                    account_id, session_id
+                self._leave_filtered(
+                    result, ProfileProcessingResult.FILTERED_CRITERIA, reasons, 'profiles_filtered',
+                    profile_data, source_type, source_name, account_id, session_id,
                 )
-                IPCEmitter.emit_action('filter', username, {
-                    'reasons': reasons,
-                    'followers_count': profile_data.get('followers_count', 0),
-                })
                 return result
             
             # === 5. Perform interactions ===
@@ -346,6 +344,26 @@ class ProfileProcessingMixin:
         if skip_already_following and state in ('following', 'requested'):
             return 'Already followed by us'
         return None
+
+    def _leave_filtered(
+        self, result: ProfileProcessingResult, status: str, reasons: list, stat: str,
+        profile_data: Dict[str, Any], source_type: str, source_name: str,
+        account_id: int, session_id: int,
+    ) -> None:
+        """A profile left out by a filter, said the one way: its status and reasons, the counter `stat`,
+        the filtered row (the already-handled check reads it: without it the profile would be met
+        again on every pass) and the `filter` action of the live panel."""
+        username = result.username
+        result.status = status
+        result.filter_reasons = list(reasons)
+        self.stats_manager.increment(stat)
+        self._record_filtered_in_db(
+            username, ', '.join(reasons), source_type, source_name, account_id, session_id
+        )
+        IPCEmitter.emit_action('filter', username, {
+            'reasons': list(reasons),
+            'followers_count': profile_data.get('followers_count', 0),
+        })
 
     def _record_filtered_in_db(
         self, username: str, reason: str, source_type: str,

@@ -5,6 +5,7 @@ import random
 from typing import Optional, Dict, Any, List
 
 from taktik.core.social_media.instagram.actions.base.ipc import IPCEmitter
+from taktik.core.social_media.instagram.actions.base.base_business.term_exclusion import profile_left_out_for_term
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.shared.behavior.interaction_plan import (
     allows_follow_alone,
@@ -35,6 +36,7 @@ def why_like_fell_short(
     already_liked: int = 0,
     passed_by_draw: int = 0,
     posts_seen: Optional[int] = None,
+    posts_excluded: int = 0,
 ) -> str:
     """Dire POURQUOI le like n'a pas atteint son seuil, au lieu de deviner.
 
@@ -61,6 +63,8 @@ def why_like_fell_short(
             total = None
         if total is not None and total < min_likes:
             return f"the profile only has {total} post(s)"
+    if posts_excluded:
+        return f"{posts_excluded} post(s) were left out for the account's excluded terms"
     if likes_refused:
         return f"the screen did not take {likes_refused} like(s)"
     if already_liked:
@@ -128,6 +132,11 @@ class InteractionEngineMixin:
         halt = run_halt.arret_demande()
         if halt:
             self.logger.warning(f"⛔ Run stop requested ({halt.get('code')}) — no interaction on @{username}")
+            return result
+
+        # The account's excluded terms, for a caller that acts on a profile without the profile
+        # pipeline (the Feed's visit of a post author): no gesture on a profile left out.
+        if profile_left_out_for_term(self, username, profile_data):
             return result
 
         try:
@@ -383,6 +392,7 @@ class InteractionEngineMixin:
                             already_liked=likes_result.get('already_liked', 0),
                             passed_by_draw=likes_result.get('passed_by_draw', 0),
                             posts_seen=likes_result.get('unique_posts_seen'),
+                            posts_excluded=likes_result.get('posts_excluded', 0),
                         )
                         self.logger.info(
                             f"⏭️ @{username}: only {result['likes']}/{min_likes} min likes — "

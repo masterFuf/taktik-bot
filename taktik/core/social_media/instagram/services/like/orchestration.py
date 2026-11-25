@@ -6,6 +6,10 @@ from typing import Callable, Dict, List, Any, Optional
 from loguru import logger
 
 from taktik.core.social_media.instagram.actions.base.base_business import BaseBusinessAction
+from taktik.core.social_media.instagram.actions.base.base_business.term_exclusion import (
+    check_post_terms,
+    still_the_post_checked,
+)
 from taktik.core.social_media.instagram.services.profile import ProfileBusiness
 from taktik.core.social_media.instagram.services.like.post_navigation import PostNavigationMixin
 from taktik.core.shared.behavior.like_method import should_double_tap_like, should_like_this_post
@@ -31,6 +35,7 @@ class FramedLike(Enum):
     LIKED = "liked"                  # the heart of its own row turned after our gesture
     ALREADY_LIKED = "already_liked"  # that heart was on already: no gesture
     NOT_LIKED = "not_liked"          # no gesture, or one whose effect that heart did not show
+    EXCLUDED = "excluded"            # left out for the account's excluded terms: no gesture, said
 
 
 class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
@@ -139,7 +144,8 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             stats['posts_commented'] = posts_commented
             stats['posts_seen'] = sequential_stats.get('posts_seen', 0)
             stats['method'] = sequential_stats.get('method', 'sequential_scroll')
-            for shortfall_count in ('passed_by_draw', 'likes_refused', 'already_liked', 'unique_posts_seen'):
+            for shortfall_count in ('passed_by_draw', 'likes_refused', 'already_liked', 'posts_excluded',
+                                    'unique_posts_seen'):
                 stats[shortfall_count] = sequential_stats.get(shortfall_count, 0)
             if sequential_stats.get('technical_failure'):
                 stats['technical_failure'] = True
@@ -215,6 +221,9 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             'passed_by_draw': 0,
             'likes_refused': 0,
             'already_liked': 0,
+            # Posts the account's excluded terms left out (`FramedLike.EXCLUDED`): neither liked nor
+            # commented, said on the `term_exclusion` line.
+            'posts_excluded': 0,
         }
         
         try:
@@ -342,6 +351,12 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                     and comment_attempts < 3
                 )
 
+                if (do_like_this or do_comment_this) and not check_post_terms(self, author_hint=username).allowed:
+                    # Left out for the account's excluded terms (said on the `term_exclusion` line):
+                    # neither liked nor commented, and no like the screen refused.
+                    stats['posts_excluded'] += 1
+                    do_like_this = do_comment_this = False
+
                 if do_like_this or do_comment_this:
                     already_liked = self._is_post_already_liked() if do_like_this else False
                     if already_liked is None:
@@ -432,8 +447,14 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
         the session counter at the moment of the gesture. The profile sequence leaves it None,
         because it records its likes in one batch at the end of the profile. An already-liked
         post is never recorded. On a list, the framed post only.
+
+        The account's excluded terms first (`term_exclusion.check_post_terms`): a post they leave
+        out is EXCLUDED, said on the `term_exclusion` line, and nothing is tapped.
         """
         try:
+            verdict = check_post_terms(self, author_hint=record_as)
+            if not verdict.allowed:
+                return FramedLike.EXCLUDED
             # A list of posts first: its readers need no like button on screen, and the framed
             # post's may be under the bottom (`_like_framed_post` brings it up), when the post
             # screen's signals are like buttons and would call the list "not a post screen".
@@ -442,6 +463,8 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 self.logger.warning("Screen unreadable: no like")
                 return FramedLike.NOT_LIKED
             if target["list"]:
+                if not still_the_post_checked(self, verdict, target.get("identity"), "like"):
+                    return FramedLike.NOT_LIKED
                 return self._like_framed_post(target, record_as)
 
             if not self.detection_actions.is_on_post_screen():
@@ -490,13 +513,19 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
         already liked. The Feed likes through it: an already-liked post is no like of its run.
 
         `record_as` (the post author) files the like once its heart is seen turned. Nothing is
-        liked off a list: the full-screen Reel viewer is `like_current_post`'s."""
+        liked off a list: the full-screen Reel viewer is `like_current_post`'s. A post the account's
+        excluded terms leave out is EXCLUDED, as in `like_current_post`."""
+        verdict = check_post_terms(self, author_hint=record_as)
+        if not verdict.allowed:
+            return FramedLike.EXCLUDED
         target = self._framed_like_target()
         if target is None:
             self.logger.warning("Screen unreadable: no like")
             return FramedLike.NOT_LIKED
         if not target["list"]:
             self.logger.warning("Not a list of posts: no like")
+            return FramedLike.NOT_LIKED
+        if not still_the_post_checked(self, verdict, target.get("identity"), "like"):
             return FramedLike.NOT_LIKED
         return self._like_framed_post(target, record_as)
 
@@ -641,7 +670,9 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
         frame onto the NEXT post (the reframe is best-effort, see PostReadingMixin), so any
         like/comment that FOLLOWS a read is guarded by a post-identity signature check —
         without it, pattern E (read→comment→like) could post a comment on the wrong post.
-        On drift we abort the post's sequence rather than act on the wrong post."""
+        On drift we abort the post's sequence rather than act on the wrong post.
+
+        A post the account's excluded terms leave out at its like gets no comment either."""
         liked = commented = False
         sig_before_read = None   # set after a read → the next action must re-verify identity
         frame_lost = False       # the read moved the post and could not bring it back
@@ -660,6 +691,8 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                     sig_before_read = None   # confirmed once; our own like changes the count
                 if step == 'like':
                     outcome = self.like_current_post()
+                    if outcome is FramedLike.EXCLUDED:
+                        break
                     # Only a like given now is counted: an already-liked post is no like of this
                     # profile, and its sequence goes on as before.
                     liked = outcome is FramedLike.LIKED
@@ -716,7 +749,9 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             # Say WHY: a deliberate AI skip (off-niche post, no genuine hook) and a real
             # failure both used to log the same blank line, so a run's log could not tell
             # "the AI declined" from "the comment failed".
-            if comment_result.get('skipped'):
+            if comment_result.get('excluded'):
+                self.logger.info(f"💬 No comment: post left out ({comment_result.get('skip_reason')})")
+            elif comment_result.get('skipped'):
                 self.logger.info(
                     f"💬 Comment skipped by AI: {comment_result.get('skip_reason') or 'no reason given'}"
                 )

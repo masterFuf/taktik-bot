@@ -91,3 +91,24 @@ def test_return_to_profile_propagates_observed_navigation_failure():
 
     assert result["success"] is False
     assert "returned to profile=False" in result["message"]
+
+
+def test_check_excluded_terms_runs_the_production_check_on_the_framed_post(monkeypatch):
+    import pytest
+
+    import taktik.core.social_media.instagram.actions.base.base_business.term_exclusion as term_exclusion
+    from bridges.tools.lab.actions.instagram.post import check_excluded_terms
+
+    monkeypatch.setattr(term_exclusion.IPCEmitter, "emit_term_exclusion", staticmethod(lambda *a: None))
+    framed = {"author": "lea_photo", "header_desc": "lea_photo a publié une photo", "reframed": True,
+              "caption_text": "lea_photo Atelier Zorvak ce matin", "post_ends_on_screen": True}
+    like = SimpleNamespace(scroll_actions=SimpleNamespace(read_framed_caption=lambda: framed),
+                           logger=SimpleNamespace(info=lambda *a: None, warning=lambda *a: None))
+
+    found = check_excluded_terms(SimpleNamespace(like=like), {"post_terms": "brindille, zorvak"})
+    clear = check_excluded_terms(SimpleNamespace(like=like), {"post_terms": "brindille"})
+
+    assert found["details"]["reason"] == "post_excluded_term" and found["details"]["term"] == "zorvak"
+    assert clear["details"]["allowed"] is True
+    with pytest.raises(ValueError):
+        check_excluded_terms(SimpleNamespace(like=like), {})

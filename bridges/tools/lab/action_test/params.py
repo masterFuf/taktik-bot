@@ -46,3 +46,13 @@ def lab_int(params: Mapping[str, Any], name: str, default: int) -> int:
         return int(str(value).strip())
     except ValueError:
         raise ValueError(f"Lab parameter '{name}' is not a whole number: {value!r}") from None
+
+
+def lab_texts(params: Mapping[str, Any], name: str) -> tuple:
+    """`params[name]` as texts separated by commas, each trimmed, the empty ones dropped; none when the
+    parameter is absent or empty. A list sent as such is read the same way."""
+    value = params.get(name)
+    if value is None or value == "":
+        return ()
+    items = value if isinstance(value, (list, tuple)) else str(value).split(",")
+    return tuple(text for text in (str(item).strip() for item in items) if text)

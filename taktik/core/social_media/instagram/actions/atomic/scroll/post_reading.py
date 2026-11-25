@@ -515,7 +515,8 @@ class PostReadingMixin:
         Returns None when no full header is visible (post not framed — reels viewer, or
         mid-scroll): the caller must then treat the screen as UNFRAMED and not pretend.
         Keys: header_desc, author, header_bounds, buttons_bounds, caption_text,
-        caption_bounds, window_bottom.
+        caption_bounds, window_bottom, post_ends_on_screen (the next post's header is on screen:
+        an empty caption is then no caption, not one under the bottom of the screen).
         """
         root = root if root is not None else self._dump_root()
         if root is None:
@@ -543,7 +544,29 @@ class PostReadingMixin:
             "caption_text": caption_text,
             "caption_bounds": caption_bounds,
             "window_bottom": window["window_bottom"],
+            "post_ends_on_screen": window["post_ends_on_screen"],
         }
+
+    def read_framed_caption(self) -> Optional[dict]:
+        """The framed post's context (`framed_post_context`) with its caption read whole, as a human
+        reads it before reacting: a truncated caption expanded first (its '… plus'/'… more'), then the
+        post brought back where it sat if the reading scrolled it (`_reframe_post_after_reading`).
+
+        The one reading of a caption before acting on its post: the AI comment grounds on it, the
+        excluded terms of the account are checked on it. Adds `reframed`: False when the reading moved
+        the post and the screen never showed it back (nothing should then act on this screen). None
+        when no post is framed."""
+        self._last_reveal_scroll_px = 0
+        self.expand_caption_if_truncated()
+        reframed = True
+        reveal_px = getattr(self, "_last_reveal_scroll_px", 0)
+        if reveal_px:
+            reframed = self._reframe_post_after_reading(reveal_px)
+            self._last_reveal_scroll_px = 0
+        context = self.framed_post_context()
+        if context is not None:
+            context["reframed"] = reframed
+        return context
 
     def _framed_window(self, root) -> Optional[dict]:
         """The framed post and what lies INSIDE its window, from one dump.
@@ -633,6 +656,9 @@ class PostReadingMixin:
             "list_top": list_top,
             "list_bottom": list_bottom,
             "window_bottom": window_bottom,
+            # The next post's header closes the window before the bottom of the list: the whole
+            # framed post, its caption included, is on screen.
+            "post_ends_on_screen": window_bottom < bottom_limit,
             "buttons_bounds": buttons_bounds,
             "row_counters": row_counters,
             "captions": [c for c in captions if _in_window(c[0])],
