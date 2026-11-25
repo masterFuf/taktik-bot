@@ -4,7 +4,9 @@ from loguru import logger
 
 from bridges.tools.lab.actions.instagram import action, detection_action
 from bridges.tools.lab.action_test.not_applicable import not_applicable
-from bridges.tools.lab.action_test.params import lab_int
+from bridges.tools.lab.action_test.params import lab_int, lab_texts
+from taktik.core.shared.filtering.excluded_terms import ExcludedTerms
+from taktik.core.social_media.instagram.actions.base.base_business.term_exclusion import check_post_terms
 from taktik.core.social_media.instagram.actions.base.base_business.popup_handling import (
     COMMENTS_EMPTY,
     COMMENTS_OPENED,
@@ -251,6 +253,37 @@ def return_to_grid_and_reopen(a, p):
     }
 
 
+@action("post.check_excluded_terms")
+def check_excluded_terms(a, p):
+    """The account's excluded terms on the FRAMED post, as the like and the comment check them before
+    any gesture (`term_exclusion.check_post_terms`, the production function): with post terms its
+    caption is read whole (expanded when truncated, the post brought back after), with profile terms
+    its author's handle. Says the verdict, never likes nor comments. `profile_terms` and `post_terms`:
+    texts separated by commas."""
+    terms = ExcludedTerms(profile_terms=lab_texts(p, "profile_terms"), post_terms=lab_texts(p, "post_terms"))
+    if not terms.profile_terms and not terms.post_terms:
+        raise ValueError("Lab parameters 'profile_terms' and 'post_terms' are both empty: no term to check")
+    verdict = check_post_terms(a.like, terms=terms)
+    if verdict.allowed:
+        message = f"post de @{verdict.author or '?'} : aucun terme exclu"
+    elif verdict.term is None:
+        message = f"post de @{verdict.author or '?'} écarté : {verdict.reason}"
+    else:
+        message = f"post de @{verdict.author or '?'} écarté : {verdict.reason} « {verdict.term} » ({verdict.place})"
+    return {
+        "success": True,
+        "message": message,
+        "details": {
+            "allowed": verdict.allowed,
+            "reason": verdict.reason,
+            "term": verdict.term,
+            "place": verdict.place,
+            "author": verdict.author,
+            "identity": verdict.identity,
+        },
+    }
+
+
 @action("post.read_context")
 def read_post_context(a, p):
     """Author, publish date, window and caption of the FRAMED post.
@@ -259,7 +292,7 @@ def read_post_context(a, p):
     (PostReadingMixin.framed_post_context + clean_post_caption), so what the Lab
     reports here is literally what the comment model would be given.
     """
-    from taktik.core.social_media.instagram.workflows.common.caption_hygiene import (
+    from taktik.core.social_media.instagram.ui.caption_hygiene import (
         clean_post_caption,
     )
 

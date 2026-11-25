@@ -17,8 +17,13 @@ from taktik.core.ai.comments.decisions import (
     resolve_comment_language,
 )
 from taktik.core.shared.text import detect_text_language
-from taktik.core.social_media.instagram.workflows.common.caption_hygiene import (
+from taktik.core.social_media.instagram.ui.caption_hygiene import (
     clean_post_caption,
+)
+from taktik.core.social_media.instagram.actions.base.base_business.term_exclusion import (
+    excluded_profile_term,
+    excluded_terms_of,
+    judge_post,
 )
 from taktik.core.social_media.instagram.actions.base.ipc.emitter import IPCEmitter
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
@@ -282,19 +287,11 @@ def install_instagram_ai_hooks(
                     scroll = getattr(self_comment, "scroll_actions", None)
                     try:
                         if scroll is not None:
-                            scroll._last_reveal_scroll_px = 0
-                            scroll.expand_caption_if_truncated()
-                            # Reading may have scrolled down to reveal the caption —
-                            # reframe the post so the comment button click that follows
-                            # targets THIS post's row, not the next one's.
-                            reveal_px = getattr(scroll, "_last_reveal_scroll_px", 0)
-                            if reveal_px:
-                                scroll._reframe_post_after_reading(reveal_px)
-                                scroll._last_reveal_scroll_px = 0
-                            # ONE dump: the framed post's window (header → next header) gives
-                            # the author + publish date (header content-desc), the caption
-                            # scoped to THIS post (never a neighbour's), and the crop bounds.
-                            post_context = scroll.framed_post_context()
+                            # The one reading of a caption before acting on its post: expanded,
+                            # the post reframed so the comment button click that follows targets
+                            # THIS post's row, then ONE dump of the framed post's window (author,
+                            # publish date, the caption scoped to this post, the crop bounds).
+                            post_context = scroll.read_framed_caption()
                             post_caption = (
                                 (post_context or {}).get("caption_text")
                                 or scroll.current_caption_text()
@@ -311,6 +308,15 @@ def install_instagram_ai_hooks(
                         log("info", f"@{username}: framed post is authored by @{post_author} "
                                     f"(collab/repost or feed post)")
                     post_caption = cleaned.text
+
+                    # The account's excluded terms, judged on this reading before anything is paid:
+                    # the comment sheet the thread read opens below would cover the post for another.
+                    exclusion_terms = excluded_terms_of(self_comment)
+                    post_checked = None
+                    if exclusion_terms.profile_terms or exclusion_terms.post_terms:
+                        post_checked = judge_post(self_comment, post_context, exclusion_terms, username)
+                        if post_checked.reason is not None:
+                            return skip_comment(post_checked.reason, "excluded_terms")
 
                     img = device.screenshot()
                     cropped = _crop_from_context(img, post_context)
@@ -530,6 +536,7 @@ def install_instagram_ai_hooks(
                             config=config,
                             username=username,
                             **{k: v for k, v in passthrough.items() if k != "ai_metadata"},
+                            **({"post_checked": post_checked} if post_checked is not None else {}),
                             # Everything only this hook knows about how the comment was
                             # produced, so the stored record answers "which post, which
                             # model, what did it cost, why this comment" later on.
@@ -797,6 +804,10 @@ def install_instagram_ai_hooks(
             def ai_perform_interactions(self_engine, username, config, profile_data=None):
                 if profile_data is None:
                     profile_data = {}
+                # A profile the account's excluded terms leave out is worth no AI call: the engine
+                # says it and makes no gesture.
+                if excluded_profile_term(self_engine, username, profile_data) is not None:
+                    return original_perform(self_engine, username, config, profile_data)
                 # Reuse an existing AI qualification instead of re-paying for the vision classification:
                 # if this profile was already scraped + AI-qualified (its niche is in the DB), skip the
                 # re-analysis entirely. Same dedup the scraping path already applies — a profile's niche

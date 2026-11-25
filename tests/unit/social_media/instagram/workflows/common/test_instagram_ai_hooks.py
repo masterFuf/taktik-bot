@@ -818,6 +818,10 @@ class _FramedScroll:
             "window_bottom": 1700,
         }
 
+    def read_framed_caption(self):
+        """The one reading of a caption (`PostReadingMixin.read_framed_caption`): nothing to expand here."""
+        return {**self.framed_post_context(), "reframed": True}
+
 
 class _CroppableShot:
     size = (1080, 1920)
@@ -1066,3 +1070,61 @@ def test_no_context_at_all_is_skipped_not_invented(monkeypatch):
 
     assert result["skipped"] is True
     assert "posted" not in captured
+
+
+# --- The account's excluded terms: no AI paid for a profile or a post they leave out ---
+
+def test_a_profile_left_out_by_the_excluded_terms_costs_no_profile_analysis(monkeypatch):
+    from types import SimpleNamespace
+
+    from taktik.core.shared.filtering.excluded_terms import ExcludedTerms
+
+    _patch_db(monkeypatch, [])
+    captured = {}
+
+    class FakeAI:
+        def classify_profile_niche(self, **kwargs):
+            captured["paid"] = True
+            return {"success": False}
+
+    device = SimpleNamespace(screenshot=lambda: _CroppableShot())
+    engine_cls = _install_profile_hook(monkeypatch, FakeAI(), {"profileAnalysis": True}, captured, device=device)
+    engine = SimpleNamespace(session_manager=SimpleNamespace(excluded_terms=ExcludedTerms(profile_terms=("zorvak",))))
+
+    result = engine_cls._perform_interactions_on_profile(engine, "leazorvak", {}, {"username": "leazorvak"})
+
+    assert result == "performed", "the engine says it and makes no gesture"
+    assert "paid" not in captured, "a profile left out was sent to the AI"
+
+
+def test_a_post_left_out_by_the_excluded_terms_gets_no_comment_written(monkeypatch):
+    from types import SimpleNamespace
+
+    from taktik.core.shared.filtering.excluded_terms import ExcludedTerms
+    import taktik.core.social_media.instagram.actions.base.base_business.term_exclusion as term_exclusion
+
+    captured = {}
+    said = []
+    monkeypatch.setattr(term_exclusion.IPCEmitter, "emit_term_exclusion", staticmethod(lambda *a: said.append(a)))
+
+    class FakeAI:
+        def analyze_post(self, **kwargs):
+            captured["paid"] = True
+            return {"success": False}
+
+        def generate_smart_comment(self, **kwargs):
+            captured["paid"] = True
+            return {"success": False}
+
+    action_cls = _install_comment_hook(monkeypatch, FakeAI(), captured)
+    host = SimpleNamespace(
+        scroll_actions=_FramedScroll("jane_doe Tournage du clip Zorvak hier soir moins"),
+        session_manager=SimpleNamespace(excluded_terms=ExcludedTerms(post_terms=("zorvak",))),
+        _get_account_id=lambda: None,
+    )
+
+    result = action_cls.comment_on_post(host, username="jane_doe")
+
+    assert result["commented"] is False
+    assert "paid" not in captured and "posted" not in captured
+    assert said == [("post_excluded_term", "jane_doe", "zorvak", "caption")]

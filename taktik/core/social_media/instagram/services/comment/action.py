@@ -7,6 +7,11 @@ from loguru import logger
 from taktik.core.social_media.instagram.actions.atomic.interaction.bottom_sheet import drag_sheet_off_screen
 
 from taktik.core.social_media.instagram.actions.base.base_business import BaseBusinessAction
+from taktik.core.social_media.instagram.actions.base.base_business.term_exclusion import (
+    PostVerdict,
+    check_post_terms,
+    still_the_post_checked,
+)
 from taktik.core.database.instagram_posted_comments import InstagramPostedComments
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 from taktik.core.social_media.instagram.services.comment.validation import validate_comment
@@ -35,13 +40,19 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
     
     def comment_on_post(self, comment_text: str = None,
                        custom_comments: List[str] = None, config: dict = None, username: str = None,
-                       ai_metadata: Optional[Dict[str, Any]] = None) -> dict:
+                       ai_metadata: Optional[Dict[str, Any]] = None,
+                       post_checked: Optional[PostVerdict] = None) -> dict:
         """Post a comment. `ai_metadata` carries what only the AI hook knows (model, cost,
         reasoning, post caption/description, language) so the stored record of the comment
         is complete; it stays None for template/custom comments.
 
         With no text and no custom comment, post nothing (skipped result, the screen
-        untouched): the bot has no built-in template."""
+        untouched): the bot has no built-in template.
+
+        The account's excluded terms first: a post they leave out gets no comment (skipped,
+        `excluded`, said on the `term_exclusion` line). `post_checked` is the verdict the AI hook
+        made on its own reading of the caption, before the comment sheet it opened covers the post;
+        without it, the post is read here."""
         config = {**self.default_config, **(config or {})}
 
         stats = {
@@ -67,7 +78,23 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
                 stats['errors'] += 1
                 return stats
             
+            # The account's excluded terms, once a comment is about to be posted.
+            verdict = post_checked if post_checked is not None else check_post_terms(self, author_hint=username)
+            if not verdict.allowed:
+                stats['skipped'] = True
+                stats['skip_reason'] = verdict.reason
+                stats['excluded'] = True
+                return stats
+
             self.logger.info(f"Attempting to comment ({len(comment_text)} chars)")
+
+            # The comment goes to the post whose caption was checked, never to a post the reading
+            # brought up instead (the AI hook's sheet is already open on it: nothing to compare).
+            if post_checked is None and verdict.identity is not None and not still_the_post_checked(
+                self, verdict, self.scroll_actions.framed_post_identity(), "comment"
+            ):
+                stats['errors'] += 1
+                return stats
 
             # Open the comment box — unless the composer is already on screen (e.g. the
             # post already shows the inline composer, or we navigated straight into the
