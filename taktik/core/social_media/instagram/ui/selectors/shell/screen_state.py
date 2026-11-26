@@ -3,6 +3,8 @@ from dataclasses import dataclass, field
 
 from taktik.core.social_media.instagram.ui.selectors.locales import L
 
+_LOAD_MORE_ROW = '//*[@resource-id="com.instagram.android:id/row_load_more_button"]'
+
 @dataclass
 class DetectionSelectors:
     """Selectors for screen, state and error detection.
@@ -273,10 +275,15 @@ class DetectionSelectors:
     def followers_list_end_indicators(self) -> List[str]:
         return L("detection.followers_list_end_indicators")
 
+    # The row "loading more" at the end of a list that is fetching its next page. On a profile's
+    # posts grid it sits under the last thumbnail loaded, while the posts after it are not there
+    # yet (Pixel 3a, 410: 9 posts loaded on arrival, then a page each time the list reaches it).
+    load_more_row: str = _LOAD_MORE_ROW
+
     # Selectors detecting the Instagram loading spinner
     _loading_spinner_indicators_base: List[str] = field(default_factory=lambda: [
         # Instagram's "Load more" button with loading animation
-        '//*[@resource-id="com.instagram.android:id/row_load_more_button"]',
+        _LOAD_MORE_ROW,
         # Generic progress indicators. Matched by TAG only: u2 renames `<node class="X">` to
         # `<X>`, so an `@class="…ProgressBar"` predicate never matches (the tag above does).
         '//android.widget.ProgressBar',

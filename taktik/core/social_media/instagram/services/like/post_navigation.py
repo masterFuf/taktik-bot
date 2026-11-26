@@ -2,7 +2,6 @@
 
 import time
 import random
-import re
 from typing import TYPE_CHECKING, Callable, Optional
 from loguru import logger
 
@@ -15,7 +14,13 @@ from taktik.core.shared.behavior.grid_entry import (
 from taktik.core.shared.behavior.dwell import content_dwell
 from taktik.core.shared.diagnostics.miss_capture import signaler_ecran_inconnu
 from taktik.core.shared.telemetry import emit_step
-from taktik.core.social_media.instagram.actions.atomic.navigation.profile_grid import show_profile_posts_grid
+from taktik.core.social_media.instagram.actions.atomic.navigation.profile_grid import (
+    GRID_LOAD_MORE_S,
+    grid_position_of,
+    read_posts_grid,
+    show_profile_posts_grid,
+    wait_for_more_posts,
+)
 from taktik.core.social_media.instagram.actions.base.ipc.emitter import IPCEmitter
 
 if TYPE_CHECKING:
@@ -25,9 +30,10 @@ if TYPE_CHECKING:
 # short brisk/steady/deliberate bursts instead of an independent 85/15 draw on every post.
 _ADVANCE_MODE_WEIGHTS = (("flick", 0.85), ("drag", 0.15))
 
-# Grid cells expose their position in content-desc ("... à la ligne R, colonne C" /
-# "row R, column C"). Lets us narrate the real post position to the copilot.
-_GRID_POS_RE = re.compile(r'(?:ligne|row)\D*(\d+)\D+(?:colonne|column)\D*(\d+)', re.IGNORECASE)
+# The pre-scroll of the grid counts the screens it really went down. Two flicks do not count and are
+# made again: the one that folds the profile's header (the grid still starts at its first post) and
+# the one the list stopped short of, at the row "loading more".
+_PRESCROLL_SPARE_FLICKS = 2
 
 
 class PostNavigationMixin:
@@ -87,15 +93,11 @@ class PostNavigationMixin:
                     return False
                 posts, index = found
             else:
-                # 1. Adaptive grid pre-scroll (only on big-enough profiles; human flick).
-                prescroll = plan_prescroll(int(posts_count or 0))
-                for _ in range(prescroll):
-                    scrolled = self._session_grid_scroll(
-                        "profile_grid_prescroll", distance_ratio=0.40, coast=True
-                    )
-                    if not scrolled:
-                        break
-                if prescroll:
+                # 1. Adaptive grid pre-scroll (only on big-enough profiles; human flick), counted
+                # on the screen: the screens the grid really went down.
+                planned = plan_prescroll(int(posts_count or 0))
+                if planned:
+                    prescroll = self._prescroll_profile_grid(planned)
                     posts = self._visible_grid_thumbnails(thumb_selector)
                     if not posts:
                         return self._open_first_post_of_profile(username=username)
@@ -158,6 +160,48 @@ class PostNavigationMixin:
                 return self._open_first_post_of_profile(username=username)
             except Exception:
                 return False
+
+    def _prescroll_profile_grid(self, screens: int) -> int:
+        """Go `screens` screens down the profile's grid before the entry is drawn, each flick
+        checked on the screen. Returns the screens the grid really went down.
+
+        Instagram loads the grid a page at a time: a few posts on arrival, the next ones when the
+        list reaches the row "loading more" under the last one. A flick made then stops there, and
+        the thumbnails read right after were the first rows again: the entry opened one of the
+        first posts after scrolling for nothing. So a flick counts when the grid moved on (its
+        first position on screen is further than before); while the row "loading more" shows, the
+        next posts are waited for (`wait_for_more_posts`) before another flick; a flick that only
+        folded the profile's header, or that the list stopped short of, is made again, within
+        `_PRESCROLL_SPARE_FLICKS`. A flick that changes nothing with nothing loading is the end
+        of the grid. A grid still loading after the wait is drawn as it is, and said."""
+        view = read_posts_grid(self.device)
+        gone = flicks = 0
+        while (view is not None and view.positions and gone < screens
+               and flicks < screens + _PRESCROLL_SPARE_FLICKS):
+            if view.loading_more:
+                view = wait_for_more_posts(self.device)
+                if view is None:
+                    self.logger.info(
+                        f"Profile grid still loading its next posts after {GRID_LOAD_MORE_S:.0f} s: "
+                        f"no further pre-scroll ({gone}/{screens} screen(s) down)"
+                    )
+                    return gone
+                continue
+            if not self._session_grid_scroll("profile_grid_prescroll", distance_ratio=0.40, coast=True):
+                break
+            flicks += 1
+            after = read_posts_grid(self.device)
+            if after is None or not after.positions:
+                break
+            if after.first > view.first:
+                gone += 1
+            elif after.positions == view.positions and not after.loading_more:
+                break   # nothing moved and nothing is loading: the end of the grid
+            view = after
+        if view is not None and view.loading_more and wait_for_more_posts(self.device) is None:
+            self.logger.info(f"Profile grid still loading its next posts after {GRID_LOAD_MORE_S:.0f} s")
+        self.logger.debug(f"Grid pre-scroll: {gone}/{screens} screen(s) down in {flicks} flick(s)")
+        return gone
 
     def _open_post_at_position(self, index: int) -> bool:
         """Open a SPECIFIC grid post by absolute position (1-based), scrolling the
@@ -225,10 +269,9 @@ class PostNavigationMixin:
             row = col = position = None
             try:
                 cd = (target.attrib.get('content-desc') if hasattr(target, 'attrib') else None) or ''
-                m = _GRID_POS_RE.search(cd)
-                if m:
-                    row, col = int(m.group(1)), int(m.group(2))
-                    position = (row - 1) * GRID_COLUMNS + col
+                position = grid_position_of(cd)
+                if position is not None:
+                    row, col = (position - 1) // GRID_COLUMNS + 1, (position - 1) % GRID_COLUMNS + 1
             except Exception:
                 pass
             IPCEmitter.emit_action('entry', username, {
@@ -309,10 +352,8 @@ class PostNavigationMixin:
                 desc = info.get("contentDescription") or info.get("content-desc") or ""
             except Exception:
                 desc = ""
-        match = _GRID_POS_RE.search(desc)
-        if match:
-            return ((int(match.group(1)) - 1) * GRID_COLUMNS + int(match.group(2)))
-        return int(index) + 1
+        position = grid_position_of(desc)
+        return position if position is not None else int(index) + 1
 
     @staticmethod
     def _grid_entry_key(element, index: int, username: Optional[str] = None) -> str:

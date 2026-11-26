@@ -9,6 +9,7 @@ from bridges.tools.lab.action_test.not_applicable import absent_on_screen
 from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
 from taktik.core.shared.behavior.interaction_plan import build_interaction_plan
 from taktik.core.social_media.instagram.actions.atomic.navigation.profile_grid import (
+    read_posts_grid,
     show_profile_posts_grid,
 )
 
@@ -251,6 +252,24 @@ def scroll_grid(a, p):
             "behavior_state": snapshot,
         },
     }
+
+
+@action("profile.prescroll_grid")
+def prescroll_grid(a, p):
+    """The grid pre-scroll of the entry into a profile's posts, as `_open_entry_post_of_profile`
+    makes it before it draws a thumbnail (production `_prescroll_profile_grid`): `screens`
+    (default 1) screens down, each flick checked on the screen, the next posts waited for while
+    the grid loads them. Says the screens really gone down and the positions then on screen. Be
+    on a profile, its grid shown."""
+    screens = max(1, int(p.get("screens") or 1))
+    gone = a.like._prescroll_profile_grid(screens)
+    view = read_posts_grid(a.like.device)
+    positions = list(view.positions) if view is not None else []
+    shown = f"positions {min(positions)} to {max(positions)}" if positions else "no thumbnail on screen"
+    return {"success": True,
+            "message": f"{gone}/{screens} screen(s) down: {shown}",
+            "details": {"screens_asked": screens, "screens_gone": gone, "positions": positions,
+                        "loading_more": bool(view.loading_more) if view is not None else None}}
 
 
 @action("profile.ensure_header_actions")
