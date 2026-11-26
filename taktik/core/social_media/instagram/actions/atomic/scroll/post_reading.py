@@ -22,6 +22,7 @@ import time
 import random
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, cast
 
+from taktik.core.social_media.instagram.ui.caption_hygiene import clean_post_caption
 from taktik.core.social_media.instagram.ui.extractors import count_from_counter_label, username_from_author_header
 from taktik.core.social_media.instagram.ui.labels import is_liked_heart
 from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
@@ -73,6 +74,15 @@ _SHOW_BUTTONS_HEADER_MARGIN_H = (0.005, 0.02)
 _SHOW_BUTTONS_HEADER_HIDDEN_MAX = 0.5
 _SHOW_BUTTONS_MAX_HEADER_SHARE = 0.5
 
+# Reading a caption that sits under the bottom of the screen (a tall video, a small phone): the post
+# is lifted by reading drags until its caption, or its end, shows. A post whose header sits in the
+# lower half of the list is mostly under the screen and is not lifted (the same bound as the like's).
+# Once lifted, the post's own header is recognised where the drags carried it, within this share of
+# the screen plus this share of the distance dragged: the next post may carry the same description.
+_CAPTION_LIFTS = 2
+_LIFTED_HEADER_TOLERANCE_H = 0.10
+_LIFTED_HEADER_TOLERANCE_SHARE = 0.25
+
 
 class PostReadingMixin:
     """Mixin: human reading of the on-screen post (caption expand/read, carousel browse,
@@ -101,7 +111,7 @@ class PostReadingMixin:
             self.logger.debug(f"dump_root failed: {e}")
             return None
 
-    def expand_caption_if_truncated(self) -> bool:
+    def expand_caption_if_truncated(self, zone: Optional[tuple] = None) -> bool:
         """If the dominant on-screen post has a truncated caption, tap its '… plus'/'… more'
         expander to read the full text — like a human pausing on a post. On v410 the caption
         is an empty-resource-id `IgTextLayoutView` whose dedicated expander is a child Button with
@@ -110,18 +120,26 @@ class PostReadingMixin:
         'Learn more' ad CTA (a link) is excluded. Returns True if a caption was expanded.
 
         When a post is framed, only a caption inside its window is read: the one above belongs to
-        the previous post, whose tail may still show at the top."""
+        the previous post, whose tail may still show at the top. `zone` (top, bottom) replaces that
+        window when the post being read was lifted and its header left the screen
+        (`_lifted_post_zone`)."""
         root = self._dump_root()
         if root is None:
             return False
-        window = self._framed_window(root)
+        window = self._framed_window(root) if zone is None else None
+        if zone is not None:
+            span = zone
+        elif window is not None:
+            span = (window["header_bounds"][1], window["window_bottom"])
+        else:
+            span = None
         best = None  # (visible_height, (l, t, r, b), caption text, caption top)
         for node in root.iter():
             if node.tag != FS.caption_layout_class:
                 continue
             layout = self._node_bounds(node)
-            if window is not None and layout is not None and not (
-                window["header_bounds"][1] <= layout[1] and layout[3] <= window["window_bottom"]
+            if span is not None and layout is not None and not (
+                span[0] <= layout[1] and layout[3] <= span[1]
             ):
                 continue
             target = None
@@ -145,7 +163,7 @@ class PostReadingMixin:
             l, t, r, b = (int(mc.group(i)) for i in range(1, 5))
             if t < 0 or b > 0.93 * self.screen_height:   # must be fully on screen, off the tab bar
                 continue
-            if window is not None and b > window["window_bottom"]:
+            if span is not None and b > span[1]:
                 continue   # the expander runs under the bottom bar (or the next post)
             # rank by the caption layout's visible height → the dominant, fully-shown post's caption
             vis_h = int(ml.group(4)) - int(ml.group(2))
@@ -175,13 +193,9 @@ class PostReadingMixin:
         self._last_reveal_scroll_px = self._reveal_expanded_caption()
         return True
 
-    def _reveal_expanded_caption(self, max_scrolls: int = 2) -> int:
-        """After expanding a caption, gently scroll so its now-visible text comes INTO view — a
-        human reads it, they don't open a caption that stays below the fold. Each scroll is a slow
-        drag (smooth) with a reading beat; stops once no caption extends below the fold. Returns
-        the TOTAL distance scrolled in px (0 if none) so the caller can reframe the post after."""
-        fold = int(0.86 * self.screen_height)
-        scrolled_px = 0
+    def _reading_drag_up(self) -> int:
+        """One reading drag: the content lifted by 20 to 30 % of the screen, slowly (1:1, no coast),
+        then a reading beat. Returns the distance asked (px)."""
         motor_provider = getattr(self, "_motor_modulation", None)
         motor = (motor_provider("caption_read") if callable(motor_provider) else {
             "distance_scale": 1.0,
@@ -189,6 +203,22 @@ class PostReadingMixin:
             "settle_scale": 1.0,
             "dwell_scale": 1.0,
         })
+        dist = (random.uniform(0.20, 0.30) * self.screen_height
+                * motor["distance_scale"])
+        self._long_drag(
+            "up", distance_px=dist, vel_range=_READ_DRAG_VEL_PXS, guard_start=True,
+            velocity_scale=motor["velocity_scale"],
+        )
+        time.sleep(random.uniform(0.7, 1.4) * motor["dwell_scale"])
+        return int(dist)
+
+    def _reveal_expanded_caption(self, max_scrolls: int = 2) -> int:
+        """After expanding a caption, gently scroll so its now-visible text comes INTO view — a
+        human reads it, they don't open a caption that stays below the fold. Each scroll is a slow
+        drag (smooth) with a reading beat; stops once no caption extends below the fold. Returns
+        the TOTAL distance scrolled in px (0 if none) so the caller can reframe the post after."""
+        fold = int(0.86 * self.screen_height)
+        scrolled_px = 0
         for _ in range(max_scrolls):
             root = self._dump_root()
             if root is None:
@@ -205,14 +235,7 @@ class PostReadingMixin:
                     below = b - t
             if below is None:
                 break
-            dist = (random.uniform(0.20, 0.30) * self.screen_height
-                    * motor["distance_scale"])
-            self._long_drag(
-                "up", distance_px=dist, vel_range=_READ_DRAG_VEL_PXS, guard_start=True,
-                velocity_scale=motor["velocity_scale"],
-            )
-            scrolled_px += int(dist)
-            time.sleep(random.uniform(0.7, 1.4) * motor["dwell_scale"])
+            scrolled_px += self._reading_drag_up()
         if scrolled_px:
             self.logger.debug(f"📖 scrolled {scrolled_px}px to read the expanded caption")
         return scrolled_px
@@ -239,7 +262,7 @@ class PostReadingMixin:
         for node in root.iter():
             short = node.get("resource-id", "").rsplit("/", 1)[-1]
             if node.tag == FS.caption_layout_class:
-                if (node.get("text") or "").startswith(anchor["caption"]):
+                if anchor["caption"] and (node.get("text") or "").startswith(anchor["caption"]):
                     bounds = self._node_bounds(node)
                     if bounds:
                         return bounds[1] - anchor["top"]
@@ -293,6 +316,10 @@ class PostReadingMixin:
             offset = None
             for attempt in range(_REFRAME_CHECKS + 1):
                 offset = self._read_post_offset(anchor)
+                if attempt == 0 and offset is not None and offset > _REFRAME_TOLERANCE_H * h:
+                    # Reading only lifts a post: seen lower than it sat before any way back, this
+                    # is another post with the same description (the next one, same author and day).
+                    offset = None
                 if offset is not None and abs(offset) <= _REFRAME_TOLERANCE_H * h:
                     self.logger.debug(f"📐 reframed post after reading ({offset:+d}px)")
                     return True
@@ -527,13 +554,7 @@ class PostReadingMixin:
 
         caption_bounds, caption_text = None, ""
         if window["captions"]:
-            caption_bounds, caption_text = max(
-                window["captions"], key=lambda c: c[0][3] - c[0][1]
-            )
-            if text_lost_emoji(caption_text):
-                recovered = self._reread_caption_without_xml(caption_bounds)
-                if recovered:
-                    caption_text = recovered
+            caption_bounds, caption_text = self._tallest_caption(window["captions"])
 
         return {
             "header_desc": window["header_desc"],
@@ -547,15 +568,30 @@ class PostReadingMixin:
             "post_ends_on_screen": window["post_ends_on_screen"],
         }
 
+    def _tallest_caption(self, captions: list) -> tuple:
+        """The caption of a post among those of its window, (bounds, text): the tallest one. A text
+        whose emoji the XML dump ate (`text_lost_emoji`) is read again through JSON-RPC."""
+        bounds, text = max(captions, key=lambda c: c[0][3] - c[0][1])
+        if text_lost_emoji(text):
+            recovered = self._reread_caption_without_xml(bounds)
+            if recovered:
+                text = recovered
+        return bounds, text
+
     def read_framed_caption(self) -> Optional[dict]:
         """The framed post's context (`framed_post_context`) with its caption read whole, as a human
-        reads it before reacting: a truncated caption expanded first (its '… plus'/'… more'), then the
+        reads it before reacting: a truncated caption expanded first (its expander tapped), then the
         post brought back where it sat if the reading scrolled it (`_reframe_post_after_reading`).
+
+        A caption the screen does not show (the post runs under the bottom: a tall video, a small
+        phone) is looked for the way a human does: the post lifted until its caption or its end
+        shows, read, then brought back (`_read_caption_under_the_screen`).
 
         The one reading of a caption before acting on its post: the AI comment grounds on it, the
         excluded terms of the account are checked on it. Adds `reframed`: False when the reading moved
-        the post and the screen never showed it back (nothing should then act on this screen). None
-        when no post is framed."""
+        the post and the screen never showed it back (nothing should then act on this screen), and
+        `post_end_seen`: True when the post was seen down to its end, on screen or by the reading (an
+        empty caption is then no caption). None when no post is framed."""
         self._last_reveal_scroll_px = 0
         self.expand_caption_if_truncated()
         reframed = True
@@ -566,21 +602,124 @@ class PostReadingMixin:
         context = self.framed_post_context()
         if context is not None:
             context["reframed"] = reframed
+            context["post_end_seen"] = context["post_ends_on_screen"]
+            if reframed and self._caption_is_under_the_screen(context):
+                self._read_caption_under_the_screen(context)
         return context
 
-    def _framed_window(self, root) -> Optional[dict]:
-        """The framed post and what lies INSIDE its window, from one dump.
+    def _caption_is_under_the_screen(self, context: dict) -> bool:
+        """True when the framed post's caption cannot be read where the post sits: the post runs
+        under the bottom of the list and shows no caption, or one still truncated (its expander is
+        cut by the bottom). Only a post that says which it is (its header's description) and whose
+        header sits in the upper half of the screen is lifted."""
+        if context["post_ends_on_screen"] or not context["header_desc"]:
+            return False
+        if context["header_bounds"][1] > _SHOW_BUTTONS_MAX_HEADER_SHARE * self.screen_height:
+            return False
+        text = context["caption_text"]
+        return not text or clean_post_caption(text).truncated
 
-        The framed post is the first header fully below the action bar; its window runs to the
-        next post's header (or the bottom bar). Only what lies inside belongs to this post: its
-        button row, the heart and the counters of that row, its captions, and its media between
-        its header and its row. None when no header is framed (full-screen Reel viewer,
-        mid-scroll).
+    def _lifted_post_zone(self, root, identity: str, header_top: int, lifted_px: int) -> Optional[dict]:
+        """Where the post being read shows once reading drags lifted it by `lifted_px`, from one dump.
 
-        `list_top` and `list_bottom` bound what the list shows: a header starts to hide under the
-        top (the list's own top, or the action bar over it), a post under the bottom (the list's
-        end, or the bottom bar).
+        Its header still on screen: its usual window, from that header to the next one. Its header
+        gone above the top: what the list shows above the first header on screen (the tail of the
+        post: the end of its media, its button row, its caption). `closed`: a next header ends the
+        zone, so the post is seen down to its end.
+
+        The post's own header is the one with its description AND where the drags carried it: at
+        that height, or cut by the top of the list when they carried it higher. A header with its
+        description anywhere else is the next post's (same author, kind and day): which post is
+        read can then not be told, and None is returned. None too without a dump.
         """
+        if root is None:
+            return None
+        rows = self._scan_post_rows(root)
+        top_limit, bottom_limit, list_bounds = rows["top_limit"], rows["bottom_limit"], rows["list_bounds"]
+        visible = sorted((h for h in rows["headers"] if h[0][1] >= top_limit), key=lambda h: h[0][1])
+        tolerance = (_LIFTED_HEADER_TOLERANCE_H * self.screen_height
+                     + _LIFTED_HEADER_TOLERANCE_SHARE * lifted_px)
+        list_top = max(top_limit, list_bounds[1]) if list_bounds else top_limit
+        expected_top = header_top - lifted_px
+        own_top = None
+        for bounds, desc in visible:
+            if desc.strip() != identity:
+                continue
+            where_carried = abs(bounds[1] - expected_top) <= tolerance
+            cut_by_the_top = expected_top < list_top and bounds[1] == list_top
+            if own_top is None and (where_carried or cut_by_the_top):
+                own_top = bounds[1]
+            else:
+                return None
+        if own_top is not None:
+            zone_top = own_top
+            later_tops = [h[0][1] for h in visible if h[0][1] > own_top]
+        else:
+            zone_top = list_top
+            later_tops = [h[0][1] for h in visible]
+        zone_bottom = min([bottom_limit] + later_tops)
+        return {
+            "top": zone_top,
+            "bottom": zone_bottom,
+            "closed": zone_bottom < bottom_limit,
+            "captions": [c for c in rows["captions"] if zone_top <= c[0][1] and c[0][3] <= zone_bottom],
+        }
+
+    def _read_caption_under_the_screen(self, context: dict) -> None:
+        """Lift the framed post until its caption, or its end, shows; read the caption whole (a
+        truncated one expanded); bring the post back where it sat. `context` (the framed post's, read
+        before the lift) gets what was read: `caption_text`, `post_end_seen`, and `reframed` False
+        when the post is not back where it sat, with the same identity.
+
+        Each step looks at the screen (`_lifted_post_zone`): nothing is read from a zone that cannot
+        be told to be this post's."""
+        identity = context["header_desc"]
+        header_top = context["header_bounds"][1]
+        lifted_px = 0
+        caption_text = None
+        end_seen = False
+        for _ in range(_CAPTION_LIFTS):
+            lifted_px += self._reading_drag_up()
+            zone = self._lifted_post_zone(self._dump_root(), identity, header_top, lifted_px)
+            if zone is None:
+                break
+            if zone["captions"]:
+                caption_text = self._tallest_caption(zone["captions"])[1]
+                if clean_post_caption(caption_text).truncated:
+                    self._last_reveal_scroll_px = 0
+                    if not self.expand_caption_if_truncated(zone=(zone["top"], zone["bottom"])):
+                        continue   # its expander is still cut by the bottom: one more lift
+                    lifted_px += self._last_reveal_scroll_px
+                    self._last_reveal_scroll_px = 0
+                    zone = self._lifted_post_zone(self._dump_root(), identity, header_top, lifted_px)
+                    if zone is None or not zone["captions"]:
+                        break   # the expanded caption cannot be told to be this post's: left truncated
+                    caption_text = self._tallest_caption(zone["captions"])[1]
+                end_seen = True
+                break
+            if zone["closed"]:
+                end_seen = True   # the post ends here without a caption
+                break
+        found = "read" if caption_text else "none" if end_seen else "not found"
+        self.logger.debug(f"📖 lifted the post {lifted_px}px for a caption under the screen: {found}")
+        # The way back is checked on the post's header: its caption was not on screen where it sat.
+        self._reading_anchor = {"caption": "", "top": None, "header": identity, "header_top": header_top}
+        back = self._reframe_post_after_reading(lifted_px)
+        after = self.framed_post_context() if back else None
+        if after is None or after["header_desc"] != identity:
+            context["reframed"] = False
+            return
+        context.update(after)
+        context["reframed"] = True
+        context["post_end_seen"] = end_seen
+        if caption_text is not None:
+            context["caption_text"] = caption_text
+
+    def _scan_post_rows(self, root) -> dict:
+        """What one dump shows of the posts of a feed-style list: the bars that bound it, each
+        post's header, button row, heart, counters, author line and caption, with their bounds.
+        Read once, then cut into the framed post's window (`_framed_window`) or into the zone of a
+        post lifted for its reading (`_lifted_post_zone`)."""
         top_limit, bottom_limit = 0, int(self.screen_height)
         list_bounds = None
         headers, buttons, captions, counters, hearts, names = [], [], [], [], [], []
@@ -618,6 +757,29 @@ class PostReadingMixin:
                 continue
             if node.tag == FS.counter_button_class and count_from_counter_label(text.strip()) is not None:
                 counters.append((bounds, text.strip()))
+        return {
+            "top_limit": top_limit, "bottom_limit": bottom_limit, "list_bounds": list_bounds,
+            "headers": headers, "buttons": buttons, "captions": captions,
+            "counters": counters, "hearts": hearts, "names": names,
+        }
+
+    def _framed_window(self, root) -> Optional[dict]:
+        """The framed post and what lies INSIDE its window, from one dump.
+
+        The framed post is the first header fully below the action bar; its window runs to the
+        next post's header (or the bottom bar). Only what lies inside belongs to this post: its
+        button row, the heart and the counters of that row, its captions, and its media between
+        its header and its row. None when no header is framed (full-screen Reel viewer,
+        mid-scroll).
+
+        `list_top` and `list_bottom` bound what the list shows: a header starts to hide under the
+        top (the list's own top, or the action bar over it), a post under the bottom (the list's
+        end, or the bottom bar).
+        """
+        rows = self._scan_post_rows(root)
+        top_limit, bottom_limit, list_bounds = rows["top_limit"], rows["bottom_limit"], rows["list_bounds"]
+        headers, buttons, captions = rows["headers"], rows["buttons"], rows["captions"]
+        counters, hearts, names = rows["counters"], rows["hearts"], rows["names"]
 
         visible = sorted((h for h in headers if h[0][1] >= top_limit), key=lambda h: h[0][1])
         if not visible:

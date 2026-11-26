@@ -105,8 +105,9 @@ def post_verdict(
     A profile term in the author's handle leaves the post out (the author is a profile left out). With
     post terms, the caption must have been read whole, or the post is left out (`post_caption_unread`):
     no post framed, a reading that moved the post away, a caption still truncated, or no caption in the
-    post's window while the post runs under the bottom of the screen (its caption may be there). An
-    empty caption of a post shown whole is no caption: nothing to find in it.
+    post's window while the post was not seen down to its end (its caption may be under the screen,
+    where the reading did not find it). An empty caption of a post seen whole, on screen or by the
+    reading that lifted it (`post_end_seen`), is no caption: nothing to find in it.
     """
     author = (context or {}).get("author") or author_hint or None
     identity = (context or {}).get("header_desc") or None
@@ -120,7 +121,8 @@ def post_verdict(
         return PostVerdict(POST_CAPTION_UNREAD, author=author)
     raw = context.get("caption_text") or ""
     cleaned = clean_post_caption(raw, author_hint=author)
-    if cleaned.truncated or (not raw and not context.get("post_ends_on_screen")):
+    seen_whole = context.get("post_ends_on_screen") or context.get("post_end_seen")
+    if cleaned.truncated or (not raw and not seen_whole):
         return PostVerdict(POST_CAPTION_UNREAD, author=author, identity=identity)
     term = term_starting_a_word(cleaned.text, terms.post_terms)
     if term is not None:
