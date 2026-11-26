@@ -29,6 +29,7 @@ import taktik.core.shared.device.facade as shared_facade_module
 import taktik.core.social_media.instagram.actions.atomic.scroll.post_reading as post_reading
 import taktik.core.social_media.instagram.actions.base.device.facade as facade_module
 from profile_posts_phone import PKG, SCREEN_H, ProfilePostsPhone, ReplayGestures, capture
+from taktik.core.shared.behavior.gesture import SWIPE_FLOOR_H
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
 from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
 from taktik.core.social_media.instagram.actions.atomic.scroll.post_reading import PostReadingMixin
@@ -146,6 +147,27 @@ def test_a_way_back_that_coasts_past_the_post_is_caught_by_its_header(monkeypatc
 
     assert abs(phone.offset) <= 0.03 * SCREEN_H, f"left {phone.offset} px off after reading"
     assert reader.last_reading_reframed is True
+
+
+def test_a_gap_no_gesture_can_close_does_not_lose_the_post(monkeypatch):
+    # Measured on a Pixel 3a (Instagram 410), 10 readings out of 49 of one run: the way back left
+    # the post some 100 px lower than it sat, under the swipe floor (200 px there). The gesture
+    # asked to close that gap travelled the floor and carried the post past where it sat, the next
+    # one carried it back past again, and the post, 70 to 115 px off after the last check, was
+    # left out ("Post not brought back after reading").
+    _a_reading_that_expands_the_caption(monkeypatch)
+    phone = ProfilePostsPhone(back_swipe_coast=1.4)
+    host = _host(phone)
+    reader = host.scroll_actions
+
+    liked, _commented = host._run_engagement_sequence(["read", "like"], "profil_exemple", [], {})
+
+    way_back = reader.gestures[reader.gestures.index(("drag", "up", 720)) + 1:]
+    assert way_back == [("swipe", "down", 593)], "a gap under the swipe floor was asked of a gesture"
+    # Lower than it sat (the phone counts what the content went up), by less than the floor.
+    assert -SWIPE_FLOOR_H * SCREEN_H < phone.offset < 0
+    assert reader.last_reading_reframed is True
+    assert liked is True and host.likes == [phone.offset]
 
 
 def test_a_post_left_behind_is_still_caught_and_not_liked(monkeypatch):

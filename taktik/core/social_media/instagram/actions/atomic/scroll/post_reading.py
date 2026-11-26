@@ -55,7 +55,11 @@ _REFRAME_MIN_PX = 120
 
 # The way back after reading is measured on the screen: the read post's caption (else its header)
 # says how far it is from where it sat, and each gesture closes that gap, the first one a little
-# short so the post comes back into view without being passed.
+# short so the post comes back into view without being passed. A gesture never travels less than
+# the swipe floor (`SWIPE_FLOOR_H`): a gap under it cannot be closed, asking for it carries the post
+# past where it sat, and the next gesture carries it back past again. So a post lower than it sat by
+# less than the floor is back (its header is still on screen, it is still the framed post); a post
+# higher than it sat beyond the tolerance takes one more gesture down, which leaves it lower.
 _REFRAME_FIRST_MOVE = (0.85, 0.95)       # share of the measured gap asked by the first gesture
 _REFRAME_TOLERANCE_H = 0.03              # the caption is "back" within this share of the screen
 _REFRAME_CHECKS = 3                      # gestures at most, each followed by a screen check
@@ -301,12 +305,15 @@ class PostReadingMixin:
         travels. The read post's caption (found by its text), else its header (found by its
         description), says how far the post is from where it sat. Each gesture then closes that
         gap, the first one a little short of it so the post is not passed. Returns True once the
-        post is back where it was, False when the screen never showed it back: nothing should
-        then act on this screen.
+        post is back where it was, or lower by less than a gesture can travel (the swipe floor: no
+        gesture closes that gap); False when the screen never showed it back: nothing should then
+        act on this screen.
         """
         if scrolled_px <= 0:
             return True
         h = int(self.screen_height)
+        tolerance_px = _REFRAME_TOLERANCE_H * h
+        floor_px = SWIPE_FLOOR_H * h
         anchor = getattr(self, "_reading_anchor", None)
         try:
             if not anchor:
@@ -316,11 +323,11 @@ class PostReadingMixin:
             offset = None
             for attempt in range(_REFRAME_CHECKS + 1):
                 offset = self._read_post_offset(anchor)
-                if attempt == 0 and offset is not None and offset > _REFRAME_TOLERANCE_H * h:
+                if attempt == 0 and offset is not None and offset > tolerance_px:
                     # Reading only lifts a post: seen lower than it sat before any way back, this
                     # is another post with the same description (the next one, same author and day).
                     offset = None
-                if offset is not None and abs(offset) <= _REFRAME_TOLERANCE_H * h:
+                if offset is not None and -tolerance_px <= offset < max(tolerance_px, floor_px):
                     self.logger.debug(f"📐 reframed post after reading ({offset:+d}px)")
                     return True
                 if attempt >= _REFRAME_CHECKS:

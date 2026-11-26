@@ -228,8 +228,8 @@ class ProfilePostsPhone:
 class ReplayGestures:
     """The 1:1 gestures of the scroll owner (`ScrollActions` in production), moving the phone.
     The host sets `self.phone` and lists what it did in `self.gestures` (the travel asked). A
-    drag never travels less than the swipe floor (`SWIPE_FLOOR_H`), as on the phone: a request
-    under it goes that far."""
+    drag or a swipe never travels less than the swipe floor (`SWIPE_FLOOR_H`), as on the phone: a
+    request under it goes that far."""
 
     phone: ProfilePostsPhone
     gestures: list
@@ -245,10 +245,11 @@ class ReplayGestures:
 
     def _human_swipe(self, direction="up", distance_px=None, **_kwargs):
         self.gestures.append(("swipe", direction, int(distance_px)))
+        travel = max(float(distance_px), SWIPE_FLOOR_H * self.phone.height)
         if direction == "down":
-            self.phone.drag_content_down(distance_px)
+            self.phone.drag_content_down(travel)
         else:
-            self.phone.drag_content_up(distance_px)
+            self.phone.drag_content_up(travel)
         return True
 
     def _human_horizontal_swipe(self, *_args, **_kwargs):
