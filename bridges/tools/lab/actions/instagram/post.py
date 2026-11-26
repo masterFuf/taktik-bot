@@ -257,9 +257,10 @@ def return_to_grid_and_reopen(a, p):
 def check_excluded_terms(a, p):
     """The account's excluded terms on the FRAMED post, as the like and the comment check them before
     any gesture (`term_exclusion.check_post_terms`, the production function): with post terms its
-    caption is read whole (expanded when truncated, the post brought back after), with profile terms
-    its author's handle. Says the verdict, never likes nor comments. `profile_terms` and `post_terms`:
-    texts separated by commas."""
+    caption is read whole (expanded when truncated, looked for by one or two reading drags when it sits
+    under the bottom of the screen, the post brought back after), with profile terms its author's
+    handle. Says the verdict, never likes nor comments. `profile_terms` and `post_terms`: texts
+    separated by commas."""
     terms = ExcludedTerms(profile_terms=lab_texts(p, "profile_terms"), post_terms=lab_texts(p, "post_terms"))
     if not terms.profile_terms and not terms.post_terms:
         raise ValueError("Lab parameters 'profile_terms' and 'post_terms' are both empty: no term to check")
