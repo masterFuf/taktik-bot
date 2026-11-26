@@ -107,14 +107,15 @@ def test_reveal_returns_total_scrolled_px(monkeypatch):
 def test_reframe_scrolls_back_down_controlled(monkeypatch):
     host = _Host()
     monkeypatch.setattr(pr.time, "sleep", lambda _s: None)
-    monkeypatch.setattr(pr.random, "uniform", lambda a, b: a)  # first move = 0.85 of the reveal
+    # First move = the reveal plus 0.2 of the swipe floor (0.09 * 2000 = 180): 400 + 36.
+    monkeypatch.setattr(pr.random, "uniform", lambda a, b: a)
 
     # No caption was expanded: the way back cannot be checked, and says so.
     assert host._reframe_post_after_reading(400) is False
-    assert len(host.swipes) == 1            # 400*0.85=340 <= 0.45*2000 -> one gesture
+    assert len(host.swipes) == 1            # 436 <= 0.45*2000 -> one gesture
     s = host.swipes[0]
     assert s["direction"] == "down" and s["controlled"] is True
-    assert abs(s["distance_px"] - 340) < 1
+    assert abs(s["distance_px"] - 436) < 1
     assert s["start_band"] == (0.18 * 2000, 0.32 * 2000)   # starts HIGH to travel down
     assert host.warnings
 
@@ -122,12 +123,13 @@ def test_reframe_scrolls_back_down_controlled(monkeypatch):
 def test_reframe_splits_long_return_into_two_gestures(monkeypatch):
     host = _Host()
     monkeypatch.setattr(pr.time, "sleep", lambda _s: None)
-    monkeypatch.setattr(pr.random, "uniform", lambda a, b: b)  # first move = 0.95 of the reveal
+    # First move = the reveal plus 0.6 of the swipe floor (180): 1000 + 108.
+    monkeypatch.setattr(pr.random, "uniform", lambda a, b: b)
 
-    host._reframe_post_after_reading(1000)  # 950 > 900 -> two gestures
+    host._reframe_post_after_reading(1000)  # 1108 > 900 -> two gestures
     assert len(host.swipes) == 2
     assert all(s["direction"] == "down" for s in host.swipes)
-    assert abs(sum(s["distance_px"] for s in host.swipes) - 950) < 1
+    assert abs(sum(s["distance_px"] for s in host.swipes) - 1108) < 1
 
 
 def test_reading_pause_reframes_after_dwell(monkeypatch):

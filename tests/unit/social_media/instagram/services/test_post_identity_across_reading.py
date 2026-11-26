@@ -149,23 +149,28 @@ def test_a_way_back_that_coasts_past_the_post_is_caught_by_its_header(monkeypatc
     assert reader.last_reading_reframed is True
 
 
-def test_a_gap_no_gesture_can_close_does_not_lose_the_post(monkeypatch):
+def test_a_post_back_lower_than_it_sat_by_less_than_a_gesture_travels_is_back(monkeypatch):
     # Measured on a Pixel 3a (Instagram 410), 10 readings out of 49 of one run: the way back left
-    # the post some 100 px lower than it sat, under the swipe floor (200 px there). The gesture
-    # asked to close that gap travelled the floor and carried the post past where it sat, the next
-    # one carried it back past again, and the post, 70 to 115 px off after the last check, was
-    # left out ("Post not brought back after reading").
+    # the post some 100 px off, under the swipe floor (200 px there). The gesture asked to close
+    # that gap travelled the floor and carried the post past where it sat, the next one carried it
+    # back past again, and the post, 70 to 115 px off after the last check, was left out ("Post not
+    # brought back after reading"). The way back now lands the post a little lower than it sat
+    # (here by the largest draw: 0.6 of the floor), and that is back.
     _a_reading_that_expands_the_caption(monkeypatch)
-    phone = ProfilePostsPhone(back_swipe_coast=1.4)
+    drawn = post_reading.random.uniform
+    monkeypatch.setattr(post_reading.random, "uniform",
+                        lambda lower, upper: upper if (lower, upper) == (0.2, 0.6) else drawn(lower, upper))
+    phone = ProfilePostsPhone()
     host = _host(phone)
     reader = host.scroll_actions
 
     liked, _commented = host._run_engagement_sequence(["read", "like"], "profil_exemple", [], {})
 
     way_back = reader.gestures[reader.gestures.index(("drag", "up", 720)) + 1:]
-    assert way_back == [("swipe", "down", 593)], "a gap under the swipe floor was asked of a gesture"
-    # Lower than it sat (the phone counts what the content went up), by less than the floor.
-    assert -SWIPE_FLOOR_H * SCREEN_H < phone.offset < 0
+    assert [gesture[:2] for gesture in way_back] == [("swipe", "down")],         "a gap under the swipe floor was asked of a gesture"
+    # Lower than it sat (the phone counts what the content went up), by less than the floor and
+    # by more than the old tolerance.
+    assert -SWIPE_FLOOR_H * SCREEN_H < phone.offset < -0.03 * SCREEN_H
     assert reader.last_reading_reframed is True
     assert liked is True and host.likes == [phone.offset]
 

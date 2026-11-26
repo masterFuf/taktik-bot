@@ -54,13 +54,16 @@ _EXPAND_CAPTION_PROB = 0.45
 _REFRAME_MIN_PX = 120
 
 # The way back after reading is measured on the screen: the read post's caption (else its header)
-# says how far it is from where it sat, and each gesture closes that gap, the first one a little
-# short so the post comes back into view without being passed. A gesture never travels less than
+# says how far it is from where it sat, and each gesture closes that gap. A gesture never travels less than
 # the swipe floor (`SWIPE_FLOOR_H`): a gap under it cannot be closed, asking for it carries the post
 # past where it sat, and the next gesture carries it back past again. So a post lower than it sat by
 # less than the floor is back (its header is still on screen, it is still the framed post); a post
 # higher than it sat beyond the tolerance takes one more gesture down, which leaves it lower.
-_REFRAME_FIRST_MOVE = (0.85, 0.95)       # share of the measured gap asked by the first gesture
+# The first gesture of the way back asks for the measured gap plus this share of the swipe floor: the
+# post lands a little lower than it sat, which is back, instead of a little higher, which called
+# for a correction under the floor (measured on the phone: 200 px asked in 92 ms is a flick, and
+# the list coasted on for 1000 px).
+_REFRAME_FIRST_OVERSHOOT_FLOOR_SHARE = (0.2, 0.6)
 _REFRAME_TOLERANCE_H = 0.03              # the caption is "back" within this share of the screen
 _REFRAME_CHECKS = 3                      # gestures at most, each followed by a screen check
 # Characters of the truncated caption kept to recognise it once expanded.
@@ -82,7 +85,9 @@ _SHOW_BUTTONS_MAX_HEADER_SHARE = 0.5
 # is lifted by reading drags until its caption, or its end, shows. A post whose header sits in the
 # lower half of the list is mostly under the screen and is not lifted (the same bound as the like's).
 # Once lifted, the post's own header is recognised where the drags carried it, within this share of
-# the screen plus this share of the distance dragged: the next post may carry the same description.
+# the screen plus this share of the distance dragged. Its description cannot be what tells it: on the
+# phone a header's description comes and goes (one post: there on three dumps, gone on the next
+# four, back after), and the next post may carry the same one. It only vetoes when both are known.
 _CAPTION_LIFTS = 2
 _LIFTED_HEADER_TOLERANCE_H = 0.10
 _LIFTED_HEADER_TOLERANCE_SHARE = 0.25
@@ -255,14 +260,27 @@ class PostReadingMixin:
                 break
         return body.rstrip("… .")[:_CAPTION_ANCHOR_CHARS]
 
+    @staticmethod
+    def _descriptions_agree(one: Optional[str], other: Optional[str]) -> bool:
+        """Two header descriptions may be one post's: the same, or one of them missing (a header's
+        description comes and goes on the phone)."""
+        one, other = (one or "").strip(), (other or "").strip()
+        return not one or not other or one == other
+
     def _read_post_offset(self, anchor: dict) -> Optional[int]:
         """How far the read post is from where it sat (px, positive = lower), from one fresh dump:
         by its caption, found by its text, else by its header, found by its description. None
-        when neither is on screen. A node cut by the top of the list reports its visible top."""
+        when neither is on screen. A node cut by the top of the list reports its visible top.
+
+        An anchor with `header_within` (a post lifted for a caption under the screen: no caption
+        text to find) looks for the header by its place instead: the nearest one to where the post
+        sat, no further than `header_within` px, whose description does not say another post."""
         root = self._dump_root()
         if root is None:
             return None
+        header_within = anchor.get("header_within")
         header_top = None
+        near_offsets = []
         for node in root.iter():
             short = node.get("resource-id", "").rsplit("/", 1)[-1]
             if node.tag == FS.caption_layout_class:
@@ -270,11 +288,19 @@ class PostReadingMixin:
                     bounds = self._node_bounds(node)
                     if bounds:
                         return bounds[1] - anchor["top"]
-            elif (short == FS.profile_header_id and anchor.get("header")
-                  and (node.get("content-desc") or "").strip() == anchor["header"]):
+            elif short == FS.profile_header_id:
                 bounds = self._node_bounds(node)
-                if bounds and header_top is None:
+                description = (node.get("content-desc") or "").strip()
+                if not bounds:
+                    continue
+                if header_within is not None:
+                    offset = bounds[1] - anchor["header_top"]
+                    if abs(offset) <= header_within and self._descriptions_agree(description, anchor["header"]):
+                        near_offsets.append(offset)
+                elif anchor.get("header") and description == anchor["header"] and header_top is None:
                     header_top = bounds[1]
+        if header_within is not None:
+            return min(near_offsets, key=abs) if near_offsets else None
         if header_top is not None and anchor.get("header_top") is not None:
             return header_top - anchor["header_top"]
         return None
@@ -304,7 +330,7 @@ class PostReadingMixin:
         the reveal ASKED for nor the one the way back asks for is the distance the content
         travels. The read post's caption (found by its text), else its header (found by its
         description), says how far the post is from where it sat. Each gesture then closes that
-        gap, the first one a little short of it so the post is not passed. Returns True once the
+        gap, the first one a little past it so the post lands lower than it sat. Returns True once the
         post is back where it was, or lower by less than a gesture can travel (the swipe floor: no
         gesture closes that gap); False when the screen never showed it back: nothing should then
         act on this screen.
@@ -314,10 +340,11 @@ class PostReadingMixin:
         h = int(self.screen_height)
         tolerance_px = _REFRAME_TOLERANCE_H * h
         floor_px = SWIPE_FLOOR_H * h
+        first_overshoot_px = random.uniform(*_REFRAME_FIRST_OVERSHOOT_FLOOR_SHARE) * floor_px
         anchor = getattr(self, "_reading_anchor", None)
         try:
             if not anchor:
-                self._swipe_content_down(scrolled_px * random.uniform(*_REFRAME_FIRST_MOVE))
+                self._swipe_content_down(scrolled_px + first_overshoot_px)
                 self.logger.warning("Post brought back after reading, unchecked: no caption to check")
                 return False
             offset = None
@@ -336,14 +363,13 @@ class PostReadingMixin:
                     if attempt:
                         break   # lost from sight after a gesture: no guess about where it went
                     # The whole post scrolled away while reading: back by what the reveal asked.
-                    self._swipe_content_down(scrolled_px * random.uniform(*_REFRAME_FIRST_MOVE))
+                    self._swipe_content_down(scrolled_px + first_overshoot_px)
                 elif offset > 0:
                     self._long_drag("up", distance_px=offset, vel_range=_READ_DRAG_VEL_PXS,
                                     guard_start=True)
                     time.sleep(random.uniform(0.25, 0.55))
                 else:
-                    share = random.uniform(*_REFRAME_FIRST_MOVE) if attempt == 0 else 1.0
-                    self._swipe_content_down(-offset * share)
+                    self._swipe_content_down(-offset + (first_overshoot_px if attempt == 0 else 0))
             where = "not on screen" if offset is None else f"{offset:+d}px from where it was"
             self.logger.warning(f"Post not brought back after reading: {where}")
             return False
@@ -617,14 +643,18 @@ class PostReadingMixin:
     def _caption_is_under_the_screen(self, context: dict) -> bool:
         """True when the framed post's caption cannot be read where the post sits: the post runs
         under the bottom of the list and shows no caption, or one still truncated (its expander is
-        cut by the bottom). Only a post that says which it is (its header's description) and whose
-        header sits in the upper half of the screen is lifted."""
-        if context["post_ends_on_screen"] or not context["header_desc"]:
+        cut by the bottom). Only a post whose header sits in the upper half of the screen is
+        lifted."""
+        if context["post_ends_on_screen"]:
             return False
         if context["header_bounds"][1] > _SHOW_BUTTONS_MAX_HEADER_SHARE * self.screen_height:
             return False
         text = context["caption_text"]
         return not text or clean_post_caption(text).truncated
+
+    def _lifted_tolerance_px(self, lifted_px: int) -> float:
+        """How far from where the drags should have carried it a lifted post's header may be."""
+        return _LIFTED_HEADER_TOLERANCE_H * self.screen_height + _LIFTED_HEADER_TOLERANCE_SHARE * lifted_px
 
     def _lifted_post_zone(self, root, identity: str, header_top: int, lifted_px: int) -> Optional[dict]:
         """Where the post being read shows once reading drags lifted it by `lifted_px`, from one dump.
@@ -632,51 +662,53 @@ class PostReadingMixin:
         Its header still on screen: its usual window, from that header to the next one. Its header
         gone above the top: what the list shows above the first header on screen (the tail of the
         post: the end of its media, its button row, its caption). `closed`: a next header ends the
-        zone, so the post is seen down to its end.
+        zone; `has_row`: the post's button row is in it. Both, and the post was seen down to its end.
 
-        The post's own header is the one with its description AND where the drags carried it: at
-        that height, or cut by the top of the list when they carried it higher. A header with its
-        description anywhere else is the next post's (same author, kind and day): which post is
-        read can then not be told, and None is returned. None too without a dump.
+        The post's own header is the one where the drags carried it (`_lifted_tolerance_px`),
+        whatever its description says or no longer says. Two cases cannot be told and return None:
+        a header there whose description says another post, and the read post's description on a
+        header somewhere else (the next post's: same author, kind and day). None too without a dump.
         """
         if root is None:
             return None
         rows = self._scan_post_rows(root)
         top_limit, bottom_limit, list_bounds = rows["top_limit"], rows["bottom_limit"], rows["list_bounds"]
         visible = sorted((h for h in rows["headers"] if h[0][1] >= top_limit), key=lambda h: h[0][1])
-        tolerance = (_LIFTED_HEADER_TOLERANCE_H * self.screen_height
-                     + _LIFTED_HEADER_TOLERANCE_SHARE * lifted_px)
-        list_top = max(top_limit, list_bounds[1]) if list_bounds else top_limit
         expected_top = header_top - lifted_px
+        tolerance = self._lifted_tolerance_px(lifted_px)
         own_top = None
-        for bounds, desc in visible:
-            if desc.strip() != identity:
-                continue
-            where_carried = abs(bounds[1] - expected_top) <= tolerance
-            cut_by_the_top = expected_top < list_top and bounds[1] == list_top
-            if own_top is None and (where_carried or cut_by_the_top):
+        for bounds, description in visible:
+            description = description.strip()
+            if abs(bounds[1] - expected_top) <= tolerance:
+                if own_top is not None or not self._descriptions_agree(description, identity):
+                    return None
                 own_top = bounds[1]
-            else:
+            elif identity and description == identity:
                 return None
         if own_top is not None:
             zone_top = own_top
             later_tops = [h[0][1] for h in visible if h[0][1] > own_top]
         else:
-            zone_top = list_top
+            zone_top = max(top_limit, list_bounds[1]) if list_bounds else top_limit
             later_tops = [h[0][1] for h in visible]
         zone_bottom = min([bottom_limit] + later_tops)
+
+        def _in_zone(bounds):
+            return zone_top <= bounds[1] and bounds[3] <= zone_bottom
+
         return {
             "top": zone_top,
             "bottom": zone_bottom,
             "closed": zone_bottom < bottom_limit,
-            "captions": [c for c in rows["captions"] if zone_top <= c[0][1] and c[0][3] <= zone_bottom],
+            "has_row": any(_in_zone(row) for row in rows["buttons"]),
+            "captions": [c for c in rows["captions"] if _in_zone(c[0])],
         }
 
     def _read_caption_under_the_screen(self, context: dict) -> None:
         """Lift the framed post until its caption, or its end, shows; read the caption whole (a
         truncated one expanded); bring the post back where it sat. `context` (the framed post's, read
         before the lift) gets what was read: `caption_text`, `post_end_seen`, and `reframed` False
-        when the post is not back where it sat, with the same identity.
+        when the framed post is not the read one, back where it sat.
 
         Each step looks at the screen (`_lifted_post_zone`): nothing is read from a zone that cannot
         be told to be this post's."""
@@ -704,16 +736,20 @@ class PostReadingMixin:
                     caption_text = self._tallest_caption(zone["captions"])[1]
                 end_seen = True
                 break
-            if zone["closed"]:
-                end_seen = True   # the post ends here without a caption
+            if zone["closed"] and zone["has_row"]:
+                end_seen = True   # its button row, then the next post: no caption
                 break
         found = "read" if caption_text else "none" if end_seen else "not found"
         self.logger.debug(f"📖 lifted the post {lifted_px}px for a caption under the screen: {found}")
-        # The way back is checked on the post's header: its caption was not on screen where it sat.
-        self._reading_anchor = {"caption": "", "top": None, "header": identity, "header_top": header_top}
+        # The way back is checked on the post's header, by its place: its caption was not on screen
+        # where it sat, and its description may be gone by now.
+        within = self._lifted_tolerance_px(lifted_px)
+        self._reading_anchor = {"caption": "", "top": None, "header": identity,
+                                "header_top": header_top, "header_within": within}
         back = self._reframe_post_after_reading(lifted_px)
         after = self.framed_post_context() if back else None
-        if after is None or after["header_desc"] != identity:
+        if (after is None or abs(after["header_bounds"][1] - header_top) > within
+                or not self._descriptions_agree(after["header_desc"], identity)):
             context["reframed"] = False
             return
         context.update(after)
