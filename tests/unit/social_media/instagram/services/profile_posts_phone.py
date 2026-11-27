@@ -88,12 +88,16 @@ class ProfilePostsPhone:
     the first one holds nothing of, under its bottom, the second shows: it is served, moved the
     same way, once the list is nearer to it than to the first.
 
-    `liked_label`: what a liked heart then says (its content-desc), its `selected` staying false."""
+    `liked_label`: what a liked heart then says (its content-desc), its `selected` staying false.
+
+    `heart_shows_after_s`: a liked heart says it only that many seconds (of `clock`) after the like,
+    as on a slow phone playing a video."""
 
     wait_timeout = 1.0
 
     def __init__(self, obeys_back_swipes=True, back_swipe_coast=1.0, screen=None,
-                 height=SCREEN_H, dump_s=0.0, likes_on_tap=False, further=None, liked_label=None):
+                 height=SCREEN_H, dump_s=0.0, likes_on_tap=False, further=None, liked_label=None,
+                 heart_shows_after_s=0.0):
         self.screen = screen if screen is not None else capture("ig447_fr_profile_posts_list.xml")
         self.further = further
         self.height = height
@@ -107,6 +111,8 @@ class ProfilePostsPhone:
         self.dump_s = dump_s
         self.likes_on_tap = likes_on_tap
         self.liked_label = liked_label
+        self.heart_shows_after_s = heart_shows_after_s
+        self._liked_at_clock = None
         #: (clock at the flick, [(seconds after it, px still to travel), ...]) while it coasts.
         self._coast = None
         self._liked_hearts = set()
@@ -157,6 +163,8 @@ class ProfilePostsPhone:
     def _screen_now(self):
         screen, _offset, liked = self._capture_now()
         root = etree.fromstring(screen.encode("utf-8"))
+        if self._liked_at_clock is not None and self.clock - self._liked_at_clock < self.heart_shows_after_s:
+            return etree.tostring(root, encoding="unicode")
         for node in root.iter():
             if node.get("resource-id") == HEART_ID and node.get("bounds") in liked:
                 if self.liked_label is None:
@@ -195,6 +203,7 @@ class ProfilePostsPhone:
         it. The post of a point is the last header above it in the capture."""
         if not self.likes_on_tap:
             return
+        self._liked_at_clock = self.clock
         screen, offset, liked = self._capture_now()
         captured_y = y + self.current_offset() - offset
         root = etree.fromstring(screen.encode("utf-8"))

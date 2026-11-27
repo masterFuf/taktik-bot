@@ -26,6 +26,11 @@ from taktik.core.social_media.instagram.ui.extractors import post_signature
 _DOUBLE_TAP_BAND_X = (0.30, 0.70)
 _DOUBLE_TAP_BAND_Y = (0.25, 0.75)
 
+# Pauses before each new reading of a heart that does not say liked yet after a like gesture. A slow
+# phone playing a video shows its heart turned later than the first reading: on a Pixel 3a, 11 likes
+# of one run were read as not given, every one on a video, and the posts said liked afterwards.
+_HEART_RECHECK_PAUSES_S = (0.5, 0.8)
+
 
 class FramedLike(Enum):
     """What a like of the post on screen did (`LikeOrchestration.like_current_post`, and
@@ -492,7 +497,8 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 self.logger.warning("Failed to like: no heart to tap")
                 return FramedLike.NOT_LIKED
             self._human_like_delay('click')
-            return self._like_outcome(self.detection_actions.is_post_liked(), "button", record_as)
+            return self._like_outcome(
+                self._heart_after_gesture(self.detection_actions.is_post_liked), "button", record_as)
 
         except Exception as e:
             self.logger.error(f"Error liking current post: {e}")
@@ -553,7 +559,23 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             self.device.human_tap(target["heart"])
             how = "button"
         self._human_like_delay('click')
-        return self._like_outcome(self._framed_post_liked(self._framed_like_target(), identity), how, record_as)
+        seen = self._heart_after_gesture(
+            lambda: self._framed_post_liked(self._framed_like_target(), identity))
+        return self._like_outcome(seen, how, record_as)
+
+    def _heart_after_gesture(self, read: Callable[[], Optional[bool]]) -> Optional[bool]:
+        """What a heart says after a like gesture: `read` once, then again after each pause of
+        `_HEART_RECHECK_PAUSES_S` while it does not say liked. It only reads: the heart is never
+        tapped again (`_like_outcome`). The last reading is the answer."""
+        seen = read()
+        for reading, pause in enumerate(_HEART_RECHECK_PAUSES_S, start=2):
+            if seen:
+                break
+            time.sleep(pause)
+            seen = read()
+            if seen:
+                self.logger.debug(f"Heart seen liked on reading {reading}, after the gesture")
+        return seen
 
     def _like_outcome(self, seen: Optional[bool], how: str, record_as: Optional[str]) -> FramedLike:
         """What a like gesture, once played, did: the one answer of every like, on a list or off it.
@@ -777,7 +799,7 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             )
             self.device.human_double_tap(image_region)
             self._human_like_delay('click')
-            return self.detection_actions.is_post_liked()
+            return self._heart_after_gesture(self.detection_actions.is_post_liked)
         except Exception as e:
             self.logger.warning(f"Double-tap like could not be checked ({e}): unknown")
             return None

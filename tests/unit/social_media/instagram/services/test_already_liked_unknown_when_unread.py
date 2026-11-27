@@ -253,7 +253,8 @@ def test_off_a_list_a_double_tap_whose_check_fails_is_not_undone_by_a_heart_tap(
     phone = _ViewerPhone(liked=False, stops_after_double_tap=True)
     like = like_on_phone(phone)
 
-    assert like.like_current_post() is orchestration.FramedLike.NOT_LIKED
+    # The check fails once; the heart, read again (`_heart_after_gesture`), says the like took.
+    assert like.like_current_post() is orchestration.FramedLike.LIKED
 
     assert [kind for kind, _x, _y in phone.taps] == ["double_tap"], phone.taps
     assert phone.liked is True, "the heart tap took back the like the double tap gave"
