@@ -294,6 +294,7 @@ def like_on_phone(phone) -> LikeOrchestration:
     like.rows = []
     like.session_actions = []
     like.session_manager = _FiledSession(like.session_actions)
+    like.automation = None
     like._record_action = lambda username, kind, count=1, **_kw: like.rows.append((username, kind, count))
     like._human_like_delay = lambda *_args, **_kwargs: None   # the session's pacing, not tested here
     return like

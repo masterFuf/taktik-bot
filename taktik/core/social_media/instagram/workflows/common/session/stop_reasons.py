@@ -583,9 +583,10 @@ def like_unconfirmed() -> StopReason:
     """Several likes in a row whose effect the screen did not show (`shared/diagnostics/like_confirmation.py`).
 
     A gesture was played each time, and its heart did not say liked: Instagram refused it in silence,
-    or a heart now says it another way. Either way the counters no longer hold what the run did, and
-    nobody would have known: 168 likes taken back in one evening, on no alert. The operator looks at
-    the last posts by hand before launching again.
+    or a heart now says it another way. Three in a row only leave the posts being liked; this ends
+    the run on nine, when the posts after them showed none either. The counters no longer hold what
+    the run did, and nobody would have known: 168 likes taken back in one evening, on no alert. The
+    operator looks at the last posts by hand before launching again.
     """
     return _reason("like_unconfirmed", FAMILY_FAILED, "Several likes in a row not confirmed by the screen")
 

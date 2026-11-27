@@ -1,4 +1,4 @@
-"""A like plays one gesture, and a run stops when its likes no longer show.
+"""A like plays one gesture; when its likes no longer show, a run leaves the posts, then stops.
 
 Measured on 2026-10-31, Instagram 447.0.0.55.81 in French, Pixel 6a and Nokia 4.2: no like seen at all
 (0 of 16), because a liked heart no longer said it the way the bot read it
@@ -41,6 +41,8 @@ PIXEL_6A_H = 2400
 LIKED_LABEL = "J’aime déjà"
 #: A liked heart saying it in a way the bot has not met.
 A_LABEL_NOT_MET_YET = "Publication aimée"
+TO_LEAVE = like_confirmation.UNCONFIRMED_LIKES_BEFORE_LEAVING
+JUST_UNDER_THE_HALT = like_confirmation.UNCONFIRMED_LIKES_BEFORE_HALT - 1
 
 
 @pytest.fixture(autouse=True)
@@ -50,6 +52,16 @@ def _french_phone_no_waits(monkeypatch):
     set_active_locale("fr")
     yield
     set_active_locale(None)
+
+
+@pytest.fixture(autouse=True)
+def screens_kept(monkeypatch):
+    """The screens a like not seen keeps, as (label, session id), instead of files."""
+    kept = []
+    monkeypatch.setattr(
+        orchestration, "capture_screen_snapshot",
+        lambda _device, label, session_id=None: kept.append((label, session_id)))
+    return kept
 
 
 @pytest.fixture
@@ -152,10 +164,10 @@ def _halt_code():
     return (run_halt.arret_demande() or {}).get("code")
 
 
-def test_three_likes_not_seen_in_a_row_stop_the_run(monkeypatch):
+def test_likes_not_seen_in_a_row_stop_the_run(monkeypatch):
     _gesture_drawn(monkeypatch, True)
 
-    _like_not_seen(like_confirmation.UNCONFIRMED_LIKES_BEFORE_HALT - 1)
+    _like_not_seen(JUST_UNDER_THE_HALT)
     assert _halt_code() is None
 
     _like_not_seen()
@@ -166,13 +178,13 @@ def test_three_likes_not_seen_in_a_row_stop_the_run(monkeypatch):
     assert stop_reasons.terminal_status(reason) == stop_reasons.STATUS_INTERRUPTED
 
 
-def test_two_not_seen_then_a_like_seen_do_not(monkeypatch):
+def test_a_like_seen_between_likes_not_seen_does_not(monkeypatch):
     _gesture_drawn(monkeypatch, True)
 
-    _like_not_seen(2)
+    _like_not_seen(JUST_UNDER_THE_HALT)
     seen = _phone(likes_on_tap=True, liked_label=LIKED_LABEL)
     assert like_on_phone(seen).like_framed_post() is FramedLike.LIKED
-    _like_not_seen(2)
+    _like_not_seen(JUST_UNDER_THE_HALT)
 
     assert _halt_code() is None
 
@@ -181,7 +193,7 @@ def test_a_post_liked_already_counts_neither_way(monkeypatch):
     _gesture_drawn(monkeypatch, True)
     already = like_on_phone(_phone(screen=LIKED_NOKIA))
 
-    _like_not_seen(2)
+    _like_not_seen(JUST_UNDER_THE_HALT)
     assert already.like_framed_post() is FramedLike.ALREADY_LIKED
     assert _halt_code() is None, "a post liked already counted as a like not seen"
 
@@ -208,6 +220,7 @@ def test_the_count_covers_the_feed_and_a_profiles_posts_together(monkeypatch):
     feed.logger = logger
     feed.like_business = like_on_phone(_phone(likes_on_tap=False))
     profile_posts = like_on_phone(_phone(likes_on_tap=False))
+    _like_not_seen(like_confirmation.UNCONFIRMED_LIKES_BEFORE_HALT - 3)
 
     assert feed._like_current_post(record_as="author_one") is False
     assert profile_posts.like_current_post() is FramedLike.NOT_LIKED
@@ -217,12 +230,56 @@ def test_the_count_covers_the_feed_and_a_profiles_posts_together(monkeypatch):
     assert _halt_code() == "like_unconfirmed"
 
 
-def test_the_walk_of_a_profiles_posts_stops_on_the_third(monkeypatch):
+def test_the_walk_of_a_profiles_posts_stops_on_the_last(monkeypatch):
     _gesture_drawn(monkeypatch, True)
-    _like_not_seen(2)
+    _like_not_seen(JUST_UNDER_THE_HALT)
     like = like_on_phone(_phone(likes_on_tap=False))
     like._stop_if_action_blocked = lambda *_a, **_k: False
 
     assert like._run_engagement_sequence(("like",), "author_one", None, {}) == (False, False)
 
     assert run_halt.arret_demande() is not None
+
+# --- before the run stops: the posts are left, the screen is kept, the reading says why ---------
+
+
+def test_a_few_likes_not_seen_in_a_row_ask_to_leave_the_posts(monkeypatch):
+    _gesture_drawn(monkeypatch, True)
+
+    _like_not_seen(TO_LEAVE - 1)
+    assert not like_confirmation.leave_posts_asked()
+    _like_not_seen()
+
+    assert like_confirmation.leave_posts_asked()
+    assert _halt_code() is None
+
+
+def test_the_first_likes_not_seen_keep_their_screen(monkeypatch, screens_kept):
+    _gesture_drawn(monkeypatch, True)
+
+    _like_not_seen(like_confirmation.SCREENS_KEPT_PER_RUN + 1)
+
+    assert screens_kept == [("like_not_seen", None)] * like_confirmation.SCREENS_KEPT_PER_RUN
+
+
+def test_a_like_seen_keeps_no_screen(monkeypatch, screens_kept):
+    _gesture_drawn(monkeypatch, True)
+    phone = _phone(likes_on_tap=True, liked_label=LIKED_LABEL)
+
+    assert like_on_phone(phone).like_framed_post() is FramedLike.LIKED
+
+    assert screens_kept == []
+
+
+@pytest.mark.parametrize("target, heart", [
+    (None, None),
+    ({"list": False}, None),
+    ({"list": True, "identity": "another post", "liked": True}, None),
+    ({"list": True, "identity": "the post", "liked": None}, None),
+    ({"list": True, "identity": "the post", "liked": False}, False),
+    ({"list": True, "identity": "the post", "liked": True}, True),
+], ids=["unreadable", "not_a_list", "another_post", "heart_off_screen", "not_liked", "liked"])
+def test_a_heart_that_was_not_read_is_not_a_heart_that_says_not_liked(target, heart):
+    like = like_on_phone(_phone())
+
+    assert like._framed_post_liked(target, "the post") is heart

@@ -14,6 +14,7 @@ from taktik.core.social_media.instagram.services.profile import ProfileBusiness
 from taktik.core.social_media.instagram.services.like.post_navigation import PostNavigationMixin
 from taktik.core.shared.behavior.like_method import should_double_tap_like, should_like_this_post
 from taktik.core.shared.diagnostics import like_confirmation, run_halt
+from taktik.core.shared.diagnostics.screen_snapshot import capture_screen_snapshot
 from taktik.core.shared.behavior.engagement_sequence import plan_engagement_sequence
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.support.debug import DEBUG_SELECTORS
@@ -268,6 +269,7 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 return stats
 
             self.logger.success("Entry post opened, starting sequential scroll")
+            like_confirmation.posts_entered()
 
             consecutive_identical_posts = 0
             seen_posts_signatures = set()
@@ -397,6 +399,12 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                         if run_halt.arret_demande():
                             # A refusal seen after a gesture of this post: no next post.
                             self.logger.warning("⛔ Run stop requested — leaving the posts")
+                            break
+                        if like_confirmation.leave_posts_asked():
+                            # The likes of these posts do not show: no next one here, the run goes on.
+                            self.logger.warning(
+                                f"{like_confirmation.UNCONFIRMED_LIKES_BEFORE_LEAVING} likes in a row not "
+                                "confirmed by the screen — leaving these posts, the run goes on")
                             break
                 else:
                     self.logger.debug(f"Post #{posts_seen} not engaged")
@@ -582,8 +590,9 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
 
         `seen`: its heart says the post is liked (None: it could not be read). Not seen, the heart is
         NOT tapped to try again: a tap on a heart that does not say it is liked but is takes the like
-        back, which cost 168 likes in one evening. The post stays as the gesture left it, not counted,
-        and `like_confirmation` stops the run after a few of those in a row."""
+        back, which cost 168 likes in one evening. The post stays as the gesture left it, not counted;
+        the first ones of a run keep their screen, and after a few in a row `like_confirmation` asks
+        to leave the posts, then stops the run."""
         if seen:
             self.logger.debug(f"Post liked ({how})")
             like_confirmation.like_seen()
@@ -594,8 +603,16 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             f"{'could not be read' if seen is None else 'does not say liked'}. Not counted, "
             "and its heart is not tapped, which could take back a like the gesture gave"
         )
+        self._keep_screen_of_like_not_seen()
         like_confirmation.like_not_seen()
         return FramedLike.NOT_LIKED
+
+    def _keep_screen_of_like_not_seen(self) -> None:
+        """The screen as the gesture and its readings left it, for the first likes not seen of a run
+        (`like_confirmation.screen_to_keep`): its dump says what the heart reads, its picture what
+        the heart shows. Kept before anything else moves the post; it never fails the like."""
+        if like_confirmation.screen_to_keep():
+            capture_screen_snapshot(self.device, "like_not_seen", session_id=self._get_session_id())
 
     def _show_framed_post_heart(self, identity: Optional[str]) -> Optional[Dict[str, Any]]:
         """The framed post's heart runs under the bottom of the list: bring its row up with the
@@ -611,10 +628,22 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
         shown = show(identity, "like")
         return shown if isinstance(shown, dict) else None
 
-    @staticmethod
-    def _framed_post_liked(target: Optional[Dict[str, Any]], identity: Optional[str]) -> bool:
-        return bool(target and target.get("list") and target.get("identity") == identity
-                    and target.get("liked"))
+    def _framed_post_liked(self, target: Optional[Dict[str, Any]], identity: Optional[str]) -> Optional[bool]:
+        """What the heart of the post `identity` says in `target`, a like target read after the
+        gesture. None, and why in the log, when the heart read is not that post's: a heart that
+        does not say liked and a heart that was not read are two answers (`_like_outcome`)."""
+        if target is None:
+            why = "the screen could not be read"
+        elif not target.get("list"):
+            why = "the screen is no longer a list of posts"
+        elif target.get("identity") != identity:
+            why = f"the framed post is now {target.get('identity')}"
+        elif target.get("liked") is None:
+            why = "its heart is no longer on screen"
+        else:
+            return bool(target["liked"])
+        self.logger.debug(f"Heart of {identity} not read after the gesture: {why}")
+        return None
 
     @staticmethod
     def _double_tap_region(media) -> tuple:

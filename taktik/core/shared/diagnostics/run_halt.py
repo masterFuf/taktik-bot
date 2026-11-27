@@ -51,7 +51,8 @@ lock stays once asked to go. At the start of a run, the door refuses instead (`R
 **Eighth case: the likes of the run no longer show** (2026-10-31). Instagram changed, on its servers,
 how a heart says it is liked (« J’aime déjà », `selected` false): a like given was not seen, the run
 tapped its heart to retry and took it back, 168 likes in one evening, with no alert. The screen says
-nothing the run can act on, so it stops after a few in a row (`like_confirmation.py`).
+nothing the run can act on: three in a row leave the posts being liked, and the run stops when the
+posts after them show none either, nine in a row (`like_confirmation.py`).
 
 **The witness.** The runtime that knows the operated account installs a listener
 (`configurer_temoin`), told once when the latch is set: that is where a block becomes one entry
@@ -96,7 +97,8 @@ NETWORK_LOST = "network_lost"
 #: la demande n'a pas leve) : plus aucun geste n'atteint l'application.
 PHONE_LOCKED = "phone_locked"
 
-#: Plusieurs likes de suite dont l'effet n'a pas ete vu sur leur coeur (`like_confirmation.py`).
+#: Neuf likes de suite dont l'effet n'a pas ete vu sur leur coeur, sur trois listes de posts quittees
+#: l'une apres l'autre (`like_confirmation.py`).
 LIKE_UNCONFIRMED = "like_unconfirmed"
 
 
